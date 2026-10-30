@@ -1,0 +1,64 @@
+
+
+
+// Date input
+.rdp-pop {
+  padding:       0 !important;
+  overflow:      hidden;
+  border:        1px solid var(--c-border) !important;
+  background:    var(--c-surface) !important;
+  border-radius: 14px !important;
+  box-shadow:    var(--glass-shadow) !important;
+  min-width:     264px;
+}
+
+.rdp-pop__inner {
+  display:        flex;
+  flex-direction: column;
+}
+
+.rdp-pop__quick {
+  display: flex;
+  gap:     6px;
+  padding: 10px 12px 8px;
+}
+
+.rdp-pop__chip {
+  display:       flex;
+  align-items:   center;
+  gap:           5px;
+  padding:       4px 10px;
+  border:        1px solid var(--c-border);
+  border-radius: 20px;
+  background:    transparent;
+  font-size:     0.73rem;
+  color:         var(--c-text);
+  cursor:        pointer;
+  font-family:   var(--font-fallback);
+  transition:    all 0.15s;
+
+  &:hover         { border-color: var(--c-accent); color: var(--c-accent); background: rgba(255,140,66,0.07); }
+  &--danger:hover { border-color: var(--c-danger);  color: var(--c-danger);  background: rgba(248,113,113,0.07); }
+}
+
+.rdp-pop__sep {
+  height: 1px;
+  background: var(--c-border);
+  margin: 0 12px;
+}
+
+.rdp-pop__cal { padding: 10px 12px; }
+
+.rdp-pop__footer {
+  border-top: 1px solid var(--c-border);
+  padding:    8px 12px;
+  display:    flex;
+  align-items: center;
+  gap:        6px;
+}
+
+.rdp-pop__date-label {
+  font-size: 0.75rem;
+  color:     var(--c-muted);
+  font-family: var(--font-fallback);
+}
