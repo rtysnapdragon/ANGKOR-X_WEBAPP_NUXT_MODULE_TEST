@@ -29,6 +29,9 @@
   "workspaces": [
     "playground"
   ],
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "prepack": "nuxt-module-build build",
     "dev": "npm run dev:prepare && nuxt dev playground",
@@ -67,6 +70,7 @@
     "sqlite3": "^6.0.1",
     "tailwindcss": "^4.3.1",
     "v-calendar": "^3.1.2",
+    "vue-grid-layout-v3": "^3.1.2",
     "vue-screen-utils": "^1.0.0-beta.13",
     "wavesurfer.js": "^8.0.3",
     "zod": "^4.4.3"
@@ -87,6 +91,7 @@
     "changelogen": "^0.6.2",
     "eslint": "^10.3.0",
     "nuxt": "^4.4.8",
+    "nuxt-echarts": "^1.1.0",
     "sass": "^1.105.1",
     "sass-embedded": "^1.100.0",
     "typescript": "~6.0.3",

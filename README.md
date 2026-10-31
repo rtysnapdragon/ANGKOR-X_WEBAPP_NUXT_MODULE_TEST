@@ -8,6 +8,9 @@ Find and replace all on all files (CMD+SHIFT+F):
 -->
 
 # My Module
+- Use node verions : 24
+- NUXT version 4.8.0
+- NUXTUI version 4.8.1
 
 --- This generates the correct module structure automatically.
 npx nuxi module init
@@ -69,7 +72,20 @@ That's it! You can now use My Module in your Nuxt app ✨
   # Release new version
   npm run release
   ```
-  npm install wavesurfer.js // audio library
+
+
+
+
+Because you use pnpm 10.29.3, avoid using npx nuxi module add for this installation. It attempted to run: npm install -D nuxt-echarts@1.1.0
+# Package in this project
+
+npm install vue-grid-layout-v3 --save
+npx nuxi module add echarts ( include vue-echarts,nuxt-echarts,echarts)
+npm install -D nuxt-echarts@1.1.0
+
+
+
+npm install wavesurfer.js // audio library
 
 npm install @nuxt/kit
 npm install fs-extra

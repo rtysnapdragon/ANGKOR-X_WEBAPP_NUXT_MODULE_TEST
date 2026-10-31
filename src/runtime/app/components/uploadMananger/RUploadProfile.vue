@@ -1,8 +1,8 @@
 <template>
   <div class="nav-profile-user max-w-fit">
     <RAvatar
-      :src="getImageUrl(image)"
-      :isUrl="refAVT"
+      :src="preview"
+      :isUrl="isUrl"
       :round="round"
       :size="size"
       :border="border"
@@ -14,7 +14,7 @@
       <label
         for="picture"
         class="change-picture-container" 
-        v-if="isEmpty(getImageUrl(image))"
+        v-if="isEmpty(preview)"
         @click="eventUpload"
       >
         <span class="camera flex justify-center items-center">
@@ -42,6 +42,8 @@
     <RUploadManager
       v-model="uploadProfile"
       @getFile="getFileFromUpload"
+      acceptExtension="image/png,image/jpeg"
+      :showImage="isUrl ? preview : ''"
       :width="480"
       :height="640"
     ></RUploadManager>
@@ -49,27 +51,67 @@
 </template>
 
 <script setup>
+import { useUserProfileStore } from "~/stores/userProfile";
 const { t } = useI18n();
-const props = defineProps(["loading", "round", "size", "border", "gender", "errorType", "cameraLeft","iconSize"]);
+const props = defineProps({
+  loading: null,
+  round: null,
+  size: null,
+  border: null,
+  gender: null,
+  errorType: null,
+  cameraLeft: null,
+  iconSize: null,
+  // true: after the crop, upload the picture for the LOGGED-IN user (store.updatedAvatar)
+  updateMe: { type: Boolean, default: false },
+});
+const profile = useUserProfileStore();
 const round = computed(() => props.round ?? "l");
 const size = computed(() => props.size ?? "ml")
 const border = computed(() => props.border ?? "l"); 
 const gender = computed(() => props.gender?.toLowerCase());
 const errorType = computed(() => props.errorType);
-const loading = computed(() => props.loading);
+const loading = computed(() => props.loading || (props.updateMe && profile.isChangeImage));
 const cameraLeft = computed(() => props.cameraLeft ?? false);
 
-const emit = defineEmits(["onDone", "onDelete", "onUpload"]);
+const emit = defineEmits(["onDone", "onDelete", "onUpload", "onFile", "onUploaded"]);
 const image = defineModel();
-const refAVT = ref();
 const uploadProfile = ref(false);
+const preview = ref("");
+const isUrl = ref(true);
 
+// One object URL per picture: revoked when the picture changes or the component unmounts.
+watch(
+  image,
+  (val, _old, onCleanup) => {
+    if (val?.file instanceof Blob) {
+      const url = URL.createObjectURL(val.file);
+      preview.value = url;
+      isUrl.value = false;
+      onCleanup(() => URL.revokeObjectURL(url));
+    } else {
+      preview.value = typeof val === "string" ? val : "";
+      isUrl.value = true;
+    }
+  },
+  { immediate: true }
+);
+
+// RUploadManager emits the CROPPED image: { file: Blob, byteArray, ... }
 const getFileFromUpload = async (data) => {
-  if (data.file) {
-    const reader = new FileReader();
-    reader.readAsDataURL(data.file);
-    image.value = data;
-    emit("onDone", data.byteArray);
+  if (!data?.file) return;
+  const previous = image.value;
+  image.value = data; // instant local preview
+  emit("onDone", data.byteArray); // unchanged contract for existing parents
+  emit("onFile", data); // NEW: the whole payload (Blob included)
+  if (!props.updateMe) return;
+
+  const url = await profile.updatedAvatar(data); // uploads + updates the logged-in user
+  if (url) {
+    image.value = url;
+    emit("onUploaded", url);
+  } else {
+    image.value = previous; // upload failed: roll back the preview
   }
 };
   
@@ -169,17 +211,6 @@ function eventDelete() {
   // image.value = undefined
   emit("onDelete");
 }
-
-const getImageUrl = (data) => {
-  console.log('get image >>',data)
-  if (data?.file instanceof Blob) {
-    refAVT.value = false;
-    return URL.createObjectURL(data?.file);
-  } else {
-    refAVT.value = true;
-    return data;
-  }
-};
 </script>
 
 <style lang="scss" scoped>

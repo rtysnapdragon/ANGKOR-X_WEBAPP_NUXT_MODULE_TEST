@@ -131,7 +131,24 @@ function cropImage(file) {
   }
 }
 
-function processFiles(files) {
+// Same rule the <input accept> uses, so drag & drop can't bypass it.
+function isAccepted(file) {
+  const rules = (props.acceptExtension || "image/*,video/*,application/pdf")
+    .split(",")
+    .map((r) => r.trim());
+  return rules.some((r) =>
+    r.endsWith("/*") ? file.type.startsWith(r.slice(0, -1)) : file.type === r
+  );
+}
+
+function processFiles(allFiles) {
+  // One picture per pass: every file opens its own crop dialog.
+  const files = allFiles.filter(isAccepted).slice(0, 1);
+  if (!files.length) {
+    if (allFiles.length) toast.add({ color: "red", title: t("avatar_invalid_type") });
+    return;
+  }
+
   const fileReadPromises = files.map((file) => {
     const extension = file.name.split(".").pop().toLowerCase();
     if (["mp4", "mov", "avi", "mkv", "pdf"].includes(extension)) {

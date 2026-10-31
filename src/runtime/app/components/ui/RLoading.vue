@@ -70,6 +70,4 @@ const fullscreen = computed(() => props.fullscreen ?? false);
   }
   }
 }
-
-
 </style>

@@ -1,12 +1,21 @@
 
 export default {
   userCatch: "user_catch",
-  deviceId: "device_id",
+  fbMessagingToken: "fb_messaging_token",
+  secretKey:'017c5da476f6ff1fbb08de6f6bf812ed6dd6343b0f39ce556b8c0bfbaf68c777',
+  deviceId: "rty_device_id",
   dbCode: "rty_database",
   langCode: "i18n_redirected",
-  fbMessagingToken: "fb_messaging_token",
+  langHeader: "lang",
+  supabaseToken: "supabase_token",
+  accessTokenKey:"rty_access_token",
+  refreshTokenKey:"rty_refresh_token",
+  permissionsKey:"rty_permissions",
+  rememberKey:"rty_remember",
+  userCookieKey: "rty_user_data",
+  authUserCookieKey: "rty_auth_user",
   GlobalKey: '_',
-
+  GlobalKey: '_',
 
   system:{
     address:{

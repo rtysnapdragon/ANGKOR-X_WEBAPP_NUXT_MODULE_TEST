@@ -45,7 +45,8 @@ export const useUIStore = defineStore('ui', {
     toasts: [],
     loadingKeys: new Set(),
     slideoverStack: [],
-    modalStack: []
+    modalStack: [],
+    fullReloading: false
   }),
 
   getters: {
@@ -64,6 +65,7 @@ export const useUIStore = defineStore('ui', {
  
     isLoading: (state) => (key) => state.loadingKeys.has(key),
     anyLoading:(state) => state.loadingKeys.size > 0,
+    hardReloading: (state) => state.fullReloading,
   },
 
   actions: {
@@ -251,6 +253,26 @@ export const useUIStore = defineStore('ui', {
     closeModal(id) {
       this.modalStack = this.modalStack.filter(m => m !== id)
     },
+
+        // ===============Reload full page with lang switch ==========================//
+    startReload() {
+      this.fullReloading = true
+
+      // prevent scrolling during reload
+      document.body.style.overflow = 'hidden'
+    },
+
+    stopReload() {
+      this.fullReloading = false
+
+      document.body.style.overflow = ''
+    },
+
+    hardReload(url = '/') {
+      this.startReload()
+
+      window.location.replace(url)
+    }
   }
 })
 

@@ -1,17 +1,17 @@
 const apis = {
   // App
-  permissions: "/api/userpermission/list",
-  database: "/api/userdatabase/get",
-  studyClass: "/api/study_class/teacher_class",
-  saveToken: "/api/notification/createtoken",
+  permissions: "/api/v1/userpermission/list",
+  database: "/api/v1/databases/userdatabase/get",
+  studyClass: "/api/v1/study_class/teacher_class",
+  saveToken: "/api/v1/notification/createtoken",
   auth: "/ocsauth/oauth",
 
   // Users
-  userInfo: "/api/user/profile/info",
-  userUpdate: "/api/user/profile/update",
-  userInfoChangePhone: "/api/user/profile/changePhone",
-  userChangeEmail: "/api/user/profile/changeEmail",
-  userChangePassword: "/api/user/profile/changePassword",
+  userInfo: "/api/v1/user/profile/info",
+  userUpdate: "/api/v1/user/profile/update",
+  userInfoChangePhone: "/api/v1/user/profile/changePhone",
+  userChangeEmail: "/api/v1/user/profile/changeEmail",
+  userChangePassword: "/api/v1/user/profile/changePassword",
 
   // module teacher
   oauth2:{
@@ -24,7 +24,7 @@ const apis = {
 
   user: {
     getUser: {
-      List: "/api/user/list",
+      List: "/api/v1/user/list",
     },
     databaseByGroup: {
       List: "api/usergroup/database/list",
@@ -48,13 +48,13 @@ const apis = {
       delete: "api/usergroup/detail/delete",
     },
     notification: {
-      list: "/api/notification/get",
-      getUnread: "/api/notification/countunread",
-      markAllRead: "/api/notification/markallasread",
-      markRead: "/api/notification/markasread",
-      createToken: "/api/notification/createtoken",
-      delete: "/api/notification/delete",
-      deleteAll: "/api/notification/deleteall",
+      list: "/api/v1/notification/get",
+      getUnread: "/api/v1/notification/countunread",
+      markAllRead: "/api/v1/notification/markallasread",
+      markRead: "/api/v1/notification/markasread",
+      createToken: "/api/v1/notification/createtoken",
+      delete: "/api/v1/notification/delete",
+      deleteAll: "/api/v1/notification/deleteall",
       markAsReadByType: "api/notification/markasreadbytype",
       countUnreadByAppModes: "api/notification/countunreadbyappmodes",
     },
@@ -107,80 +107,14 @@ const apis = {
       validate: "api/productline/validatecode",
     },
     productLabel: {
-      list: "/api/product_label/list",
-      chartAccount: "/api/ChartAccount/Get",
+      list: "/api/v1/product_label/list",
+      chartAccount: "/api/v1/ChartAccount/Get",
       analysis: {
-        headerList: "/api/analysis/header/list",
-        headerFindAndSys: "/api/analysis/header/find_anal_sys",
-        detail: "/api/analysis/detail/list_by_header",
+        headerList: "/api/v1/analysis/header/list",
+        headerFindAndSys: "/api/v1/analysis/header/find_anal_sys",
+        detail: "/api/v1/analysis/detail/list_by_header",
       },
-      update: "/api/product_label/update",
-    },
-  },
-
-  scoringAndGrading: {
-    academicYearExam: {
-      listSetup: "api/academic_year_exam/list_setup",
-      addSetup: "api/academic_year_exam/add_setup",
-      deleteSetup: "api/academic_year_exam/delete_setup",
-      examSetupList: "api/academic_year_exam/exam_setup_add_list",
-      listDetail: "api/academic_year_exam/list",
-      addDetail: "api/academic_year_exam/add",
-      updateDetail: "api/academic_year_exam/update",
-      deleteDetail: "api/academic_year_exam/delete",
-      checkExistExamCode: "api/academic_year_exam/check_exist_exam_code",
-      examDetailList: "api/academic_year_exam/exam_add_list",
-    },
-    scoringByClass: {
-      deleteAllScore: "",
-      deleteScore: "",
-    },
-    examSetup: {
-      list: "/api/exam_subject_setup/list",
-    },
-    examStructure: {
-      list: "api/examsetup/list",
-      create: "api/examsetup/create",
-      update: "api/examsetup/update",
-      delete: "api/examsetup/delete",
-      checkedCode: "api/examsetup/checkedcode",
-    },
-    exam: {
-      list: "api/exam/list",
-      create: "api/exam/create",
-      update: "api/exam/update",
-      delete: "api/exams/delete",
-      checkedCode: "api/exam/checkedcode",
-    },
-  },
-
-  profile: {
-    signature: {
-      list: "api/employee/get_signature",
-      add: "api/employee/add_file_signature",
-      delete: "/api/employee/delete_signature",
-    },
-  },
-
-  academic: {
-    academicList: "/api/academy/list",
-    roomlist: "/api/room/list",
-    schedule: {
-      list: "/api/schedule/list",
-      studyClassListFilter: "/api/studyclass/listfilter",
-      print: "/api/schedule/print",
-      delete: "/api/schedule/delete",
-      periodTypeByClass: "api/schedule/period_type_by_class",
-      periodByClass: "api/schedule/periods_by_class",
-      detail: {
-        listBySession: "api/schedule_detail/list_by_session",
-        save: "api/schedule_detail/save",
-        delete: "api/schedule_detail/delete",
-        checkExistData: "api/schedule_detail/check_exist_data",
-        weekList: "api/shedule_detail/week_list",
-        checkedRoomIsBusy: "api/schedule_detail/checked_room_is_busy",
-        checkedEmployeeIsBusy: "api/schedule_detail/checked_emp_is_busy",
-      },
+      update: "/api/v1/product_label/update",
     },
   },
 
@@ -1045,31 +979,31 @@ const apis = {
   },
   studentAttendance: {
     attendanceRule: {
-      delete: "/api/attendance_rule/delete",
+      delete: "/api/v1/attendance_rule/delete",
     },
   },
   moduleTeacher: {
     examScore: {
-      listExamStudent: "/api/examscore/findbyexam",
-      grade: "/api/gradingdetail/list",
-      requestApproved: "/api/examrequest/request",
-      setScore: "/api/examscore/setscore",
-      setComment: "/api/exam_comment/save_exam_comment",
-      listDetailBySubject: "/api/exam_score/list_detail",
-      getComment: "/api/exam_comment/find",
-      addException: "/api/exam_except/create",
-      removeException: "/api/exam_except/delete",
+      listExamStudent: "/api/v1/examscore/findbyexam",
+      grade: "/api/v1/gradingdetail/list",
+      requestApproved: "/api/v1/examrequest/request",
+      setScore: "/api/v1/examscore/setscore",
+      setComment: "/api/v1/exam_comment/save_exam_comment",
+      listDetailBySubject: "/api/v1/exam_score/list_detail",
+      getComment: "/api/v1/exam_comment/find",
+      addException: "/api/v1/exam_except/create",
+      removeException: "/api/v1/exam_except/delete",
     },
     examResult: {
-      listExam: "/api/exam_result/class_result_by_subject",
-      listResult: "/api/exam_result/class_result_by_exam",
+      listExam: "/api/v1/exam_result/class_result_by_subject",
+      listResult: "/api/v1/exam_result/class_result_by_exam",
     },
   },
 
   studentExam: {
     examSetupLearning: {
       learningSubjectList:
-        "/api/exam_setup_learning_subject/learning_subject_list",
+        "/api/v1/exam_setup_learning_subject/learning_subject_list",
     },
     academicYearExam: {
       // list setup
@@ -1134,7 +1068,7 @@ const apis = {
   },
   academicSetting: {
     academicYear: {
-      list: "/api/academy/list",
+      list: "/api/v1/academy/list",
     },
     class: {
       list: "api/classinfo/list",
@@ -1145,23 +1079,23 @@ const apis = {
     },
     courseStudy: {
       program: {
-        list: "/api/program/listfilter",
+        list: "/api/v1/program/listfilter",
       },
       course: {
-        list: "/api/course/filter",
+        list: "/api/v1/course/filter",
       },
-      batch: "/api/coursestudy/listbatchfilter",
-      list: "/api/coursestudy/listfilter",
+      batch: "/api/v1/coursestudy/listbatchfilter",
+      list: "/api/v1/coursestudy/listfilter",
     },
     department: {
-      list: "/api/coursedepartment/listfilter",
+      list: "/api/v1/coursedepartment/listfilter",
     },
     subject: {
       learningSubject: {
         list: "api/learningsubject/list",
       },
       subjectType: {
-        list: "/api/subjectType/list",
+        list: "/api/v1/subjectType/list",
       },
     },
   },

@@ -3,6 +3,9 @@ import queryString from "query-string";
 export default (key, value) => {
   const toast = useToast();
   const currentUrl = new URL(window.location.href);
+  // const currentSearch = import.meta.client
+  //   ? window.location.search
+  //   : "";
   const currentQueryParams = queryString.parse(currentUrl.search);
   if (key == "keep") {
     const updatedQueryString = queryString.stringify(currentQueryParams);
