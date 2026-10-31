@@ -10,7 +10,7 @@ Find and replace all on all files (CMD+SHIFT+F):
 # My Module
 - Use node verions : 24
 - NUXT version 4.8.0
-- NUXTUI version 4.8.1
+- NUXTUI version 4.8.2
 
 --- This generates the correct module structure automatically.
 npx nuxi module init
@@ -101,6 +101,7 @@ npm install -D sass
 npm install axios
 npm install zod
 npm install v-calendar@3
+npm install @headlessui/vue
 npm install defu //If defu is only used during development and is not needed by consumers, you can instead configure your build to externalize it. But since your module imports it at runtime, declaring it as a dependency is generally the safer choice.
 
 

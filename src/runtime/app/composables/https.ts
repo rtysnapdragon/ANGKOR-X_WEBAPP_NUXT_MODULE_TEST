@@ -1,6 +1,6 @@
 import axios from "axios";
-import type { HttpOptions, Resp } from "../models/http.js";
-import useOptions from "./useOptions.js";
+import type { HttpOptions, Resp } from "../models/http.ts";
+import useOptions from "./useOptions";
 import { ref } from "vue";
 import { useToast, useOnline, useRefreshToken } from "#imports";
 
@@ -28,9 +28,9 @@ export const useHttp = async (
       };
     }
 
-    // if (!options?.isGlobal) {
-    //   await useRefreshToken();
-    // }
+    if (!options?.isGlobal) {
+      await useRefreshToken();
+    }
     const httpConfig = useOptions(url, options);
 
     if (!httpConfig) return { data: ref(null), error: ref(true) };

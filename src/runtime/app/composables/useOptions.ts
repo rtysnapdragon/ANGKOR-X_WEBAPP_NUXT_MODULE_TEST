@@ -17,20 +17,20 @@ export default function useOptions(
   const dbCookie = useCookie(str.dbCode);
   let authorization = "";
 
-  // if (!options?.isGlobal && !userCatch) return;
+  if (!options?.isGlobal && !userCatch) return;
 
-  // if (!options?.isGlobal) {
-  //   const val: any = useUserData().value;
-  //   authorization = `${val.token_type} ${val.access_token}`;
-  // } else {
-  //   // Prefer JWT from access_token cookie (CEREMONY_WEBAPP_NUXT pattern);
-  //   // fall back to basic key for other apps that don't use JWT cookies.
-  //   const jwtToken = useCookie('access_token').value;
-  //   authorization = jwtToken ? `Bearer ${jwtToken}` : `basic ${config.basicKey}`;
-  // }
-  const jwtToken = useCookie(str.accessTokenKey).value;
-  authorization = jwtToken ? `Bearer ${jwtToken}` : `basic ${config.basicKey}`;
-  let newHeader;
+  if (!options?.isGlobal) {
+    const val: any = useUserData().value;
+    authorization = `${val.token_type} ${val.access_token}`;
+  } else {
+    // Prefer JWT from access_token cookie (CEREMONY_WEBAPP_NUXT pattern);
+    // fall back to basic key for other apps that don't use JWT cookies.
+    const jwtToken = useCookie(str.accessTokenKey).value;
+    authorization = jwtToken ? `${userCatch.token_type} ${jwtToken}` : `basic ${config.basicKey}`;
+  }
+  // const jwtToken = useCookie(str.accessTokenKey).value;
+  // authorization = jwtToken ? `Bearer ${jwtToken}` : `basic ${config.basicKey}`;
+  let newHeader: any;
 
   if (isNotEmpty(options?.headers)) {
     newHeader = options?.headers;

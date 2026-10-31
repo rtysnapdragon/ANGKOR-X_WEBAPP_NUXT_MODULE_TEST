@@ -27,7 +27,7 @@
     <!-- Default Tooltip Fallback -->
     <UPopover v-else :prevent="prevent" mode="hover" :text="text" :content="{
       align: 'center',
-      side: 'top',
+      side: side,
       sideOffset: 8
     }" :popper="{ placement: placement ? placement : 'top'  }" :ui="ui">
       <slot />
@@ -52,13 +52,15 @@ const props = defineProps([
   "prevent",
   "locked",
   "isPopper",
-  'isGlobal'
+  'isGlobal',
+  'side'
 ]);
 
 const text = computed(() => props.text);
 const placement = computed(() => props.placement ?? "bottom-start");
 const content = computed(() => props.content)
 const mode = computed(() => props.mode)
+const side = computed(() => props.side ?? "top") // top / bottom /right /left
 const prevent = computed(() => props.prevent);
 const isGlobal = computed(() => isNotEmpty(props.isGlobal));
 

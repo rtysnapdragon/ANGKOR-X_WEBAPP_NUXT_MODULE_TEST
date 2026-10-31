@@ -281,7 +281,7 @@ function onCloseModal() {
 .rm-header__icon{
   font-size: 18px;
   padding: 5px !important;
-  border-radius: 50% !important;
+  border-radius: 100%!important;
   background-color: transparent !important;
   width: 40px !important;
   height: 40px !important;
@@ -390,9 +390,9 @@ function onCloseModal() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-full) !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: var(--r-full,50%) !important;
   border: 1px solid var(--c-border);
   background: transparent;
   color: var(--c-muted);
@@ -447,9 +447,9 @@ function onCloseModal() {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-5);
-  min-height: 56px;
+  gap: var(--sp-2,10px) !important;
+  padding: var(--sp-3,10px) var(--sp-5,10px);
+  min-height: 56px !important;
   font-family: var(--font-400,var(--font-fallback));
   width: 100% !important
 }

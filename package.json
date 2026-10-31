@@ -50,6 +50,7 @@
     "@ai-sdk/google": "^4.0.16",
     "@ai-sdk/vue": "^4.0.22",
     "@easylogic/colorpicker": "^1.10.11",
+    "@headlessui/vue": "^1.7.23",
     "@intlify/unplugin-vue-i18n": "^6.0.3",
     "@nuxt/content": "^3.14.0",
     "@nuxt/ui": "^4.8.2",
