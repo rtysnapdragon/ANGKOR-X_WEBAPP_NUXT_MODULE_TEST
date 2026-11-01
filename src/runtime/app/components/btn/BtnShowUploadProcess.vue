@@ -9,7 +9,7 @@
     }"
     data-headlessui-state="open"
   >
-    <OCTooltip :text="$t('upload')">
+    <RTooltip :text="$t('upload')">
       <div
         style="width: 40px !important; display: flex; justify-content: center"
       >
@@ -18,7 +18,7 @@
           :class="getFile.isUploading ? 'loader-progress' : ''"
         />
       </div>
-    </OCTooltip>
+    </RTooltip>
     <template #panel="{ close }" class="p-2 rounded-[14px]">
       <div class="customer-shadow-dialog-filter">
         <div class="rty-filter-header">

@@ -54,6 +54,8 @@
 </template>
 <script setup>
 import { computed } from "vue";
+// import { useToastStore } from "#imports";
+const { useToastStore } = await import("#imports");
 const toast = useToastStore();
 const emit = defineEmits(["click"]);
 const props = defineProps([

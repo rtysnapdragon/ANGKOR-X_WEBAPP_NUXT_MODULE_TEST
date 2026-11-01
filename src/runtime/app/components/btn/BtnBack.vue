@@ -37,6 +37,7 @@
 </template>
 
 <script setup>
+import { useToastStore } from "#imports";
 const toast = useToastStore();
 const props = useBreadCrumb();
 // color-sub-text

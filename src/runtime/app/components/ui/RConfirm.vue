@@ -17,6 +17,7 @@
               class="r-confirm__icon-svg"
             />
           </div> -->
+
           <!-- <span class="text-2xl font-semibold text-[var(--txt-primary)]">{{ tr('common.confirm') }}</span> -->
 
           <!-- Warning -->
@@ -39,10 +40,34 @@
 
           <!-- Content -->
           <div class="r-confirm__content">
+            <!-- <h3 v-if="title" class="r-confirm__title">
+              {{ title }}
+            </h3> -->
             <h3 v-if="title" v-html="$t(`${type}`)  ?? title" class="r-confirm__title"> </h3>
-            <!-- <div class="sub-text" v-html="message"></div> -->
-            <p v-if="message" v-html="message ?? title" class="r-confirm__description"> </p>
-            <p v-if="description" v-html="description" class="r-confirm__description"> </p>
+
+            <p v-if="message" v-html="message" class="r-confirm__description" />
+
+            <!-- Description rendering -->
+            <div v-if="description" class="r-confirm__description">
+              <!-- String -->
+              <span v-if="typeof description === 'string'" v-html="description" />
+
+              <!-- Vue VNode -->
+              <component v-else-if="isVNode(description)" :is="description" />
+              <!-- <div v-if="description" class="r-confirm__description">
+                <DescriptionRenderer :content="description" />
+              </div> -->
+
+              <!-- Vue Component -->
+              <component v-else-if="typeof description === 'object'" :is="description" />
+            </div>
+
+            <!-- Component with props -->
+            <component
+              v-if="confirmStore.data?.descriptionComponent"
+              :is="confirmStore.data.descriptionComponent"
+              v-bind="confirmStore.data.descriptionProps || {}"
+            />
           </div>
 
           <!-- Actions -->
@@ -76,6 +101,7 @@ confirm.show({
 import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { useConfirmStore } from '../../stores/confirm'
+import { h, isVNode, defineComponent } from 'vue'
 const { tr } = useTr()
 const confirmStore = useConfirmStore();
 
@@ -89,6 +115,40 @@ const isOpen = computed({
   }
 })
 
+// const DescriptionRenderer = computed(() =>
+//   defineComponent({
+//     setup() {
+//       return () => confirmStore.data?.description
+//     }
+//   })
+// )
+const DescriptionRenderer = defineComponent({
+  props: {
+    content: {
+      type: [String, Object, Array],
+      default: ''
+    }
+  },
+  setup(props) {
+    return () => {
+      if (typeof props.content === 'string') {
+        return h('div', {
+          innerHTML: props.content
+        })
+      }
+
+      if (isVNode(props.content)) {
+        return props.content
+      }
+
+      if (props.content) {
+        return h(props.content)
+      }
+
+      return null
+    }
+  }
+})
 // const title = computed(() => confirmStore.data?.title ?? "");
 // const description = computed(() => confirmStore.data?.description ?? "");
 // const confirmText = computed(() => confirmStore.data?.confirmText ?? "Confirm");

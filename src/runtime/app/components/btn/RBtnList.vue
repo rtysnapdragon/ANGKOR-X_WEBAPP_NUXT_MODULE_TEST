@@ -12,6 +12,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { useToastStore } from "#imports";
 const toastStore = useToastStore();
 const dataMenu = useMenuStore();
 const props = defineProps([

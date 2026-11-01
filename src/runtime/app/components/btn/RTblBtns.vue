@@ -99,6 +99,7 @@
 </template>
 
 <script setup>
+import { useToastStore } from "#imports";
 import { FwbDropdown, FwbListGroup, FwbListGroupItem } from "flowbite-vue";
 const { t } = useI18n();
 import RTooltip from '../RTooltip.vue'

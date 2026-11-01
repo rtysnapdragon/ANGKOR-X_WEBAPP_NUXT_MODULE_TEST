@@ -419,26 +419,49 @@ defineExpose({
     padding-right: v-bind(rightPadding);
     color: var(--c-text, #1a1510) !important;
     border-radius: var(--rounded);
-    // outline: none !important;
-    border: 1px solid var(--c-border);
+    outline: none !important;
+    border: 0.5px solid var(--c-border);
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  :deep(input:not(:placeholder-shown)){ // has value will effect here
+    // border-color: var(--c-accent, #ff8c42) !important;
+    // box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
     background: transparent !important;
   }
 
     // Normal focus
   :deep(input:focus),
   :deep(textarea:focus) {
+    background: transparent !important;
+    background-color: transparent !important;
     border-color: var(--c-accent, #ff8c42) !important;
     outline: none !important;
-    box-shadow: 0 0 0 1px var(--color-w-b-4,rgba(255, 140, 66, 0.12)) !important;
+    // box-shadow: 0 0 0 0.5px var(--color-w-b-4,rgba(255, 140, 66, 0.12)) !important;
+    background-color: transparent !important;
     // box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
   }
 
-  //   :deep(input:focus-visible),
-  // :deep(textarea:focus-visible) {
-  //   border-color: var(--c-accent, #ff8c42) !important;
-  //   outline: none !important;
-  //   box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
-  // }
+  // Autofill (Chrome / Edge)
+  :deep(input:-webkit-autofill),
+  :deep(input:-webkit-autofill:hover),
+  :deep(input:-webkit-autofill:focus),
+  :deep(input:-webkit-autofill:active) {
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+    box-shadow: 0 0 0 1000px transparent inset !important;
+    -webkit-text-fill-color: var(--c-text, #1a1510) !important;
+    background-color: transparent !important;
+    transition: background-color 999999s ease-in-out 0s;
+  }
+
+  :deep(input:focus-visible),
+  :deep(textarea:focus-visible) {
+    border-color: var(--c-accent, #ff8c42) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
+    background:transparent !important;
+  }
 
   :deep(input::placeholder),
   :deep(textarea::placeholder) {
@@ -464,6 +487,15 @@ defineExpose({
     :deep(textarea:focus) {
       border-color: #ef4444 !important;
       box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+
+    // Autofill error
+    :deep(input:-webkit-autofill) {
+      -webkit-box-shadow: 0 0 0 1000px #fff3f3 inset !important;
+      box-shadow: 0 0 0 1000px #fff3f3 inset !important;
+      -webkit-text-fill-color: #ef4444 !important;
     }
   }
 }

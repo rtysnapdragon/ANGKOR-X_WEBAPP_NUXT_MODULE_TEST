@@ -1,6 +1,6 @@
 // composables/useNumber.ts
 import { useI18n } from 'vue-i18n'
-import { formatNumber } from '~/utils/number'
+import { formatNumber } from '../utils/number'
 
 export default function useNumber(value: number) {
   const { locale } = useI18n()

@@ -37,6 +37,8 @@
 </template>
 
 <script setup>
+// import { useToastStore } from "#imports";
+const { useToastStore } = await import("#imports");
 const toastStore = useToastStore();
 const toastTimers = ref({});
 const progressWidths = ref({});

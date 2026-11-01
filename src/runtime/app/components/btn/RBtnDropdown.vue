@@ -27,6 +27,7 @@
 </template>
 
 <script setup>
+import { useToastStore } from "#imports";
 const dataMenu = useMenuStore();
 const toast = useToastStore();
 const props = defineProps(["items", "use", "placement"]);
