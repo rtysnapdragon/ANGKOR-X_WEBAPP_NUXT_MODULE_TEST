@@ -1,7 +1,10 @@
 <template>
   <div
     class="r-radios"
-    :class="[modeCheckBox ? 'r-radios--checkbox' : 'r-radios--radio', { 'is-disabled': disabled }]"
+    :class="[
+      modeCheckBox ? 'r-radios--checkbox' : 'r-radios--radio',
+      { 'is-disabled': disabled },
+    ]"
   >
     <!--
       Single-item mode.
@@ -33,7 +36,7 @@
       :disabled="disabled"
       :ui="ui"
       orientation="horizontal"
-      @change="(v) => emit('onChange', v)"
+      @change="handleChange"
     >
       <template #label="{ item }" v-if="$slots.label">
         <slot name="label" :option="item" />
@@ -43,9 +46,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
-const select = defineModel()
+import { computed, watch } from "vue";
+const select = defineModel();
 
 const props = defineProps({
   ui: { type: Object, default: () => ({}) },
@@ -53,58 +55,70 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   // Legacy field-name bridge — lets old callers keep passing
   // :option-attribute / :value-attribute without touching their data.
-  optionAttribute: { type: String, default: 'label' },
-  valueAttribute: { type: String, default: 'value' },
+  optionAttribute: { type: String, default: "label" },
+  valueAttribute: { type: String, default: "value" },
   modeCheckBox: { type: Boolean, default: false }, // visual only: square vs circle
-})
+});
 
-const emit = defineEmits(['onChange'])
+const emit = defineEmits(["onChange"]);
 
+watch(select, (value) => {
+  emit("onChange", value);
+});
+
+function handleChange(value) {
+  emit("onChange", value);
+}
 // Nuxt UI v4's URadioGroup expects { label, value } (or plain strings/numbers).
 // This normalizes whatever field names the caller's data actually uses.
 const normalizedItems = computed(() =>
   (props.options || []).map((opt) => {
-    if (opt === null || typeof opt !== 'object') return opt
+    if (opt === null || typeof opt !== "object") return opt;
     return {
       ...opt,
       label: opt.label ?? opt[props.optionAttribute],
       value: opt.value ?? opt[props.valueAttribute],
-    }
-  })
-)
+    };
+  }),
+);
 
-const isSingle = computed(() => normalizedItems.value.length === 1)
-const singleOption = computed(() => normalizedItems.value[0])
+const isSingle = computed(() => normalizedItems.value.length === 1);
+const singleOption = computed(() => normalizedItems.value[0]);
 const singleLabel = computed(() =>
-  typeof singleOption.value === 'object' ? singleOption.value?.label : singleOption.value
-)
+  typeof singleOption.value === "object"
+    ? singleOption.value?.label
+    : singleOption.value,
+);
 const singleValue = computed(() =>
-  typeof singleOption.value === 'object' ? singleOption.value?.value : singleOption.value
-)
-const singleChecked = computed(() => select.value === singleValue.value)
+  typeof singleOption.value === "object"
+    ? singleOption.value?.value
+    : singleOption.value,
+);
+const singleChecked = computed(() => select.value === singleValue.value);
 
 function toggleSingle() {
-  if (props.disabled) return
-  select.value = singleChecked.value ? undefined : singleValue.value
-  emit('onChange', select.value)
+  if (props.disabled) return;
+  select.value = singleChecked.value ? undefined : singleValue.value;
+  console.log("ToggleSingle select.value --- ", select.value);
+  emit("onChange", select.value);
 }
 
 const ui = computed(() => {
   const defaultUI = {
-    root: 'ui-rradio-root relative',
-    fieldset: 'ui-rradio-fieldset flex flex-wrap items-center gap-x-5 gap-y-3',
-    legend: 'ui-rradio-legend mb-1 block font-medium text-default',
-    item: 'ui-rradio-item flex items-center',
-    container: 'ui-rradio-container flex items-center',
-    base: 'ui-rradio-base size-4 overflow-hidden',
-    indicator: 'ui-rradio-indicator flex items-center justify-center size-full',
-    wrapper: 'ui-rradio-wrapper',
-    label: 'ui-rradio-label',
-    description: 'ui-rradio-description text-muted',
-  }
+    root: "ui-rradio-root relative",
+    fieldset: "ui-rradio-fieldset flex flex-wrap items-center gap-x-5 gap-y-3",
+    legend: "ui-rradio-legend mb-1 block font-medium text-default",
+    item: "ui-rradio-item flex items-center",
+    container: "ui-rradio-container flex items-center",
+    base: "ui-rradio-base size-4 overflow-hidden",
+    indicator: "ui-rradio-indicator flex items-center justify-center size-full",
+    wrapper: "ui-rradio-wrapper",
+    label: "ui-rradio-label",
+    description: "ui-rradio-description text-muted",
+  };
 
-  return { ...defaultUI, ...props.ui }
-})
+  return { ...defaultUI, ...props.ui };
+});
 </script>
 
 <style lang="scss">
@@ -116,7 +130,7 @@ const ui = computed(() => {
     justify-content: center;
     gap: 5px;
   }
-  .ui-rradio-wrapper{
+  .ui-rradio-wrapper {
     width: fit-content;
     padding: 0 !important;
     margin: 0 !important;
@@ -124,7 +138,7 @@ const ui = computed(() => {
       width: 100%;
     }
   }
-  .ui-rradio-fieldset{
+  .ui-rradio-fieldset {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -165,7 +179,9 @@ const ui = computed(() => {
     border: 1.5px solid var(--c-border);
     background: var(--c-surface);
     box-shadow: none;
-    transition: border-color var(--t-fast, .15s) var(--ease-in-out), background-color var(--t-fast, .15s) var(--ease-in-out);
+    transition:
+      border-color var(--t-fast, 0.15s) var(--ease-in-out),
+      background-color var(--t-fast, 0.15s) var(--ease-in-out);
 
     &:focus-visible {
       outline: 2px solid var(--c-accent);
@@ -183,7 +199,7 @@ const ui = computed(() => {
       content: "";
       background: #fff;
       transform: scale(1);
-      transition: transform var(--t-fast, .15s) var(--ease-in-out);
+      transition: transform var(--t-fast, 0.15s) var(--ease-in-out);
     }
   }
 
@@ -231,7 +247,9 @@ const ui = computed(() => {
     flex-shrink: 0;
     border: 1.5px solid var(--c-border);
     background: var(--c-surface);
-    transition: border-color var(--t-fast, .15s) var(--ease-in-out), background-color var(--t-fast, .15s) var(--ease-in-out);
+    transition:
+      border-color var(--t-fast, 0.15s) var(--ease-in-out),
+      background-color var(--t-fast, 0.15s) var(--ease-in-out);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -242,7 +260,7 @@ const ui = computed(() => {
     height: 6px;
     background: #fff;
     transform: scale(0);
-    transition: transform var(--t-fast, .15s) var(--ease-in-out);
+    transition: transform var(--t-fast, 0.15s) var(--ease-in-out);
   }
 
   &--radio &__box {

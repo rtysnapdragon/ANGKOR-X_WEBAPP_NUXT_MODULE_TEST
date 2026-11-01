@@ -28,7 +28,7 @@
 
 <script setup>
 const dataMenu = useMenuStore();
-const toast = useToast();
+const toast = useToastStore();
 const props = defineProps(["items", "use", "placement"]);
 const items = computed(() => props.items);
 const use = computed(() => props.use ?? "nuxtui");

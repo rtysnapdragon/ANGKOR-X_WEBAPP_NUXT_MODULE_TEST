@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-const toast = useToast();
+const toast = useToastStore();
 const props = useBreadCrumb();
 // color-sub-text
 function fnBack() {

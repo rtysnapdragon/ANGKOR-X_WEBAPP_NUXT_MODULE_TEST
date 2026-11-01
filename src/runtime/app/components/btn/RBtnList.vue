@@ -12,6 +12,7 @@
 
 <script setup>
 import { computed } from "vue";
+const toastStore = useToastStore();
 const dataMenu = useMenuStore();
 const props = defineProps([
   'type',
@@ -63,7 +64,7 @@ const showIfAllowed = computed(() =>
   per == 1 ? true : props.showIfAllowed ?? true
 );
 const emit = defineEmits(["click"]);
-const toast = useToast();
+const toast = toastStore();
 function fnClick() {
   if (per == 1) {
     emit("click");

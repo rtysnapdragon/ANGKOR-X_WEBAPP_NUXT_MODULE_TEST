@@ -54,8 +54,7 @@
 </template>
 <script setup>
 import { computed } from "vue";
-
-const toast = useToast();
+const toast = useToastStore();
 const emit = defineEmits(["click"]);
 const props = defineProps([
   "variant",

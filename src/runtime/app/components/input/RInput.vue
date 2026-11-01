@@ -191,8 +191,10 @@ const inputUi = computed(() => {
       'r-inp',
       props.error ? 'r-inp--error' : '',
       props.score ? 'r-inp--score' : '',
-      'peer transition-colors text-[12px]',
-      !props.floatingLabel ? 'rounded-md border-0 appearance-none placeholder:text-dimmed disabled:cursor-not-allowed disabled:opacity-75' : '',
+      'peer transition-all duration-200 text-[12px]',
+      !props.floatingLabel
+        ? 'rounded-md border appearance-none placeholder:text-dimmed disabled:cursor-not-allowed disabled:opacity-75'
+        : '',
     ].filter(Boolean).join(' '),
     wrapper:     'relative r-input-wrapper',
     leadingIcon: 'leadingIcon text-[12px] text-gray-400',
@@ -411,13 +413,32 @@ defineExpose({
   :deep(textarea) {
     min-height: 38px;
     padding: 1px 0;
-    font-family: var(--font-400, 'Inter', system-ui, sans-serif) !important;
+    font-family: var(--font-400,'NotoSansKhmer', 'Inter', system-ui, sans-serif) !important;
     font-size: 13px !important;
     padding-left: v-bind(leftPadding);
     padding-right: v-bind(rightPadding);
     color: var(--c-text, #1a1510) !important;
     border-radius: var(--rounded);
+    // outline: none !important;
+    border: 1px solid var(--c-border);
+    background: transparent !important;
   }
+
+    // Normal focus
+  :deep(input:focus),
+  :deep(textarea:focus) {
+    border-color: var(--c-accent, #ff8c42) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 1px var(--color-w-b-4,rgba(255, 140, 66, 0.12)) !important;
+    // box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
+  }
+
+  //   :deep(input:focus-visible),
+  // :deep(textarea:focus-visible) {
+  //   border-color: var(--c-accent, #ff8c42) !important;
+  //   outline: none !important;
+  //   box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
+  // }
 
   :deep(input::placeholder),
   :deep(textarea::placeholder) {
@@ -427,9 +448,23 @@ defineExpose({
   :deep(input:focus) + .rinp-float-label,
   .rinp-input:deep(input:not(:placeholder-shown)) + .rinp-float-label {
     top: 0;
-    // transform: translateY(-50%);
+    transform: translateY(-50%);
     font-size: .72rem;
     color: var(--c-accent);
+  }
+
+  // Error focus
+  &.r-inp--error {
+    :deep(input),
+    :deep(textarea) {
+      border-color: #ef4444 !important;
+    }
+
+    :deep(input:focus),
+    :deep(textarea:focus) {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+    }
   }
 }
 // ─────────────────────────────────────────────────────────
@@ -621,68 +656,130 @@ defineExpose({
 // }
 
 .r-inp {
-  box-shadow:      none !important;
-  border:          1px solid var(--color-w-b-4, rgba(255,140,66,0.16)) !important;
-  border-radius:   var(--radius-md, 10px) !important;
-  font-size:       13px !important;
-  color:           var(--c-text, #1a1510) !important;
-  height:          38px;
-  width:           100%;
-  background:      transparent !important;
-  font-family:     var(--font-fallback, 'Inter', system-ui, sans-serif) !important;
-  // @include transition(fast);
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--color-w-b-4, rgba(255, 140, 66, 0.16)) !important;
+  border-radius: var(--radius-md, 10px) !important;
+  background: transparent !important;
+  color: var(--c-text, #1a1510) !important;
+  font-size: 13px !important;
+  font-family: var(--font-fallback, 'Inter', system-ui, sans-serif) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
-  &:focus {
-    // border-color: var(--c-accent, rgb(255, 140, 66,0.2)) !important;
-    // box-shadow:   0 0 0 3px rgba(255,140,66,0.12) !important;
-    outline:      none !important;
+  // Normal focus
+  &:focus,
+  &:focus-visible {
+    border-color: var(--c-accent, #ff8c42) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
   }
 
-  &:disabled { background: var(--bg-tertiary, #f1f3f6) !important; opacity: 0.65; }
+  // Error state
+  &--error {
+    border-color: #ef4444 !important;
 
-  &::placeholder { color: var(--c-muted, #c6c4c4) !important; font-size: 12px; }
+    &:focus,
+    &:focus-visible {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+    }
+  }
+
+  // Placeholder
+  &::placeholder {
+    color: var(--c-muted, #c6c4c4) !important;
+    font-size: 12px;
+  }
+
+  // Disabled
+  &:disabled {
+    background: var(--bg-tertiary, #f1f3f6) !important;
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
 
   // Remove number spinners
   &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button { -webkit-appearance: none !important; margin: 0 !important; }
-
-  // Hide Edge password reveal
-  &::-ms-reveal { display: none; }
-
-  &--error {
-    border-color: var(--c-danger, #f87171) !important;
-    &:focus { box-shadow: 0 0 0 3px rgba(248,113,113,0.12) !important; }
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
   }
 
+  &::-ms-reveal {
+    display: none;
+  }
+
+  // Score alignment
   &--score {
     text-align: end !important;
-    
-    // ── Leading / trailing slot spacing ───────────────────────
-    [data-slot="leading"]  { padding-left:  12px !important; }
-    [data-slot="trailing"] {
-      position:  absolute;
-      top:       50%;
-      right:     0;
-      transform: translateY(-50%);
-      padding-right: 12px !important;
-    }
-    [data-slot="base"] {
-      // padding-left:  12px;
-      // padding-right: 12px;
-      // padding-left: v-bind('isLeft ?? ui.leading ?? ui.leadingIcon ? "35px" : "12px"') !important;
-      // padding-right: v-bind('isRight ?? ui.trailing ?? ui.trailingIcon ? "35px" : "12px"') !important;
-      // padding-left: v-bind(leftPadding);
-      // padding-right: v-bind(rightPadding);
-      // padding-left: v-bind('ui.leading ? "30px" : "12px"') !important;
-      // padding-right: v-bind('ui.trailingIcon ? "30px" : "12px"') !important;
-      font-size:     13px;
-      font-family: var(--font-400);
-    }
   }
-
-  // ── Icons ─────────────────────────────────────────────────
-  .trailingIcon, .leadingIcon { font-size: 15px !important; }
 }
+
+// .r-inp {
+//   box-shadow:      none !important;
+//   border:          1px solid var(--color-w-b-4, rgba(255,140,66,0.16)) !important;
+//   border-radius:   var(--radius-md, 10px) !important;
+//   font-size:       13px !important;
+//   color:           var(--c-text, #1a1510) !important;
+//   height:          38px;
+//   width:           100%;
+//   background:      transparent !important;
+//   font-family:     var(--font-fallback, 'Inter', system-ui, sans-serif) !important;
+//   // @include transition(fast);
+
+//   &:focus {
+//     // border-color: var(--c-accent, rgb(255, 140, 66,0.2)) !important;
+//     // box-shadow:   0 0 0 3px rgba(255,140,66,0.12) !important;
+//     outline:      none !important;
+//   }
+
+//   &:disabled { background: var(--bg-tertiary, #f1f3f6) !important; opacity: 0.65; }
+
+//   &::placeholder { color: var(--c-muted, #c6c4c4) !important; font-size: 12px; }
+
+//   // Remove number spinners
+//   &::-webkit-outer-spin-button,
+//   &::-webkit-inner-spin-button { -webkit-appearance: none !important; margin: 0 !important; }
+
+//   // Hide Edge password reveal
+//   &::-ms-reveal { display: none; }
+
+//   &--error {
+//     border-color: var(--c-danger, #f87171) !important;
+//     &:focus { box-shadow: 0 0 0 3px rgba(248,113,113,0.12) !important; }
+//   }
+
+//   &--score {
+//     text-align: end !important;
+    
+//     // ── Leading / trailing slot spacing ───────────────────────
+//     [data-slot="leading"]  { padding-left:  12px !important; }
+//     [data-slot="trailing"] {
+//       position:  absolute;
+//       top:       50%;
+//       right:     0;
+//       transform: translateY(-50%);
+//       padding-right: 12px !important;
+//     }
+//     [data-slot="base"] {
+//       // padding-left:  12px;
+//       // padding-right: 12px;
+//       // padding-left: v-bind('isLeft ?? ui.leading ?? ui.leadingIcon ? "35px" : "12px"') !important;
+//       // padding-right: v-bind('isRight ?? ui.trailing ?? ui.trailingIcon ? "35px" : "12px"') !important;
+//       // padding-left: v-bind(leftPadding);
+//       // padding-right: v-bind(rightPadding);
+//       // padding-left: v-bind('ui.leading ? "30px" : "12px"') !important;
+//       // padding-right: v-bind('ui.trailingIcon ? "30px" : "12px"') !important;
+//       font-size:     13px;
+//       font-family: var(--font-400);
+//     }
+//   }
+
+//   // ── Icons ─────────────────────────────────────────────────
+//   .trailingIcon, .leadingIcon { font-size: 15px !important; }
+// }
 
 // ── PinInput ──────────────────────────────────────────────
 .pin-input-base {

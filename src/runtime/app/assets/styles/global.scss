@@ -155,26 +155,11 @@ a { color: inherit; text-decoration: none;
   --space-6: 24px;
   --space-8: 32px;
 
-  /* ── GLASS ── */
-  --glass-bg:      rgba(255, 255, 255, 0.72);
-  --glass-blur:    blur(24px) saturate(180%);
-  --glass-blur-sm: blur(12px) saturate(150%);
-  --glass-border:  rgba(255, 140, 66, 0.16);
-
-  /* ── GLOW ── */
-  --glow-accent-sm: 0 0 16px rgba(255, 140, 66, 0.18);
-  --glow-text:      0 0 12px rgba(255, 140, 66, 0.25);
-  --glow-accent:
-    0 0 40px rgba(255, 140, 66, 0.08),
-    0 0 80px rgba(255, 140, 66, 0.03);
-
   /* ── TRANSITION ── */
   --transition-fast:   all 0.15s ease;
   --transition-base:   all 0.2s ease;
   --transition-slow:   all 0.35s ease;
 
-
-  
   // ── Layout
   --sidebar-width: 240px;
   --topbar-height: rgb(240, 179, 81)
