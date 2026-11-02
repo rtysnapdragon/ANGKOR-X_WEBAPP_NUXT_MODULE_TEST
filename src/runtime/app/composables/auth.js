@@ -35,7 +35,7 @@ export const useAuth = async (args) => {
       data: {
         Username: args?.username ?? "username",
         Password: args?.password ?? "password",
-        RememberMe: args?.rememberMe ?? true,
+        RememberMe: args?.remember_me ?? true,
         RefreshToken: isActionLogin ? null : userCatch?.refresh_token,
       },
     });

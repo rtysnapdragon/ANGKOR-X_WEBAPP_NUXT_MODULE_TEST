@@ -180,3 +180,294 @@
   --bg-saturday: #353338;
   --bg-sunday: #332c2c;
 }
+
+
+
+.oc-body {
+  .ring-red-500 {
+    border: 1px solid var(--tw-ring-color) !important;
+  }
+}
+
+.dark\:ring-red-400:is(.dark *) {
+  border: 1px solid var(--tw-ring-color) !important;
+}
+
+.bg-color-dark-green {
+  background: var(--ocs-c-dark-green) !important;
+}
+
+.color-bg-wrapper {
+  // Black
+  background: var(--bg-wrapper) !important;
+}
+
+.bg-loading {
+  background: var(--ocs-loading) !important;
+}
+
+.color-bg-content {
+  // white
+  background: var(--bg-content) !important;
+}
+
+.color-bg-disabled {
+  // white
+  background: var(--oc-b-disabled) !important;
+}
+
+.color-tb-bg-disabled {
+  // white
+  background: var(--oc-tb-bg-disabled) !important;
+}
+
+.bd-card {
+  border: 1px solid var(--ocs-border-card) !important;
+}
+
+.bg-overlay {
+  background: var(--bg-overlay) !important;
+}
+
+.bg-wrapper-50 {
+  background: var(--bg-wrapper-50) !important;
+}
+
+.bg-content-50 {
+  background: var(--bg-content-50) !important;
+}
+
+.color-primary {
+  color: var(--color-primary) !important;
+}
+
+.bg-primary {
+  background: var(--color-primary) !important;
+}
+
+.color-text {
+  color: var(--color-w-b-1) !important;
+}
+
+.color-sub-text {
+  color: var(--color-w-b-2) !important;
+}
+
+.border-table {
+  border: 1px solid var(--color-border-table) !important;
+}
+
+.border-primary {
+  border: 1px solid var(--color-primary) !important;
+}
+
+.border-card {
+  border: 1px solid var(--border-card) !important;
+}
+
+//s for text color
+.color-w-b-1 {
+  color: var(--color-w-b-1) !important;
+}
+
+.color-w-b-2 {
+  color: var(--color-w-b-2) !important;
+}
+
+.color-w-b-3 {
+  color: var(--color-w-b-3) !important;
+}
+
+.color-w-b-4 {
+  color: var(--color-w-b-4) !important;
+}
+
+.color-w-b-5 {
+  color: var(--color-w-b-5) !important;
+}
+
+.color-w-b-6 {
+  color: var(--color-w-b-6) !important;
+}
+
+//e for text color
+
+//s for background color
+.bg-color-w-b-1 {
+  background: var(--color-w-b-1) !important;
+}
+
+.bg-color-w-b-2 {
+  color: var(--color-w-b-2) !important;
+}
+
+.bg-color-w-b-3 {
+  background: var(--color-w-b-3) !important;
+}
+
+.bg-color-w-b-4 {
+  background: var(--color-w-b-4) !important;
+}
+
+.bg-color-w-b-5 {
+  background: var(--color-w-b-5) !important;
+}
+
+.bg-color-w-b-6 {
+  background: var(--color-w-b-6) !important;
+}
+
+// for input
+.border-color-input {
+  border: 1px solid var(--color-w-b-4);
+}
+
+//e for background color
+
+// s main color
+
+.color-nenoBlue {
+  color: var(--ocs-c-nenoBlue) !important;
+}
+
+.color-green {
+  color: var(--ocs-c-green) !important;
+}
+
+.color-orange {
+  color: var(--ocs-c-orange) !important;
+}
+
+.color-purple {
+  color: var(--ocs-c-purple) !important;
+}
+
+.color-red {
+  color: var(--ocs-c-red) !important;
+}
+
+.color-orangeRed {
+  color: var(--ocs-c-orangeRed) !important;
+}
+
+.color-blue {
+  color: var(--ocs-c-blue) !important;
+}
+
+.color-capture {
+  color: var(--ocs-c-capture) !important;
+}
+
+.color-gray {
+  color: var(--ocs-c-gray) !important;
+}
+
+.color-male {
+  color: var(--ocs-c-male) !important;
+}
+
+.color-female {
+  color: var(--ocs-c-female) !important;
+}
+
+// e main color
+
+// s main background color
+
+.bg-nenoBlue {
+  background: var(--ocs-c-nenoBlue) !important;
+}
+
+.bg-green {
+  background: var(--ocs-c-green) !important;
+}
+
+.bg-orange {
+  background: var(--ocs-c-orange) !important;
+}
+
+.bg-purple {
+  background: var(--ocs-c-purple) !important;
+}
+
+.bg-red {
+  background: var(--ocs-c-red) !important;
+}
+
+.bg-orangeRed {
+  background: var(--ocs-c-orangeRed) !important;
+}
+
+.bg-blue {
+  background: var(--ocs-c-blue) !important;
+}
+
+.bg-capture {
+  background: var(--ocs-c-capture) !important;
+}
+
+.bg-gray {
+  background: var(--ocs-c-gray) !important;
+}
+
+.bg-male {
+  background: var(--ocs-c-male) !important;
+}
+
+.bg-female {
+  background: var(--ocs-c-female) !important;
+}
+
+.bd-female {
+  border: 1px solid var(--ocs-c-female) !important;
+}
+
+.bd-male {
+  border: 1px solid var(--ocs-c-male) !important;
+}
+
+// e main background color
+
+.hover-to-color-primary {
+  transition: 0.25s ease-in-out !important;
+  cursor: pointer !important;
+
+  &:hover {
+    color: var(--color-primary) !important;
+  }
+}
+
+.hover-to-bg-primary {
+  transition: 0.25s ease-in-out;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-primary);
+    color: white !important;
+  }
+}
+
+.max-with {
+  max-width: 360px;
+}
+
+//s use every where
+.auto-bg-with-content {
+  background: var(--bg-content) !important;
+}
+
+.oc-content {
+  .auto-bg-with-content {
+    background: var(--bg-wrapper) !important;
+  }
+}
+
+.dark .hover-card:hover {
+  background: var(--color-w-b-6) !important;
+}
+
+.hover-card:hover {
+  background: var(--color-w-b-6) !important;
+}
+
+//e use every where

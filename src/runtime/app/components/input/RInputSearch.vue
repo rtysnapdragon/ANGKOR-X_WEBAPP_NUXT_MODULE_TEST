@@ -4,11 +4,14 @@
       :placeholder="placeholder ? placeholder : $t('search')" :autofocus="props.autofocus" autocomplete="off"
       :ui="{ base: 'input-search ps-9 pe-9' }" @input="onSearch">
       <template #trailing>
-        <UButton v-show="isNotEmpty(search)" color="gray" variant="link" icon="ri-close-circle-line" :padded="false"
+        <!-- <UButton v-show="isNotEmpty(search)" color="gray" variant="link" icon="ri-close-circle-line" :padded="false"
           @click="onCancel" class="text-lg" :ui="{
             icon: { base: 'flex justify-center items-center text-[14px]' },
             inline: 'hover:no-underline',
-          }" />
+          }" /> -->
+          <span v-show="isNotEmpty(search)" @click="onCancel" class="clear-icon text-lg cursor-pointer" >
+            <i class="ri-close-circle-line"></i>
+          </span>
       </template>
     </RInput>
   </div>
@@ -56,6 +59,15 @@ defineExpose({ remoteData, ocInput });
   position: relative;
   display: inline-flex;
   width: 250px;
+
+  .clear-icon{
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 1;
+  }
 }
 
 .input-search {

@@ -1,0 +1,100 @@
+@font-face {
+  font-family: "km-200";
+  src: url(assets/fonts/NotoSansKhmer-Regular.woff2);
+}
+
+@font-face {
+  font-family: "km-300";
+  src: url(assets/fonts/NotoSansKhmer-Regular.woff2);
+}
+
+@font-face {
+  font-family: "km-400";
+  src: url(assets/fonts/NotoSansKhmer-Regular.woff2);
+}
+
+@font-face {
+  font-family: "km-500";
+  src: url(assets/fonts/NotoSansKhmer-SemiBold.woff2);
+}
+
+@font-face {
+  font-family: "km-600";
+  src: url(assets/fonts/NotoSansKhmer-Bold.woff2);
+}
+
+@font-face {
+  font-family: "km-700";
+  src: url(assets/fonts/NotoSansKhmer-Bold.woff2);
+}
+
+@font-face {
+  font-family: "km-800";
+  src: url(assets/fonts/NotoSansKhmer-Bold.woff2);
+}
+
+@font-face {
+  font-family: "km-900";
+  src: url(assets/fonts/NotoSansKhmer-Bold.woff2);
+}
+
+// En
+@font-face {
+  font-family: "en-200";
+  src: url(assets/fonts/Inter-Regular.woff2);
+}
+
+@font-face {
+  font-family: "en-300";
+  src: url(assets/fonts/Inter-Regular.woff2);
+}
+
+@font-face {
+  font-family: "en-400";
+  src: url(assets/fonts/Inter-Regular.woff2);
+}
+
+@font-face {
+  font-family: "en-500";
+  src: url(assets/fonts/Inter-SemiBold.woff2);
+}
+
+@font-face {
+  font-family: "en-600";
+  src: url(assets/fonts/Inter-Bold.woff2);
+}
+
+@font-face {
+  font-family: "en-700";
+  src: url(assets/fonts/Nokora-Black.woff2);
+}
+
+@font-face {
+  font-family: "en-800";
+  src: url(assets/fonts/Nokora-Bold.woff2);
+}
+
+@font-face {
+  font-family: "en-900";
+  src: url(assets/fonts/Nokora-Bold.woff2);
+}
+
+:root {
+  --font-200: "en-200", "km-200";
+  --font-300: "en-300", "km-300";
+  --font-400: "en-400", "km-400";
+  --font-500: "en-500", "km-500";
+  --font-600: "en-600", "km-600";
+  --font-600: "en-700", "km-700";
+  --font-600: "en-800", "km-800";
+  --font-600: "en-900", "km-900";
+}
+
+$font-200: "en-200", "km-200";
+$font-300: "en-300", "km-300";
+$font-400: "en-400", "km-400";
+$font-500: "en-500", "km-500";
+$font-600: "en-600", "km-600";
+$font-600: "en-700", "km-700";
+$font-600: "en-800", "km-800";
+$font-600: "en-900", "km-900";

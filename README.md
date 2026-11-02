@@ -89,7 +89,7 @@ npm install wavesurfer.js // audio library
 
 npm install @nuxt/kit
 npm install fs-extra
-npm install nuxt-swiper
+npm i nuxt-swiper swiper
 npm install @nuxt/content
 npm install query-string
 
