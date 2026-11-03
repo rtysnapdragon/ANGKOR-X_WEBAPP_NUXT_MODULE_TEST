@@ -1,0 +1,473 @@
+
+/* ============================================
+   SARIKA — Design Tokens
+   CSS Variables Only (max 10 color vars)
+   ============================================ */
+
+:root {
+  /* ── SURFACES ── */
+  --color-primary: #d11717;
+  --bg-primary: #f8f9fb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f3f6;
+  --bg-c-card:#ffffff;
+
+  /* ── COLOR PALETTE ── */
+  --c-bg:        #ffffff;
+  --c-surface:   #ffffff;
+  --c-accent:    #ff8c42;
+  --c-border:    rgba(255, 140, 66, 0.10);
+  --c-accent-2:  #ffb347;
+  --c-text:      #1a1510;
+  --c-muted:     #8a7f72;
+  --c-success:   #4ade80;
+  --c-danger:    #f87171;
+  --c-info:      #60a5fa;
+  --c-active:    #ff8c42;
+  --c-hover: rgba(0, 0, 0, 0.025);
+
+    /* Text */
+  --color-w-b-1: #111827;
+  --color-w-b-2: #374151;
+  --color-w-b-3: #de7631;
+  --color-w-b-4: #d0d2d6;
+  --color-w-b-5: #f8f5f0;
+  --color-w-b-6: #e8e2d9;
+
+  --color-green:   #4ade80;
+  --color-blue:    #60a5fa;
+  --color-yellow:  #ffb347;
+  --color-red:     #f87171;
+  --color-orange:  #ff8c42;
+  --color-warning: #ff8c42;
+
+  --r-c-red: #f87171;
+  --r-c-blue: #60a5fa;
+  --r-c-green: #4ade80;
+  --r-c-yellow: #ffb347;
+  --r-c-orange: #ff8c42;
+  --r-c-purple: #a855f7;
+  --r-c-pink: #ec4899;
+  --r-c-cyan: #06b6d4;
+  --r-c-emerald: #10b981;
+  --r-c-lime: #84cc16;
+  --r-c-rose: #f43f5e;
+  --r-c-violet: #8b5cf6;
+  --r-c-nenoBlue: #0ea5e9;
+  --r-c-dark-green: #28a745;
+  --r-c-purpleBlack: #692ace;
+  --r-c-orangeRed: #f67d62;
+  --r-c-capture: #2ab7a0;
+  --r-c-gray: #e9e9e9;
+  --r-c-male: #03a3ff;
+  --r-c-female: #ec49a7;
+  --r-loading: #ececec;
+  --r-border-card: #9b9b9b2b;
+  --r-b-disabled: #efefef;
+  --r-c-disabled: #858585;
+  --r-tb-bg-disabled: #fafafa;
+  --r-c-success: #5ec47a;
+  --r-c-success-bg: rgba(94, 196, 122, 0.12);
+
+  --r-c-warning: #e8a83e;
+  --r-c-warning-bg: rgba(232, 168, 62, 0.12);
+  --r-c-danger: #e05a5a;
+  --r-c-danger-bg: rgba(224, 90, 90, 0.12);
+  --r-c-info: #7ab0f0;
+  --r-c-info-bg: rgba(122, 176, 240, 0.12);
+  --color-bg-red: rgba(251, 113, 133, 0.03);
+
+  --bg-wrapper: #ffffff;
+  --bg-content: #ffff;
+  --bg-hover: #f2f2f2;
+  --bg-wrapper-50: rgba(249, 249, 249, 0.5);
+  --bg-content-50: rgba(255, 255, 255, 0.5);
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+
+  --color-shadow: rgba(26, 26, 26, 0.2);
+  --border-input: #f0f0f0;
+  --border-table: #f0f0f0;
+  --border-card: #f0f0f0;
+  --bg-wrapper-cardBorder: #fff;
+
+  --bg-monday: #F9F7F1;
+  --bg-tuesday: #F5F5F9;
+  --bg-wednesday: #F5F7F2;
+  --bg-thursday: #F2F8F4;
+  --bg-friday: #F3F6F9;
+  --bg-saturday: #F5F5F7;
+  --bg-sunday: #F9F4F4;
+
+  --glass-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+/* ── SYSTEM DARK ── */
+.dark {
+  --color-primary: #d11717;
+  --bg-primary: #f8f9fb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #080707;
+  --bg-c-card: #0d0a0a;
+  
+  --c-bg:        #0a0a0b;
+  --c-surface:   #0c0a0ab8;
+  --c-border:    rgba(29, 29, 28, 0.5);
+  --c-text:      #f0ece4;
+  --c-muted:     #7a7585;
+  --c-hover:     #1d1c1b;
+  --c-active:    #8aa70b;
+  --c-accent:    #ff8c42;
+  --c-accent-2:  #ffb347;
+  --c-success:   #4ade80;
+  --c-danger:    #f87171;
+  --c-info:      #60a5fa;
+
+    /* Text */
+  --color-w-b-1: #f9fafb;
+  --color-w-b-2: #e5e7eb;
+  --color-w-b-3: #9ca3af;
+  --color-w-b-4: #6b7280;
+  --color-w-b-5: #f8f5f0;
+  --color-w-b-6: #9e7575;
+
+  --glass-bg:      rgba(19, 19, 26, 0.72);
+  --glass-blur:    blur(24px) saturate(180%);
+  --glass-blur-sm: blur(12px) saturate(150%);
+  --glass-shadow:  0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255,255,255,0.04) inset;
+  --glass-border:  rgba(255, 140, 66, 0.12);
+  --glow-accent-sm: 0 0 16px rgba(255, 140, 66, 0.3);
+  --glow-text:      0 0 20px rgba(255, 140, 66, 0.5);
+  --glow-accent:    0 0 40px rgba(255, 140, 66, 0.12), 0 0 80px rgba(255, 140, 66, 0.04);
+
+  --bg-wrapper: #1a1a1a;
+  --bg-content: #242424;
+  --bg-wrapper-50: rgba(26, 26, 26, 0.5);
+  --bg-content-50: rgba(36, 36, 36, 0.5);
+  --bg-hover: #262626;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-w-b-50: rgba(26, 26, 26, 0.5);
+  --color-shadow: rgba(229, 229, 229, 0.1);
+  --bg-wrapper-cardBorder: #1a1a1a;
+  --border-input: #333333;
+  --border-table: #333333;
+  --border-card: #333333;
+
+  --r-loading: #333333;
+  --r-border-card: #333333;
+  --r-c-disabled: #5e5e5e;
+  --r-b-disabled: #3d3d3d;
+  --r-tb-bg-disabled: #2c2c2c;
+  --r-c-hover-25: rgba(255, 255, 255, 0.025);
+
+    /* Action Colors */
+  --r-c-gray: #9ca3af;
+  --r-c-blue: #60a5fa;
+  --r-c-green: #4ade80;
+  --r-c-red: #f87171;
+  --r-c-orange: #fbbf24;
+  --r-c-orangeRed: #fb923c;
+  --r-c-purple: #a78bfa;
+  --r-c-nenoBlue: #38bdf8;
+  --r-c-capture: #22d3ee;
+
+  --bg-monday: #33302b;
+  --bg-tuesday: #332b2d;
+  --bg-wednesday: #333b39;
+  --bg-thursday: #33312c;
+  --bg-friday: #333a3b;
+  --bg-saturday: #353338;
+  --bg-sunday: #332c2c;
+}
+
+
+
+.oc-body {
+  .ring-red-500 {
+    border: 1px solid var(--tw-ring-color) !important;
+  }
+}
+
+.dark\:ring-red-400:is(.dark *) {
+  border: 1px solid var(--tw-ring-color) !important;
+}
+
+.bg-color-dark-green {
+  background: var(--ocs-c-dark-green) !important;
+}
+
+.color-bg-wrapper {
+  // Black
+  background: var(--bg-wrapper) !important;
+}
+
+.bg-loading {
+  background: var(--ocs-loading) !important;
+}
+
+.color-bg-content {
+  // white
+  background: var(--bg-content) !important;
+}
+
+.color-bg-disabled {
+  // white
+  background: var(--oc-b-disabled) !important;
+}
+
+.color-tb-bg-disabled {
+  // white
+  background: var(--oc-tb-bg-disabled) !important;
+}
+
+.bd-card {
+  border: 1px solid var(--ocs-border-card) !important;
+}
+
+.bg-overlay {
+  background: var(--bg-overlay) !important;
+}
+
+.bg-wrapper-50 {
+  background: var(--bg-wrapper-50) !important;
+}
+
+.bg-content-50 {
+  background: var(--bg-content-50) !important;
+}
+
+.color-primary {
+  color: var(--color-primary) !important;
+}
+
+.bg-primary {
+  background: var(--color-primary) !important;
+}
+
+.color-text {
+  color: var(--color-w-b-1) !important;
+}
+
+.color-sub-text {
+  color: var(--color-w-b-2) !important;
+}
+
+.border-table {
+  border: 1px solid var(--color-border-table) !important;
+}
+
+.border-primary {
+  border: 1px solid var(--color-primary) !important;
+}
+
+.border-card {
+  border: 1px solid var(--border-card) !important;
+}
+
+//s for text color
+.color-w-b-1 {
+  color: var(--color-w-b-1) !important;
+}
+
+.color-w-b-2 {
+  color: var(--color-w-b-2) !important;
+}
+
+.color-w-b-3 {
+  color: var(--color-w-b-3) !important;
+}
+
+.color-w-b-4 {
+  color: var(--color-w-b-4) !important;
+}
+
+.color-w-b-5 {
+  color: var(--color-w-b-5) !important;
+}
+
+.color-w-b-6 {
+  color: var(--color-w-b-6) !important;
+}
+
+//e for text color
+
+//s for background color
+.bg-color-w-b-1 {
+  background: var(--color-w-b-1) !important;
+}
+
+.bg-color-w-b-2 {
+  color: var(--color-w-b-2) !important;
+}
+
+.bg-color-w-b-3 {
+  background: var(--color-w-b-3) !important;
+}
+
+.bg-color-w-b-4 {
+  background: var(--color-w-b-4) !important;
+}
+
+.bg-color-w-b-5 {
+  background: var(--color-w-b-5) !important;
+}
+
+.bg-color-w-b-6 {
+  background: var(--color-w-b-6) !important;
+}
+
+// for input
+.border-color-input {
+  border: 1px solid var(--color-w-b-4);
+}
+
+//e for background color
+
+// s main color
+
+.color-nenoBlue {
+  color: var(--ocs-c-nenoBlue) !important;
+}
+
+.color-green {
+  color: var(--ocs-c-green) !important;
+}
+
+.color-orange {
+  color: var(--ocs-c-orange) !important;
+}
+
+.color-purple {
+  color: var(--ocs-c-purple) !important;
+}
+
+.color-red {
+  color: var(--ocs-c-red) !important;
+}
+
+.color-orangeRed {
+  color: var(--ocs-c-orangeRed) !important;
+}
+
+.color-blue {
+  color: var(--ocs-c-blue) !important;
+}
+
+.color-capture {
+  color: var(--ocs-c-capture) !important;
+}
+
+.color-gray {
+  color: var(--ocs-c-gray) !important;
+}
+
+.color-male {
+  color: var(--ocs-c-male) !important;
+}
+
+.color-female {
+  color: var(--ocs-c-female) !important;
+}
+
+// e main color
+
+// s main background color
+
+.bg-nenoBlue {
+  background: var(--ocs-c-nenoBlue) !important;
+}
+
+.bg-green {
+  background: var(--ocs-c-green) !important;
+}
+
+.bg-orange {
+  background: var(--ocs-c-orange) !important;
+}
+
+.bg-purple {
+  background: var(--ocs-c-purple) !important;
+}
+
+.bg-red {
+  background: var(--ocs-c-red) !important;
+}
+
+.bg-orangeRed {
+  background: var(--ocs-c-orangeRed) !important;
+}
+
+.bg-blue {
+  background: var(--ocs-c-blue) !important;
+}
+
+.bg-capture {
+  background: var(--ocs-c-capture) !important;
+}
+
+.bg-gray {
+  background: var(--ocs-c-gray) !important;
+}
+
+.bg-male {
+  background: var(--ocs-c-male) !important;
+}
+
+.bg-female {
+  background: var(--ocs-c-female) !important;
+}
+
+.bd-female {
+  border: 1px solid var(--ocs-c-female) !important;
+}
+
+.bd-male {
+  border: 1px solid var(--ocs-c-male) !important;
+}
+
+// e main background color
+
+.hover-to-color-primary {
+  transition: 0.25s ease-in-out !important;
+  cursor: pointer !important;
+
+  &:hover {
+    color: var(--color-primary) !important;
+  }
+}
+
+.hover-to-bg-primary {
+  transition: 0.25s ease-in-out;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-primary);
+    color: white !important;
+  }
+}
+
+.max-with {
+  max-width: 360px;
+}
+
+//s use every where
+.auto-bg-with-content {
+  background: var(--bg-content) !important;
+}
+
+.oc-content {
+  .auto-bg-with-content {
+    background: var(--bg-wrapper) !important;
+  }
+}
+
+.dark .hover-card:hover {
+  background: var(--color-w-b-6) !important;
+}
+
+.hover-card:hover {
+  background: var(--color-w-b-6) !important;
+}
+
+//e use every where

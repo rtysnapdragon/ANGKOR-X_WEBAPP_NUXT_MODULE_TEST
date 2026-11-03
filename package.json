@@ -1,0 +1,105 @@
+{
+  "name": "webapp-nuxt-module",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/module.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/module.d.mts"
+      ]
+    }
+  },
+  "description": "nuxt module for webapp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rtysnapdragon/WEBAPP_NUXT_MODULE.git"
+  },
+  "license": "MIT",
+  "private": false,
+  "files": [
+    "dist"
+  ],
+  "workspaces": [
+    "playground"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "npm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "types": "./dist/types.d.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.15",
+    "@ai-sdk/gateway": "^4.0.16",
+    "@ai-sdk/google": "^4.0.16",
+    "@ai-sdk/vue": "^4.0.22",
+    "@easylogic/colorpicker": "^1.10.11",
+    "@headlessui/vue": "^1.7.23",
+    "@intlify/unplugin-vue-i18n": "^6.0.3",
+    "@nuxt/content": "^3.14.0",
+    "@nuxt/ui": "^4.8.2",
+    "@pinia/nuxt": "^1.0.0",
+    "@popperjs/core": "^2.11.8",
+    "@tiptap/extension-emoji": "^3.27.4",
+    "@tiptap/extension-image": "^3.27.4",
+    "@tiptap/extension-text-align": "^3.27.4",
+    "ai": "^7.0.28",
+    "axios": "^1.17.0",
+    "better-sqlite3": "^12.10.0",
+    "defu": "^6.1.7",
+    "echarts": "^6.1.0",
+    "flowbite-vue": "^0.2.3",
+    "fs-extra": "^11.3.5",
+    "nuxt-swiper": "^2.0.2",
+    "query-string": "^9.5.1",
+    "remixicon": "^4.9.1",
+    "sqlite3": "^6.0.1",
+    "swiper": "^14.4.0",
+    "tailwindcss": "^4.3.1",
+    "v-calendar": "^3.1.2",
+    "vue-grid-layout-v3": "^3.1.2",
+    "vue-screen-utils": "^1.0.0-beta.13",
+    "wavesurfer.js": "^8.0.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/eslint": "^1.15.2",
+    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/kit": "^4.4.6",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.4.6",
+    "@nuxt/test-utils": "^4.0.3",
+    "@nuxtjs/i18n": "^10.4.0",
+    "@nuxtjs/prismic": "^5.3.0",
+    "@prismicio/client": "^7.21.8",
+    "@types/node": "latest",
+    "@vueuse/nuxt": "^14.3.0",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.3.0",
+    "nuxt": "^4.4.8",
+    "nuxt-echarts": "^1.1.0",
+    "sass": "^1.105.1",
+    "sass-embedded": "^1.100.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.5",
+    "vue": "^3.5.34",
+    "vue-tsc": "^3.2.8"
+  }
+}

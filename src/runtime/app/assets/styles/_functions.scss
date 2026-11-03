@@ -1,0 +1,19 @@
+@mixin generate-color-variables($name, $red, $green, $blue) {
+  #{$name}-50: #{round($red + 24)} #{round($green + 24)} #{round($blue + 24)};
+  #{$name}-100: #{round($red + 20)} #{round($green + 20)} #{round($blue + 20)};
+  #{$name}-200: #{round($red + 15)} #{round($green + 15)} #{round($blue + 15)};
+  #{$name}-300: #{round($red + 10)} #{round($green + 10)} #{round($blue + 10)};
+  #{$name}-400: #{$red} #{$green} #{$blue};
+  #{$name}-500: #{round($red - 10)} #{round($green - 10)} #{round($blue - 10)};
+  #{$name}-600: #{round($red - 15)} #{round($green - 15)} #{round($blue - 15)};
+  #{$name}-700: #{round($red - 20)} #{round($green - 20)} #{round($blue - 20)};
+  #{$name}-800: #{round($red - 25)} #{round($green - 25)} #{round($blue - 25)};
+  #{$name}-900: #{round($red - 30)} #{round($green - 30)} #{round($blue - 30)};
+  #{$name}-950: #{round($red - 95)} #{round($green - 95)} #{round($blue - 95)};
+}
+
+@mixin dark-mode {
+  .dark {
+    @content;
+  }
+}

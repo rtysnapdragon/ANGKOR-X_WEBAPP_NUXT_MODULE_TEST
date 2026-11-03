@@ -1,0 +1,14 @@
+{
+  // "extends": "./.nuxt/tsconfig.json",
+  "exclude": ["dist", "node_modules", "playground", ".nuxt"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@nuxt/kit": ["node_modules/@nuxt/kit"]
+    },
+    "types": ["@nuxt/schema", "@nuxt/kit", "node"]
+  }
+  // "exclude": ["node_modules", ".nuxt", "dist"]
+}
