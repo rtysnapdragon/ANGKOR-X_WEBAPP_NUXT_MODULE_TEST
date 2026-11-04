@@ -82,7 +82,7 @@ Because you use pnpm 10.29.3, avoid using npx nuxi module add for this installat
 npm install vue-grid-layout-v3 --save
 npx nuxi module add echarts ( include vue-echarts,nuxt-echarts,echarts)
 npm install -D nuxt-echarts@1.1.0
-
+npm install nuxt-echarts echarts
 
 
 npm install wavesurfer.js // audio library

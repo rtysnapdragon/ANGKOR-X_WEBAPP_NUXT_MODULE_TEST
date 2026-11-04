@@ -2,14 +2,7 @@
 
 import path from "path";
 export default defineNuxtConfig({
-  modules: [
-    "@nuxt/eslint",
-    "@nuxt/ui",
-    "@nuxtjs/i18n",
-    "@nuxtjs/prismic",
-    "@pinia/nuxt",
-    "@vueuse/nuxt",
-  ],
+  modules: ["@nuxt/eslint", "@nuxt/ui", "@nuxtjs/i18n", "@nuxtjs/prismic", "@pinia/nuxt", "@vueuse/nuxt", 'nuxt-echarts'],
   
   // ── NuxtUI v4 ──
   ui: {
@@ -106,6 +99,13 @@ export default defineNuxtConfig({
     //     },
     //   },
     // },
+  },
+  runtimeConfig: {
+    ai: {
+      baseURL: 'http://localhost:11434/v1',   // NUXT_AI_BASE_URL
+      model: 'qwen2.5:3b',                    // NUXT_AI_MODEL
+      apiKey: '',                             // NUXT_AI_API_KEY (not needed for Ollama)
+    },
   },
   // // / ── Auto-import composables ──
   // imports: {

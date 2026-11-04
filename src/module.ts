@@ -30,6 +30,19 @@ export default defineNuxtModule<ModuleOptions>({
     configKey: "webappModule",
   },
 
+  moduleDependencies: {
+    "@nuxt/ui": {
+      version: "^4.8.2",
+    },
+    "@vueuse/nuxt": {
+      version: "^15.0.0",
+    },
+    "nuxt-swiper": {},
+    "@nuxt/content": {},
+    "@pinia/nuxt": {},
+    "@nuxtjs/i18n": {},
+  },
+
   defaults: {},
   // defaults: {
   //   anthropicApiKey: ''
@@ -116,6 +129,9 @@ export default defineNuxtModule<ModuleOptions>({
       "@nuxt/content",
       "@pinia/nuxt",
       "@nuxtjs/i18n",
+      // "nuxt-echarts",
+      "@nuxt/icon",
+      "@vueuse/nuxt",
       // "nuxt-content-assets",
     ];
     for (const mod of modulesToInstall) {

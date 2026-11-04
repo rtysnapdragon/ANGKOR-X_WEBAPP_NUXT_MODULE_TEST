@@ -1,34 +1,33 @@
-// EditorCompletionExtension.js
-// Ported to plain JS from Nuxt UI's official "With AI completion" example.
-// Handles inline ghost-text suggestions (Tab to accept, Esc to dismiss, Mod-J to trigger).
+// composables/EditorCompletionExtension.js
+// Inline ghost-text suggestions for UEditor (Tab accepts, Esc dismisses,
+// Mod-J triggers). Framework-agnostic: no Vue / VueUse imports.
 //
-// NOTE ON THE "Adding different instances of a keyed plugin" ERROR:
-// This extension registers a ProseMirror Plugin with a fixed PluginKey. That
-// error happens when Vite ends up bundling two separate copies of
-// prosemirror-state/prosemirror-view (one pulled in by @nuxt/ui, one pulled
-// in by this file's direct '@tiptap/pm/*' imports) — the two copies' Plugin
-// classes are different identities, so PM thinks it's a duplicate key.
-// Fix (in nuxt.config.ts, see project notes) — NOT something this file can
-// work around on its own:
-//
-//   vite: {
-//     optimizeDeps: {
-//       include: [
-//         '@nuxt/ui > prosemirror-state',
-//         '@nuxt/ui > prosemirror-transform',
-//         '@nuxt/ui > prosemirror-model',
-//         '@nuxt/ui > prosemirror-view',
-//         '@nuxt/ui > prosemirror-gapcursor'
-//       ]
-//     }
-//   }
+// ROOT CAUSE of "Adding different instances of a keyed plugin":
+// ProseMirror derives a plugin's internal key as `${name}$${counter}`, and the
+// counter lives inside each copy of prosemirror-state. The old code used one
+// module-level `new PluginKey('completion')`; when two copies of
+// prosemirror-state exist (@nuxt/ui's and your direct `@tiptap/pm` import — or
+// a stale HMR copy), both mint "completion$" and collide. Here every editor
+// instance gets its own uniquely-named key, so a collision cannot happen even
+// if duplicates exist. Still, dedupe the packages — see REDITOR.md.
 
 import { Extension } from '@tiptap/core'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
-import { useDebounceFn } from '@vueuse/core'
 
-export const completionPluginKey = new PluginKey('completion')
+let instanceSeq = 0
+
+function refresh(editor) {
+  if (!editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
+}
+
+function dismiss(ext, editor) {
+  if (!ext.storage.visible) return false
+  ext.storage.clearSuggestion()
+  refresh(editor)
+  ext.options.onDismiss?.()
+  return true
+}
 
 export const Completion = Extension.create({
   name: 'completion',
@@ -49,10 +48,11 @@ export const Completion = Extension.create({
       suggestion: '',
       position: undefined,
       visible: false,
-      debouncedTrigger: null,
-      setSuggestion(text) {
-        this.suggestion = text
-      },
+      trigger: null,
+      cancelTrigger: null,
+      // Unique per editor instance (addStorage runs once per editor).
+      pluginKey: new PluginKey(`completion_${++instanceSeq}`),
+      setSuggestion(text) { this.suggestion = text },
       clearSuggestion() {
         this.suggestion = ''
         this.position = undefined
@@ -63,16 +63,14 @@ export const Completion = Extension.create({
 
   addProseMirrorPlugins() {
     const storage = this.storage
-
     return [
       new Plugin({
-        key: completionPluginKey,
+        key: storage.pluginKey,
         props: {
           decorations(state) {
             if (!storage.visible || !storage.suggestion || storage.position === undefined) {
               return DecorationSet.empty
             }
-
             const widget = Decoration.widget(storage.position, () => {
               const span = document.createElement('span')
               span.className = 'completion-suggestion'
@@ -80,7 +78,6 @@ export const Completion = Extension.create({
               span.style.cssText = 'color: var(--ui-text-muted); opacity: 0.6; pointer-events: none;'
               return span
             }, { side: 1 })
-
             return DecorationSet.create(state.doc, [widget])
           },
         },
@@ -91,91 +88,68 @@ export const Completion = Extension.create({
   addKeyboardShortcuts() {
     return {
       'Mod-j': ({ editor }) => {
-        if (this.storage.visible) {
-          this.storage.clearSuggestion()
-          this.options.onDismiss?.()
-        }
-        this.storage.debouncedTrigger?.(editor)
+        dismiss(this, editor)
+        // Manual trigger: immediate, and allowed after punctuation.
+        this.storage.trigger?.(editor, { force: true, immediate: true })
         return true
       },
       'Tab': ({ editor }) => {
-        if (!this.storage.visible || !this.storage.suggestion || this.storage.position === undefined) {
-          return false
-        }
-
-        const suggestion = this.storage.suggestion
-        const position = this.storage.position
-
+        const { visible, suggestion, position } = this.storage
+        if (!visible || !suggestion || position === undefined) return false
         this.storage.clearSuggestion()
-        editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
+        refresh(editor)
         editor.chain().focus().insertContentAt(position, suggestion).run()
-
         this.options.onAccept?.()
         return true
       },
-      'Escape': ({ editor }) => {
-        if (this.storage.visible) {
-          this.storage.clearSuggestion()
-          editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
-          this.options.onDismiss?.()
-          return true
-        }
-        return false
-      },
+      'Escape': ({ editor }) => dismiss(this, editor),
     }
   },
 
   onUpdate({ editor }) {
-    if (this.storage.visible) {
-      this.storage.clearSuggestion()
-      editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
-      this.options.onDismiss?.()
-    }
-
-    if (this.options.autoTrigger) {
-      this.storage.debouncedTrigger?.(editor)
-    }
+    dismiss(this, editor)
+    if (this.options.autoTrigger) this.storage.trigger?.(editor)
   },
 
   onSelectionUpdate({ editor }) {
-    if (this.storage.visible) {
-      this.storage.clearSuggestion()
-      editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
-      this.options.onDismiss?.()
-    }
+    dismiss(this, editor)
   },
 
   onCreate() {
     const storage = this.storage
     const options = this.options
+    let timer = null
 
-    this.storage.debouncedTrigger = useDebounceFn((editor) => {
-      if (!options.onTrigger) return
-
-      const { state } = editor
-      const { selection } = state
+    const run = (editor, force) => {
+      if (!options.onTrigger || editor.isDestroyed || !editor.isEditable) return
+      const { selection } = editor.state
       const { $from } = selection
+      const text = $from.parent.textContent
 
-      const isAtEndOfBlock = $from.parentOffset === $from.parent.content.size
-      const hasContent = $from.parent.textContent.trim().length > 0
-      const textContent = $from.parent.textContent
+      const atEndOfBlock = $from.parentOffset === $from.parent.content.size
+      const hasContent = text.trim().length > 0
+      const endsWithPunctuation = /[.!?]\s*$/.test(text)
+      const endsWithTrigger = (options.triggerCharacters || []).some(c => text.endsWith(c))
 
-      const endsWithPunctuation = /[.!?]\s*$/.test(textContent)
-      const triggerChars = options.triggerCharacters || []
-      const endsWithTrigger = triggerChars.some(char => textContent.endsWith(char))
-
-      if (!isAtEndOfBlock || !hasContent || endsWithPunctuation || endsWithTrigger) {
-        return
-      }
+      if (!selection.empty || !atEndOfBlock || !hasContent) return
+      if (!force && (endsWithPunctuation || endsWithTrigger)) return
 
       storage.position = selection.from
       storage.visible = true
       options.onTrigger(editor)
-    }, options.debounce || 250)
+    }
+
+    storage.trigger = (editor, { force = false, immediate = false } = {}) => {
+      clearTimeout(timer)
+      if (immediate) return run(editor, force)
+      timer = setTimeout(() => run(editor, force), options.debounce ?? 250)
+    }
+    storage.cancelTrigger = () => clearTimeout(timer)
   },
 
   onDestroy() {
-    this.storage.debouncedTrigger = null
+    this.storage.cancelTrigger?.()
+    this.storage.trigger = null
   },
 })
 

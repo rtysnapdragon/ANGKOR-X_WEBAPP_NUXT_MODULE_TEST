@@ -1,206 +1,210 @@
-// EditorUseCompletion.js
-// Ported to plain JS from Nuxt UI's official "With AI completion" example.
-// Wraps @ai-sdk/vue's useCompletion + the Completion extension into a single
-// composable that returns { extension, handlers, isLoading, mode }.
+// composables/EditorUseCompletion.js
+// AI completion for UEditor — { extension, handlers, isLoading, mode, abort }.
+//
+// Rewritten without @ai-sdk/vue. Root causes of the old behaviour:
+//   • `body: computed(...)` — useCompletion does not unwrap refs, so `mode` and
+//     `language` never reached the server (every request looked like "continue").
+//   • Shared mutable `mode`/`insertState` refs + two watchers raced each other.
+//   • Selected text was sent as plain text although the prompt says "preserve
+//     markdown"; the result was applied without checking the selection was
+//     unchanged.
+// This version talks to the endpoint with plain fetch + ReadableStream (the
+// server returns a text/plain stream), passes mode/language explicitly per
+// request, aborts stale requests, and applies transforms as ONE undo step.
 
-import { ref, computed, watch } from 'vue'
-import { useCompletion } from '@ai-sdk/vue'
+import { ref, toValue, onScopeDispose } from 'vue'
 import { Completion } from './EditorCompletionExtension'
 
+const CONTEXT_CHARS = 3000
+
+// ── Streaming fetch ──────────────────────────────────────────────────────────
+async function streamCompletion(url, body, { signal, onChunk }) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+  if (!res.ok) {
+    let message = `Completion request failed (${res.status})`
+    try {
+      const json = await res.json()
+      message = json?.message || json?.statusMessage || message
+    } catch { /* not JSON */ }
+    throw new Error(message)
+  }
+  if (!res.body) {
+    const text = await res.text()
+    onChunk?.(text, text)
+    return text
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let full = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const delta = decoder.decode(value, { stream: true })
+    if (delta) { full += delta; onChunk?.(full, delta) }
+  }
+  const tail = decoder.decode()
+  if (tail) { full += tail; onChunk?.(full, tail) }
+  return full
+}
+
+// ── Editor <-> text helpers ──────────────────────────────────────────────────
+function serialize(editor, docNode) {
+  try {
+    const md = editor.markdown?.serialize?.(docNode.toJSON())
+    if (typeof md === 'string') return md
+  } catch { /* fall back to plain text */ }
+  return docNode.textBetween(0, docNode.content.size, '\n')
+}
+
+function contextBefore(editor, pos) {
+  const text = serialize(editor, editor.state.doc.cut(0, pos))
+  return text.length > CONTEXT_CHARS ? text.slice(-CONTEXT_CHARS) : text
+}
+
+function withLeadingSpace(editor, pos, text) {
+  const before = editor.state.doc.textBetween(Math.max(0, pos - 1), pos)
+  return before && !/\s/.test(before) && !/^[\s.,;:!?)\]]/.test(text) ? ` ${text}` : text
+}
+
+// Small models like to wrap answers in code fences.
+function cleanOutput(text) {
+  return text.trim().replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/, '$1').trim()
+}
+
+// ── Composable ───────────────────────────────────────────────────────────────
 export function useEditorCompletion(editorRef, options = {}) {
-  // State for direct insertion/transform mode
-  const insertState = ref()
+  const isLoading = ref(false)
   const mode = ref('continue')
-  const language = ref()
+  const language = ref(undefined)
+  let controller = null
+  let seq = 0
 
-  function getCompletionStorage() {
-    return editorRef.value?.editor?.storage?.completion
+  const getEditor = () => editorRef.value?.editor ?? null
+  const getStorage = () => getEditor()?.storage?.completion
+
+  function abort() {
+    controller?.abort()
+    controller = null
+    seq++
+    isLoading.value = false
   }
+  onScopeDispose(abort)
 
-  const { completion, complete, isLoading, stop, setCompletion } = useCompletion({
-    api: options.api || '/api/completion',
-    streamProtocol: 'text',
-    body: computed(() => ({
-      mode: mode.value,
-      language: language.value,
-    })),
-    onFinish: (_prompt, completionText) => {
-      const storage = getCompletionStorage()
-      if (mode.value === 'continue' && storage?.visible) {
-        return
-      }
-
-      const transformModes = ['fix', 'extend', 'reduce', 'simplify', 'summarize', 'translate']
-      if (transformModes.includes(mode.value) && insertState.value && completionText) {
-        const editor = editorRef.value?.editor
-        if (editor) {
-          if (insertState.value.deleteRange) {
-            editor.chain().focus().deleteRange(insertState.value.deleteRange).run()
-          }
-          editor.chain().focus().insertContentAt(insertState.value.pos, completionText, { contentType: 'markdown' }).run()
-        }
-      }
-
-      insertState.value = undefined
-    },
-    onError: (error) => {
-      console.error('AI completion error:', error)
-      insertState.value = undefined
-      getCompletionStorage()?.clearSuggestion()
-    },
-  })
-
-  watch(completion, (newCompletion, oldCompletion) => {
-    const editor = editorRef.value?.editor
-    if (!editor || !newCompletion) return
-
-    const storage = getCompletionStorage()
-    if (storage?.visible) {
-      let suggestionText = newCompletion
-      if (storage.position !== undefined) {
-        const textBefore = editor.state.doc.textBetween(Math.max(0, storage.position - 1), storage.position)
-        if (textBefore && !/\s/.test(textBefore) && !suggestionText.startsWith(' ')) {
-          suggestionText = ` ${suggestionText}`
-        }
-      }
-      storage.setSuggestion(suggestionText)
-      editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
-    } else if (insertState.value) {
-      const transformModes = ['fix', 'extend', 'reduce', 'simplify', 'summarize', 'translate']
-      if (transformModes.includes(mode.value)) {
-        return
-      }
-
-      if (insertState.value.deleteRange && !oldCompletion) {
-        editor.chain().focus().deleteRange(insertState.value.deleteRange).run()
-        insertState.value.deleteRange = undefined
-      }
-
-      let delta = newCompletion.slice(oldCompletion?.length || 0)
-      if (delta) {
-        if (['fix', 'simplify', 'translate'].includes(mode.value)) {
-          delta = delta.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ')
-        }
-
-        if (mode.value === 'continue' && !oldCompletion) {
-          const textBefore = editor.state.doc.textBetween(Math.max(0, insertState.value.pos - 1), insertState.value.pos)
-          if (textBefore && !/\s/.test(textBefore)) {
-            delta = ` ${delta}`
-          }
-        }
-
-        editor.chain().focus().command(({ tr }) => {
-          tr.insertText(delta, insertState.value.pos)
-          return true
-        }).run()
-        insertState.value.pos += delta.length
-      }
-    }
-  })
-
-  function triggerTransform(editor, transformMode, lang) {
-    if (isLoading.value) return
-
-    getCompletionStorage()?.clearSuggestion()
-
-    const { state } = editor
-    const { selection } = state
-    if (selection.empty) return
-
-    mode.value = transformMode
+  async function request(prompt, { mode: m, language: lang, onChunk }) {
+    abort()
+    const id = seq
+    controller = new AbortController()
+    isLoading.value = true
+    mode.value = m
     language.value = lang
-    const selectedText = state.doc.textBetween(selection.from, selection.to)
-
-    insertState.value = { pos: selection.from, deleteRange: { from: selection.from, to: selection.to } }
-    complete(selectedText)
-  }
-
-  function getMarkdownBefore(editor, pos) {
-    const { state } = editor
-    const serializer = editor.storage.markdown?.serializer
-    if (serializer) {
-      const slice = state.doc.slice(0, pos)
-      return serializer.serialize(slice.content)
+    try {
+      const text = await streamCompletion(
+        toValue(options.api) || '/api/completion',
+        { prompt, mode: m, language: lang },
+        { signal: controller.signal, onChunk: (full, delta) => { if (id === seq) onChunk?.(full, delta) } },
+      )
+      return id === seq ? text : null
+    } catch (error) {
+      if (error?.name === 'AbortError' || id !== seq) return null
+      console.error('[REditor] AI completion failed:', error)
+      options.onError?.(error)
+      getStorage()?.clearSuggestion()
+      return null
+    } finally {
+      if (id === seq) { isLoading.value = false; controller = null }
     }
-    return state.doc.textBetween(0, pos, '\n')
   }
 
-  function triggerContinue(editor) {
+  // Ghost text (Mod-J / auto trigger) — shown as a decoration, Tab accepts.
+  async function suggestInline(editor) {
+    const storage = getStorage()
+    if (!storage?.visible) return
+    const pos = storage.position
+    await request(contextBefore(editor, pos), {
+      mode: 'continue',
+      onChunk: (full) => {
+        const s = getStorage()
+        if (!s?.visible || s.position !== pos) return
+        s.setSuggestion(withLeadingSpace(editor, pos, full))
+        editor.view.dispatch(editor.state.tr.setMeta('completionUpdate', true))
+      },
+    })
+  }
+
+  // "Continue sentence" from the menu — streams text straight into the doc.
+  async function continueText(editor) {
     if (isLoading.value) return
+    getStorage()?.clearSuggestion()
+    let pos = editor.state.selection.to
+    let inserted = ''
+    await request(contextBefore(editor, pos), {
+      mode: 'continue',
+      onChunk: (full) => {
+        const ed = getEditor()
+        if (!ed) return
+        const delta = full.slice(inserted.length)
+        if (!delta) return
+        const piece = inserted ? delta : withLeadingSpace(ed, pos, delta)
+        ed.chain().command(({ tr }) => { tr.insertText(piece, pos); return true }).run()
+        pos += piece.length
+        inserted += delta
+      },
+    })
+  }
 
-    mode.value = 'continue'
-    getCompletionStorage()?.clearSuggestion()
-    const { state } = editor
-    const { selection } = state
+  // Selection transforms (fix / extend / reduce / simplify / summarize / translate).
+  async function transform(editor, m, lang) {
+    if (isLoading.value) return
+    getStorage()?.clearSuggestion()
+    const { from, to, empty } = editor.state.selection
+    if (empty) return
 
-    if (selection.empty) {
-      const textBefore = getMarkdownBefore(editor, selection.from)
-      insertState.value = { pos: selection.from }
-      complete(textBefore)
-    } else {
-      const textBefore = getMarkdownBefore(editor, selection.to)
-      insertState.value = { pos: selection.to }
-      complete(textBefore)
-    }
+    const snapshot = editor.state.doc.textBetween(from, to, '\n')
+    const selectionMd = serialize(editor, editor.state.doc.cut(from, to))
+    const raw = await request(selectionMd, { mode: m, language: lang })
+    const text = raw ? cleanOutput(raw) : ''
+    if (!text) return
+
+    const ed = getEditor()
+    // Don't clobber edits the user made while the model was answering.
+    if (!ed || ed.state.doc.textBetween(from, to, '\n') !== snapshot) return
+    ed.chain().focus().insertContentAt({ from, to }, text, { contentType: 'markdown' }).run()
   }
 
   const extension = Completion.configure({
-    onTrigger: (editor) => {
-      if (isLoading.value) return
-      mode.value = 'continue'
-      const textBefore = getMarkdownBefore(editor, editor.state.selection.from)
-      complete(textBefore)
-    },
-    onAccept: () => setCompletion(''),
-    onDismiss: () => { stop(); setCompletion('') },
+    onTrigger: (editor) => { void suggestInline(editor) },
+    onAccept: abort,
+    onDismiss: abort,
+  })
+
+  const transformHandler = m => ({
+    canExecute: editor => !editor.state.selection.empty && !isLoading.value,
+    execute: (editor, cmd) => { void transform(editor, m, cmd?.language); return editor.chain() },
+    isActive: (_e, cmd) => isLoading.value && mode.value === m && (m !== 'translate' || language.value === cmd?.language),
+    isDisabled: editor => editor.state.selection.empty || isLoading.value,
   })
 
   const handlers = {
     aiContinue: {
       canExecute: () => !isLoading.value,
-      execute: (editor) => { triggerContinue(editor); return editor.chain() },
-      isActive: () => !!(isLoading.value && mode.value === 'continue'),
-      isDisabled: () => !!isLoading.value,
+      execute: (editor) => { void continueText(editor); return editor.chain() },
+      isActive: () => isLoading.value && mode.value === 'continue',
+      isDisabled: () => isLoading.value,
     },
-    aiFix: {
-      canExecute: (editor) => !editor.state.selection.empty && !isLoading.value,
-      execute: (editor) => { triggerTransform(editor, 'fix'); return editor.chain() },
-      isActive: () => !!(isLoading.value && mode.value === 'fix'),
-      isDisabled: (editor) => editor.state.selection.empty || !!isLoading.value,
-    },
-    aiExtend: {
-      canExecute: (editor) => !editor.state.selection.empty && !isLoading.value,
-      execute: (editor) => { triggerTransform(editor, 'extend'); return editor.chain() },
-      isActive: () => !!(isLoading.value && mode.value === 'extend'),
-      isDisabled: (editor) => editor.state.selection.empty || !!isLoading.value,
-    },
-    aiReduce: {
-      canExecute: (editor) => !editor.state.selection.empty && !isLoading.value,
-      execute: (editor) => { triggerTransform(editor, 'reduce'); return editor.chain() },
-      isActive: () => !!(isLoading.value && mode.value === 'reduce'),
-      isDisabled: (editor) => editor.state.selection.empty || !!isLoading.value,
-    },
-    aiSimplify: {
-      canExecute: (editor) => !editor.state.selection.empty && !isLoading.value,
-      execute: (editor) => { triggerTransform(editor, 'simplify'); return editor.chain() },
-      isActive: () => !!(isLoading.value && mode.value === 'simplify'),
-      isDisabled: (editor) => editor.state.selection.empty || !!isLoading.value,
-    },
-    aiSummarize: {
-      canExecute: (editor) => !editor.state.selection.empty && !isLoading.value,
-      execute: (editor) => { triggerTransform(editor, 'summarize'); return editor.chain() },
-      isActive: () => !!(isLoading.value && mode.value === 'summarize'),
-      isDisabled: (editor) => editor.state.selection.empty || !!isLoading.value,
-    },
-    aiTranslate: {
-      canExecute: (editor) => !editor.state.selection.empty && !isLoading.value,
-      execute: (editor, cmd) => { triggerTransform(editor, 'translate', cmd?.language); return editor.chain() },
-      isActive: (_editor, cmd) => !!(isLoading.value && mode.value === 'translate' && language.value === cmd?.language),
-      isDisabled: (editor) => editor.state.selection.empty || !!isLoading.value,
-    },
+    aiFix: transformHandler('fix'),
+    aiExtend: transformHandler('extend'),
+    aiReduce: transformHandler('reduce'),
+    aiSimplify: transformHandler('simplify'),
+    aiSummarize: transformHandler('summarize'),
+    aiTranslate: transformHandler('translate'),
   }
 
-  return { extension, handlers, isLoading, mode }
+  return { extension, handlers, isLoading, mode, abort }
 }
 
 export default useEditorCompletion

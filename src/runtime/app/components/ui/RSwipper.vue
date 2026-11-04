@@ -186,9 +186,11 @@
 
 <script setup>
 /**
- * RSwipper — reusable Swiper wrapper for nuxt-swiper (Swiper 11).
- * <Swiper> / <SwiperSlide> are registered globally by nuxt-swiper.
+ * RSwipper — reusable Swiper wrapper (Swiper 11, works with or without the nuxt-swiper module).
  */
+// Imported explicitly (same as EventLaptop.vue) so it works even if the nuxt-swiper module
+// is not registered or its auto-import names are not resolved.
+import { Swiper, SwiperSlide } from 'swiper/vue'
 import {
   A11y, Autoplay, Controller, EffectCards, EffectCoverflow, EffectCreative, EffectCube, EffectFade,
   EffectFlip, FreeMode, Grid, HashNavigation, History, Keyboard, Mousewheel, Navigation, Pagination,
@@ -559,10 +561,19 @@ const api = computed(() => ({
   toggleAutoplay,
 }))
 
-const slotProps = (entry, index, st) => ({
-  entry, item: n(entry.items[0]), items: entry.items.map(n), index, group: entry.group,
-  isActive: st.isActive, isPrev: st.isPrev, isNext: st.isNext, isVisible: st.isVisible,
-})
+// `st` = SwiperSlide slot props. It can be undefined (e.g. slides cloned by loop/virtual, or the
+// thumbs strip), so never read it directly. Fall back to the real swiper state.
+const slotProps = (entry, index, st) => {
+  const s = st || {}
+  const cur = active.value
+  return {
+    entry, item: n(entry.items[0]), items: entry.items.map(n), index, group: entry.group,
+    isActive: s.isActive ?? index === cur,
+    isPrev: s.isPrev ?? index === cur - 1,
+    isNext: s.isNext ?? index === cur + 1,
+    isVisible: s.isVisible ?? false,
+  }
+}
 const itemProps = (entry, index, j, st) => ({
   ...slotProps(entry, index, st), item: n(entry.items[j]), itemIndex: entry.start + j,
 })
@@ -628,10 +639,15 @@ defineExpose({
 
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr); // keep the column from growing to the width of all slides
   gap: var(--rs-gap);
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   color: var(--rs-text);
+
+  // grid/flex children default to min-width:auto -> Swiper measures a huge container and locks
+  > * { min-width: 0; }
 
   --swiper-theme-color: var(--rs-accent);
   --swiper-navigation-color: var(--rs-text);
@@ -687,7 +703,8 @@ defineExpose({
     background: var(--rs-surface);
     border: 1px solid var(--rs-border);
   }
-  .rs-swiper { width: 100%; height: 100%; }
+  .rs-swiper { width: 100%; max-width: 100%; min-width: 0; height: 100%; }
+  .rs-img { -webkit-user-drag: none; }
   .rs-slide { position: relative; overflow: hidden; height: auto; }
   .rs-slide-inner {
     display: grid;
