@@ -552,9 +552,9 @@ $tone-ring-dark: 32%;
   @include tone-mix($tone-soft-dark, $tone-ring-dark);
 }
 
-// Forced mode, independent of the page theme
-.tone--light { @include tone-mix($tone-soft-light, $tone-ring-light); }
-.tone--dark  { @include tone-mix($tone-soft-dark, $tone-ring-dark); }
+// Forced mode, independent of the page theme (--t-base = opaque surface it is tinted on)
+.tone--light { @include tone-mix($tone-soft-light, $tone-ring-light); --t-base: #fff; }
+.tone--dark  { @include tone-mix($tone-soft-dark, $tone-ring-dark); --t-base: #18181b; }
 
 // Variant rules — consume --t-fill / --t-on / --t-fg (set per element, see RBadge)
 .tone {
@@ -571,7 +571,7 @@ $tone-ring-dark: 32%;
   }
 
   &--outline {
-    background-color: transparent;
+    background-color: var(--t-base, transparent);
     color: var(--t-fg);
     box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--t-fg) 55%, transparent);
     --t-dot: var(--t-fill);
@@ -579,7 +579,7 @@ $tone-ring-dark: 32%;
 
   &--soft,
   &--subtle {
-    background-color: color-mix(in oklab, var(--t-fg) var(--tone-mix-soft), transparent);
+    background-color: color-mix(in oklab, var(--t-fg) var(--tone-mix-soft), var(--t-base, transparent));
     color: var(--t-fg);
     --t-dot: var(--t-fill);
   }

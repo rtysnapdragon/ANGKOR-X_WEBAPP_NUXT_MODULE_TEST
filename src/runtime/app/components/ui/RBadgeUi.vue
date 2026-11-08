@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 /**
  * RBadgeUi — Nuxt UI 4 UBadge wrapper: named static colors, light/dark tokens, extra props + slots.
  * UBadge stays `neutral`; color/variant visuals come from _color.scss (.tone--*) through --t-* vars.
@@ -14,39 +14,39 @@
  * slots   dot · leading · default · count · trailing · close
  * emits   close (when `closable`)
  */
-import type { Component } from 'vue'
+const props = defineProps({
+  label: [String, Number],
+  // 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
+  // 'red' | 'orange' | 'yellow' | 'lime' | 'green' | 'emerald' | 'teal' | 'cyan' | 'sky' | 'blue' | 'violet' | 'purple' | 'pink' | 'rose' | 'gray'
+  // or any CSS color: '#ff00aa' | 'oklch(0.7 0.2 150)' | 'var(--my-color)'
+  color: { type: String, default: 'neutral' },
+  // 'solid' | 'outline' | 'soft' | 'subtle'  (legacy → soft: 'default' | 'success' | 'danger' | 'warning' | 'info' | 'muted')
+  variant: { type: String, default: 'soft' },
+  // 'auto' (follows page theme) | 'light' | 'dark' (forced)
+  mode: { type: String, default: 'auto' },
+  // 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  size: { type: String, default: 'sm' },
+  icon: String, // UBadge: leading by default; trailing when `trailing` is set
+  leading: Boolean,
+  leadingIcon: String,
+  trailing: Boolean,
+  trailingIcon: String,
+  avatar: Object, // { src?, alt?, text? }
+  square: Boolean,
+  as: { type: [String, Object, Function], default: undefined }, // UBadge default ('span') | 'a' | 'button' | component
+  ui: Object, // UBadge parts (base, label, leadingIcon…) + own parts: dot, count, close
+  dot: Boolean, // status dot before the label
+  pulse: Boolean, // animated ring on the dot
+  pill: Boolean, // fully rounded
+  count: [Number, String], // small counter chip after the label
+  closable: Boolean, // close button after the label → emits `close`
+  closeLabel: { type: String, default: 'Close' }, // aria-label of the close button
+})
 
-const props = withDefaults(defineProps<{
-  label?: string | number
-  color?:
-    | 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
-    | 'red' | 'orange' | 'yellow' | 'lime' | 'green' | 'emerald' | 'teal' | 'cyan'
-    | 'sky' | 'blue' | 'violet' | 'purple' | 'pink' | 'rose' | 'gray'
-    | (string & {})
-  variant?: 'solid' | 'outline' | 'soft' | 'subtle' | 'default' | 'success' | 'danger' | 'warning' | 'info' | 'muted'
-  mode?: 'auto' | 'light' | 'dark'
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
-  icon?: string // UBadge: leading by default; trailing when `trailing` is set
-  leading?: boolean
-  leadingIcon?: string
-  trailing?: boolean
-  trailingIcon?: string
-  avatar?: { src?: string; alt?: string; text?: string }
-  square?: boolean
-  as?: string | Component
-  ui?: Record<string, string> // UBadge parts (base, label, leadingIcon…) + own parts: dot, count, close
-  dot?: boolean // status dot before the label
-  pulse?: boolean // animated ring on the dot
-  pill?: boolean // fully rounded
-  count?: number | string // small counter chip after the label
-  closable?: boolean // close button after the label → emits `close`
-  closeLabel?: string // aria-label of the close button
-}>(), { color: 'neutral', variant: 'soft', mode: 'auto', size: 'sm', closeLabel: 'Close' })
-
-const emit = defineEmits<{ close: [event: MouseEvent] }>()
+const emit = defineEmits(['close'])
 
 // Old API: variant="success" → soft + semantic color
-const LEGACY: Record<string, string> = {
+const LEGACY = {
   default: 'neutral', muted: 'neutral', success: 'success', danger: 'error', warning: 'warning', info: 'info',
 }
 const CSS_COLOR = /^(#|rgb|hsl|hwb|lab|lch|oklab|oklch|color\(|var\()/i
@@ -57,8 +57,8 @@ const variant = computed(() => (LEGACY[props.variant] ? 'soft' : props.variant))
 // Feeds .tone--{variant} (_color.scss): --t-fill (solid bg) · --t-on (text on fill) · --t-fg (text on soft/outline)
 const vars = computed(() => {
   if (CSS_COLOR.test(color.value)) return { '--t-fill': color.value, '--t-on': '#fff', '--t-fg': color.value }
-  const key = (p: string) => (props.mode === 'auto' ? (p === 'fill' ? '' : `-${p}`) : `-${p}-${props.mode}`)
-  const v = (p: string) => `var(--tone-${color.value}${key(p)}, var(--tone-neutral${key(p)}))`
+  const key = (p) => (props.mode === 'auto' ? (p === 'fill' ? '' : `-${p}`) : `-${p}-${props.mode}`)
+  const v = (p) => `var(--tone-${color.value}${key(p)}, var(--tone-neutral${key(p)}))`
   return { '--t-fill': v('fill'), '--t-on': v('on'), '--t-fg': v('fg') }
 })
 </script>
@@ -66,7 +66,7 @@ const vars = computed(() => {
 <template>
   <UBadge
     color="neutral"
-    :variant="variant as 'solid' | 'outline' | 'soft' | 'subtle'"
+    :variant="variant"
     :size="size"
     :square="square"
     :icon="icon"
@@ -123,24 +123,38 @@ const vars = computed(() => {
 <style lang="scss" scoped>
 // Colors / variants live in _color.scss (.tone--*) · sizes in _vars.scss — overrides UBadge's own scale
 .r-badge-ui {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 6px);
+  font: inherit;
+  font-weight: 500;
   line-height: 1.25;
   white-space: nowrap;
 
-  @each $s in xs, sm, md, lg, xl {
+  // size scale lives in _vars.scss (--fs/--py/--px/--gap-*); fallbacks keep it working without it
+  @each $s, $fs, $py, $px, $gap in (
+    (xs, 0.625rem, 1px, 6px, 3px),
+    (sm, 0.7rem, 2px, 8px, 4px),
+    (md, 0.8rem, 4px, 12px, 6px),
+    (lg, 0.9rem, 5px, 14px, 6px),
+    (xl, 1rem, 6px, 16px, 8px)
+  ) {
     &--#{$s} {
-      gap: var(--gap-#{$s});
-      padding: var(--py-#{$s}) var(--px-#{$s});
-      font-size: var(--fs-#{$s});
+      gap: var(--gap-#{$s}, #{$gap});
+      padding: var(--py-#{$s}, #{$py}) var(--px-#{$s}, #{$px});
+      font-size: var(--fs-#{$s}, #{$fs});
 
       &.r-badge-ui--square {
-        padding: var(--py-#{$s});
+        padding: var(--py-#{$s}, #{$py});
       }
     }
   }
 
+  &--square {
+    justify-content: center;
+    aspect-ratio: 1;
+  }
+
   &--pill {
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-full, 9999px);
   }
 
   &__label {
@@ -163,7 +177,7 @@ const vars = computed(() => {
   &__count {
     min-width: 1.6em;
     padding: 0 0.4em;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-full, 9999px);
     background: color-mix(in oklab, currentColor 16%, transparent);
     font-size: 0.9em;
     font-variant-numeric: tabular-nums;
@@ -176,7 +190,7 @@ const vars = computed(() => {
     place-items: center;
     margin-inline-end: -0.2em;
     padding: 0.15em;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-full, 9999px);
     opacity: 0.7;
     cursor: pointer;
     transition: opacity 0.15s ease, background-color 0.15s ease;
