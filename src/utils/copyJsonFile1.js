@@ -1,8 +1,10 @@
-const fs = require("fs");
-const path = require("path");
+// const fs = require("fs");
+// const path = require("path");
+
 
 //Deep merge objects (nested keys)
-
+import fs from "node:fs";
+import path from "node:path";
 function deepMerge(target = {}, source = {}) {
   for (const key in source) {
     if (

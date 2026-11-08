@@ -2,7 +2,6 @@ import { ref } from "vue";
 import axios from "axios";
 
 export const useAuth = async (args) => {
-  console.log("args in composables auth useAuth =======> ", args)
   const { str, config } = helper();
   const userCatch = useUserData().value;
   const isOnline = useOnline();
@@ -24,18 +23,30 @@ export const useAuth = async (args) => {
       };
     }
 
+    const toPascalCase = (obj = {}) =>
+      Object.fromEntries(
+        Object.entries(obj).map(([key, value]) => [
+          key.replace(/(^\w|[_-]\w)/g, (match) =>
+            match.replace(/[_-]/g, '').toUpperCase()
+          ),
+          value,
+        ])
+      )
+
     const response = await axios({
-      url: getUrl("/api/v1/rtsauth/oauth"),
+      url: getUrl("rtsauth/oauth"),
       headers: {
         Authorization: `basic ${config.basicKey}`,
         "Content-Type": "application/json",
-        device_id: deviceId,
+        rty_device_id: deviceId,
+        rty_lang:locale,
+        rty_database:dbCode
       },
       method: "post",
       data: {
-        Username: args?.username ?? "username",
+        ...toPascalCase(args),
         Password: args?.password ?? "password",
-        RememberMe: args?.remember_me ?? true,
+        RememberMe: args?.remember ?? true,
         RefreshToken: isActionLogin ? null : userCatch?.refresh_token,
       },
     });
@@ -51,7 +62,9 @@ export const useAuth = async (args) => {
       refresh_lifetime: result.refresh_lifetime,
     };
 
-    result.created_at = new Date();
+    result.created_at = new Date().toISOString();
+    // result.created_at = new Date();
+
     useUserData(result);
     useAuthorizeIframe({
       action: "set_authorize_cookie",

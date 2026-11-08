@@ -14,7 +14,6 @@ export const useDatabaseStore = defineStore("DatabaseStore", {
   },
   actions: {
     async get(search = "") {
-      console.log('Search -------------------------> ',search)
       const expires = new Date();
       expires.setFullYear(expires.getFullYear() + 1);
       const dbCookie = useCookie(str.dbCode, { expires, sameSite: "lax" });

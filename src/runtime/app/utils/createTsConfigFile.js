@@ -1,5 +1,7 @@
-import path from "path";
-import fs from "fs";
+// import path from "path";
+// import fs from "fs";
+import fs from "node:fs";
+import path from "node:path";
 export default (layers = []) => {
   if (layers == [] || layers == "") return;
   // Process each layer path

@@ -1,5 +1,6 @@
 import { defineNuxtPlugin } from "#app";
 import { ref } from "vue";
+
 import isEmpty from "../utils/isEmpty.js";
 import isNotEmpty from "../utils/isNotEmpty.js";
 import rdate from "../utils/rdate.js";
@@ -8,43 +9,43 @@ import getDeviceId from "../utils/getDeviceId.js";
 import queryParams from "../utils/queryParams.js";
 import copyWith from "../utils/copyWith.js";
 
+import { useScreenStore } from "../stores/screen.js";
+
 export default defineNuxtPlugin((nuxtApp) => {
   const screen = useScreenStore();
 
-  const updateSize = () => {
-    if (typeof window === "undefined") return;
-    screen.setSize(window.innerWidth, window.innerHeight);
-  };
-
-  updateSize(); // Initial size
-  window.addEventListener("resize", updateSize);
-
-  // Cleanup in dev HMR
-  if (import.meta.hot) {
-    import.meta.hot.dispose(() => {
-      window.removeEventListener("resize", updateSize);
-    });
-  }
-
-
+  // SSR-safe default: assume online until the client reports its state.
   const online = ref(true);
 
-  online.value = navigator.onLine;
+  if (import.meta.client) {
+    const updateSize = () => {
+      screen.setSize(window.innerWidth, window.innerHeight);
+    };
 
-  window.addEventListener("online", () => {
-    online.value = true;
-  });
+    const updateOnline = () => {
+      online.value = navigator.onLine;
+    };
 
-  window.addEventListener("offline", () => {
-    online.value = false;
-  });
+    // Initial browser state
+    updateSize();
+    updateOnline();
+
+    // Register listeners
+    window.addEventListener("resize", updateSize);
+    window.addEventListener("online", updateOnline);
+    window.addEventListener("offline", updateOnline);
+
+    // Cleanup
+    if (import.meta.hot) {
+      import.meta.hot.dispose(() => {
+        window.removeEventListener("resize", updateSize);
+        window.removeEventListener("online", updateOnline);
+        window.removeEventListener("offline", updateOnline);
+      });
+    }
+  }
 
   nuxtApp.provide("isOnline", () => online.value);
-  // nuxtApp.provide("isEmpty", isEmpty);
-  // nuxtApp.provide("isNotEmpty", isNotEmpty);
-  // nuxtApp.provide("getDeviceId", getDeviceId);
-  // nuxtApp.provide("ocdate", rdate);
-  // nuxtApp.provide("tBy", tBy);
-  // nuxtApp.provide("queryParams", queryParams);
-  // nuxtApp.provide("copyWith", copyWith);
+
+  // Other utilities can be provided here when needed.
 });

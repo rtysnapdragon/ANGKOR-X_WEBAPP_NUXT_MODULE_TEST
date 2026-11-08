@@ -1,6 +1,7 @@
-import fs from 'fs'
-import path from 'path'
-
+// import fs from 'fs'
+// import path from 'path'
+import fs from "node:fs";
+import path from "node:path";
 export default function getComponentPaths() {
     const baseDir = path.resolve(process.cwd(), 'app/components')
 
