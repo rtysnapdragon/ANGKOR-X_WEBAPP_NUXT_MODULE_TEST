@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-[calc(100vh-66px)] relative">
     <RLoading :loading="loading" :fullscreen="true" />
-    <iframe :src="url" :onload="onload" ref="rIframe" frameborder="0" :class="`w-full h-full`" allowfullscreen
+    <iframe :src="url" :onload="onload" ref="rIframe" frameborder="0" :class="`w-full h-full`" allowfullscreen :title="title"
       allow="camera; microphone; serial; clipboard-write; fullscreen; popup; display-capture; geolocation">
     </iframe>
   </div>
@@ -75,7 +75,7 @@ onUnmounted(() => {
 
 function loadUrl(path, querystring) {
   loading.value = true;
-  ocIframe.value.src = `${config.webUrl
+  rIframe.value.src = `${config.webUrl
     }${path}?nocache=${config.version}&nolayout=true${querystring ? "&" + querystring : ""
     }`;
 }
@@ -92,7 +92,7 @@ function handleMessageEvent(event) {
 
 function postDomainToIframe() {
   const origin = window.location.origin;
-  ocIframe.value.contentWindow.postMessage(origin, "*");
+  rIframe.value.contentWindow.postMessage(origin, "*");
   console.log("postDomainToIframe", origin);
 }
 </script>

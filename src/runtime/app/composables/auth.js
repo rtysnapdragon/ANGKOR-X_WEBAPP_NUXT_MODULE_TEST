@@ -1,15 +1,27 @@
 import { ref } from "vue";
 import axios from "axios";
 
-export const useAuth = async (args) => {
+export const useAuth = async (args = {}) => {
+  console.log("Arg ----------------> ", args.isNew)
+  console.log("Arg ----------------> ", args)
+  const {
+    remember = true,
+    isNew = false,
+    ...credentials
+  } = args
+  const isActionLogin =
+    isNotEmpty(credentials?.username) ||
+    isNotEmpty(credentials?.password)
+  // const isNew = args?.isNew ?? false;
+  // const remember = args?.remember ?? true;
   const { str, config } = helper();
   const userCatch = useUserData().value;
   const isOnline = useOnline();
   const locale = useCookie(str.langCode).value;
   const deviceId = getDeviceId();
   const dbCode = useCookie(str.dbCode).value;
-  const isActionLogin =
-    isNotEmpty(args?.username) || isNotEmpty(args?.password);
+  // const isActionLogin =
+  //   isNotEmpty(args?.username) || isNotEmpty(args?.password);
 
   try {
     if (!isOnline.value) {
@@ -34,7 +46,7 @@ export const useAuth = async (args) => {
       )
 
     const response = await axios({
-      url: getUrl("rtsauth/oauth"),
+      url: getUrl(isNew ? "rtsauth/register" : "rtsauth/oauth"),
       headers: {
         Authorization: `basic ${config.basicKey}`,
         "Content-Type": "application/json",
@@ -43,8 +55,17 @@ export const useAuth = async (args) => {
         rty_database:dbCode
       },
       method: "post",
+      // data: isNew
+      //   ? { ...toPascalCase(credentials), RememberMe: remember }   // register: send exactly what the page built
+      //   : {                                                        // login / refresh: unchanged behaviour
+      //       Username: credentials.username ?? "username",
+      //       Password: credentials.password ?? "password",
+      //       RememberMe: remember,
+      //       RefreshToken: isActionLogin ? null : userCatch?.refresh_token,
+      //     },
       data: {
         ...toPascalCase(args),
+        Username: args.username ?? "username",
         Password: args?.password ?? "password",
         RememberMe: args?.remember ?? true,
         RefreshToken: isActionLogin ? null : userCatch?.refresh_token,
@@ -80,11 +101,12 @@ export const useAuth = async (args) => {
       },
     });
 
+    if (isNew && !result?.access_token) return { data: ref({ registered: true }), error: ref(null) }
     return { data: ref(result), error: ref(null) };
   } catch (e) {
     const data = e?.response?.data;
     if (data) {
-      if (data.error == "invalid_grant" && !isActionLogin) {
+      if (data.error == "invalid_grant" && !isActionLogin && !isNew) {
         useCookie("rty_user_data").value = null;
         navigateTo(localePath("/login"));
       }

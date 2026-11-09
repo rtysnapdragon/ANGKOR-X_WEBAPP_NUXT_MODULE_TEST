@@ -84,6 +84,7 @@ npx nuxi module add echarts ( include vue-echarts,nuxt-echarts,echarts)
 npm install -D nuxt-echarts@1.1.0
 npm install nuxt-echarts echarts
 
+npm install cropperjs
 
 npm install wavesurfer.js // audio library
 

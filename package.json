@@ -62,6 +62,7 @@
     "ai": "^7.0.28",
     "axios": "^1.17.0",
     "better-sqlite3": "^12.10.0",
+    "cropperjs": "^2.3.1",
     "defu": "^6.1.7",
     "echarts": "^6.1.0",
     "flowbite-vue": "^0.2.3",

@@ -39,6 +39,18 @@
   </RModal>
 
   <RCamera v-model="isCamera" :isBack="true" @capture="handleCapture" @onBack="whenBackFromCamera" />
+  <RProfileCropper
+  :file="cropFile"
+  :width="width"
+  :height="height"
+  :showCircle="true"
+  :title="tBy({ en: 'Crop Image', km: 'កាត់ទម្រង់រូបភាព' })"
+  :cancelText="t('cancel')"
+  :doneText="t('done')"
+  @done="onCropDone"
+  @close="onCropClose"
+  @error="onCropError"
+/>
 </template>
 
 <script setup>
@@ -93,7 +105,42 @@ function handleCapture(file) {
   emit("getFile", capturedImage.value);
 }
 
+const cropFile = ref(null);
+
 function cropImage(file) {
+  if (!(file instanceof Blob)) {
+    console.error("Invalid image file");
+    return;
+  }
+
+  uploadProfile.value = false;
+  cropFile.value = file;
+}
+
+function onCropDone(data) {
+  fileImage.value = {
+    Image: data.byteArray,
+    Name: data.name,
+    size: data.size,
+    fileTarget: data.file,
+    Extension: "jpg",
+    FilePath: "",
+  };
+
+  emit("getFile", data);
+  cropFile.value = null;
+}
+
+function onCropClose() {
+  cropFile.value = null;
+  uploadProfile.value = true;
+}
+
+function onCropError(error) {
+  console.error("Crop error:", error);
+}
+
+function cropImage1(file) {
   const option = {
     width: width.value,
     height: height.value,
