@@ -13,6 +13,7 @@
 //     error,       // message | null
 //     remoteId,    // server id returned by the upload (if any)
 //     file,        // the File to upload (null once uploaded / for remote)
+//     design,      // RCanvas document the image was made with (null otherwise) — lets "Edit design" reopen it
 //     createdAt, uploadedAt?
 //   }
 
@@ -161,8 +162,11 @@ export function useEditorFiles({ editorRef, props, emit, opts, strategy }) {
     if (!hit) { insertNode(record); return null }
     const spec = nodeSpec(record)
     const nodeType = editor.schema.nodes[spec.type]
+    // Keep the user's layout (width / wrap / alignment) when the media is swapped.
+    const keep = {}
+    for (const key of ['width', 'layout']) if (hit.node.attrs[key] != null && nodeType.spec.attrs?.[key]) keep[key] = hit.node.attrs[key]
     editor.chain().focus().command(({ tr }) => {
-      tr.replaceWith(hit.pos, hit.pos + hit.node.nodeSize, nodeType.create(spec.attrs))
+      tr.replaceWith(hit.pos, hit.pos + hit.node.nodeSize, nodeType.create({ ...spec.attrs, ...keep }))
       return true
     }).run()
     return hit.node
@@ -186,7 +190,7 @@ export function useEditorFiles({ editorRef, props, emit, opts, strategy }) {
   }
 
   // ── Insert: local File (instant blob preview, upload deferred) ────────────
-  function addLocalFile(file, { kind, pos = null, replaceTarget = null } = {}) {
+  function addLocalFile(file, { kind, pos = null, replaceTarget = null, design = null } = {}) {
     kind ??= detectKind(file.type, file.name)
     const error = validate(file, kind)
     if (error) { emit('upload-error', { file, ...error }); return null }
@@ -196,7 +200,7 @@ export function useEditorFiles({ editorRef, props, emit, opts, strategy }) {
     const record = {
       id: uid(), url, name: file.name, size: file.size, mime: file.type, kind,
       source: 'local', status: 'pending', progress: 0, error: null,
-      remoteId: null, file, createdAt: Date.now(),
+      remoteId: null, file, design, createdAt: Date.now(),
     }
     files.value = [...files.value, record]
 
@@ -485,7 +489,21 @@ export function useEditorFiles({ editorRef, props, emit, opts, strategy }) {
     blobUrls.clear()
   })
 
+  // RCanvas document behind an image node: its record's design, else the
+  // parent-supplied `designs` map ({ [url]: design }, e.g. loaded with the article).
+  function designFor(node) {
+    const rec = node ? recordForNode(node) : null
+    return rec?.design ?? props.designs?.[node?.attrs?.src] ?? null
+  }
+
+  // [{ id, url, remoteId, design }] for every tracked image made with RCanvas —
+  // persist this next to the article so designs can be reopened later.
+  const getDesigns = () => files.value
+    .filter(f => f.design)
+    .map(f => ({ id: f.id, url: f.url, remoteId: f.remoteId, design: f.design }))
+
   return {
+    designFor, getDesigns,
     files, isUploading, kindConfig, validate, validateUrl,
     addLocalFile, addRemoteUrl, addFiles, registerRemoteFiles,
     uploadRecord, uploadPending, resolveFile,

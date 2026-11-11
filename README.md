@@ -112,6 +112,8 @@ npm install @easylogic/colorpicker
 npm install @popperjs/core
 npx nuxt upgrade
 
+npm install fabric   // For Canvas editor like canva.com
+
 </details>
 
 <!-- Badges -->

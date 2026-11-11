@@ -2,7 +2,7 @@
    SARIKA — Design Tokens
    CSS Variables Only (max 10 color vars)
    ============================================ */
-
+@use "sass:list";
 :root {
   /* ── SURFACES ── */
   --color-primary: #d11717;
@@ -469,118 +469,271 @@
   background: var(--color-w-b-6) !important;
 }
 
-//e use every where
+/* ============================================================
+   RTY TONE SYSTEM
+   ============================================================
 
-/* ============================================
-   TONES — generic named colors (badge, tag, chip, status…)
-   · Fixed per name, same in light/dark:  --tone-{name}-{fill|on|fg}-{light|dark}
-   · Theme-aware (current mode):          --tone-{name}, --tone-{name}-on, --tone-{name}-fg
-   · fill = solid background · on = text on fill · fg = text on soft / subtle / outline
-   · Add a color: add one row to $tones → color="name"
-   ============================================ */
+   Supports:
+   - Named colors
+   - Semantic aliases
+   - Light / dark themes
+   - Forced light / dark modes
+   - Solid / outline / soft / subtle variants
+
+   CSS API:
+     --tone-{name}
+     --tone-{name}-on
+     --tone-{name}-fg
+
+     --tone-{name}-fill-light
+     --tone-{name}-on-light
+     --tone-{name}-fg-light
+
+     --tone-{name}-fill-dark
+     --tone-{name}-on-dark
+     --tone-{name}-fg-dark
+
+   Usage:
+     .tone--solid
+     .tone--outline
+     .tone--soft
+     .tone--subtle
+
+   ============================================================ */
+
+
+/* ============================================================
+   1. COLOR PALETTE
+   ============================================================ */
 
 $tones: (
-  // name,    fill,    on,      fg-light, fg-dark, fill-dark, on-dark
-  (primary, #d11717, #fff,    #a61212, #f87171, #d11717, #fff),
-  (red,     #dc2626, #fff,    #b91c1c, #fca5a5, #dc2626, #fff),
-  (orange,  #ff8c42, #1a1510, #c2410c, #fdba74, #ff8c42, #1a1510),
-  (yellow,  #ffb347, #1a1510, #a16207, #fde047, #ffb347, #1a1510),
-  (lime,    #84cc16, #1a1510, #4d7c0f, #bef264, #84cc16, #1a1510),
-  (green,   #15803d, #fff,    #166534, #86efac, #15803d, #fff),
-  (emerald, #047857, #fff,    #065f46, #6ee7b7, #047857, #fff),
-  (teal,    #0f766e, #fff,    #115e59, #5eead4, #0f766e, #fff),
-  (cyan,    #0e7490, #fff,    #155e75, #67e8f9, #0e7490, #fff),
-  (sky,     #0369a1, #fff,    #075985, #7dd3fc, #0369a1, #fff),
-  (blue,    #2563eb, #fff,    #1d4ed8, #93c5fd, #2563eb, #fff),
-  (violet,  #7c3aed, #fff,    #6d28d9, #c4b5fd, #7c3aed, #fff),
-  (purple,  #9333ea, #fff,    #7e22ce, #d8b4fe, #9333ea, #fff),
-  (pink,    #db2777, #fff,    #be185d, #f9a8d4, #db2777, #fff),
-  (rose,    #e11d48, #fff,    #be123c, #fda4af, #e11d48, #fff),
-  (gray,    #4b5563, #fff,    #374151, #d1d5db, #4b5563, #fff),
-  (neutral, #111827, #fff,    #374151, #e5e7eb, #f9fafb, #111827)
+  ("primary", #d11717, #fff, #a61212, #f87171, #d11717, #fff),
+  ("red", #dc2626, #fff, #b91c1c, #fca5a5, #dc2626, #fff),
+  ("orange", #ff8c42, #1a1510, #c2410c, #fdba74, #ff8c42, #1a1510),
+  ("yellow", #ffb347, #1a1510, #a16207, #fde047, #ffb347, #1a1510),
+  ("lime", #84cc16, #1a1510, #4d7c0f, #bef264, #84cc16, #1a1510),
+  ("green", #15803d, #fff, #166534, #86efac, #15803d, #fff),
+  ("emerald", #047857, #fff, #065f46, #6ee7b7, #047857, #fff),
+  ("teal", #0f766e, #fff, #115e59, #5eead4, #0f766e, #fff),
+  ("cyan", #0e7490, #fff, #155e75, #67e8f9, #0e7490, #fff),
+  ("sky", #0369a1, #fff, #075985, #7dd3fc, #0369a1, #fff),
+  ("blue", #2563eb, #fff, #1d4ed8, #93c5fd, #2563eb, #fff),
+  ("violet", #7c3aed, #fff, #6d28d9, #c4b5fd, #7c3aed, #fff),
+  ("purple", #9333ea, #fff, #7e22ce, #d8b4fe, #9333ea, #fff),
+  ("pink", #db2777, #fff, #be185d, #f9a8d4, #db2777, #fff),
+  ("rose", #e11d48, #fff, #be123c, #fda4af, #e11d48, #fff),
+  ("gray", #4b5563, #fff, #374151, #d1d5db, #4b5563, #fff),
+  ("neutral", #111827, #fff, #374151, #e5e7eb, #f9fafb, #111827),
+  ("indigo", #4f46e5, #fff, #4338ca, #a5b4fc, #4f46e5, #fff),
 );
 
-// Semantic names → palette color (re-point to re-theme)
-$tone-aliases: ((secondary, violet), (success, green), (info, blue), (warning, orange), (error, red), (danger, red));
 
-// Tint strength of soft / subtle backgrounds and the subtle ring
+/* ============================================================
+   2. SEMANTIC ALIASES
+   ============================================================ */
+
+$tone-aliases: (
+  ("secondary", "violet"),
+  ("success", "green"),
+  ("info", "blue"),
+  ("warning", "orange"),
+  ("error", "red"),
+  ("danger", "red")
+);
+
+
+/* ============================================================
+   3. THEME CONFIGURATION
+   ============================================================ */
+
 $tone-soft-light: 10%;
 $tone-ring-light: 26%;
+
 $tone-soft-dark: 16%;
 $tone-ring-dark: 32%;
+
+
+/* ============================================================
+   4. MIXINS
+   ============================================================ */
+
+// Shared tone configuration.
 
 @mixin tone-mix($soft, $ring) {
   --tone-mix-soft: #{$soft};
   --tone-mix-ring: #{$ring};
 }
 
+
+// Generate theme-aware variables.
+
 @mixin tone-theme($mode) {
-  @each $name, $fill, $on, $fgl, $fgd, $filld, $ond in $tones {
-    --tone-#{$name}:    var(--tone-#{$name}-fill-#{$mode});
+  @each $tone in $tones {
+    $name: nth($tone, 1);
+
+    --tone-#{$name}: var(--tone-#{$name}-fill-#{$mode});
     --tone-#{$name}-on: var(--tone-#{$name}-on-#{$mode});
     --tone-#{$name}-fg: var(--tone-#{$name}-fg-#{$mode});
   }
-  @each $alias, $target in $tone-aliases {
-    --tone-#{$alias}:    var(--tone-#{$target});
-    --tone-#{$alias}-on: var(--tone-#{$target}-on);
-    --tone-#{$alias}-fg: var(--tone-#{$target}-fg);
+
+  @each $alias in $tone-aliases {
+    $name: nth($alias, 1);
+    $target: nth($alias, 2);
+
+    --tone-#{$name}: var(--tone-#{$target});
+    --tone-#{$name}-on: var(--tone-#{$target}-on);
+    --tone-#{$name}-fg: var(--tone-#{$target}-fg);
   }
 }
 
-:root {
-  @each $name, $fill, $on, $fgl, $fgd, $filld, $ond in $tones {
-    --tone-#{$name}-fill-light: #{$fill};
-    --tone-#{$name}-on-light:   #{$on};
-    --tone-#{$name}-fg-light:   #{$fgl};
-    --tone-#{$name}-fill-dark:  #{$filld};
-    --tone-#{$name}-on-dark:    #{$ond};
-    --tone-#{$name}-fg-dark:    #{$fgd};
+
+// Generate fixed light/dark palette variables.
+
+@mixin tone-palette {
+  @each $tone in $tones {
+    $name: list.nth($tone, 1);
+
+    // $fill-light: nth($tone, 2);
+    $fill-light: list.nth($tone, 2);
+    $on-light: list.nth($tone, 3);
+    $fg-light: list.nth($tone, 4);
+
+    $fg-dark: list.nth($tone, 5);
+    $fill-dark: list.nth($tone, 6);
+    $on-dark: list.nth($tone, 7);
+
+    --tone-#{$name}-fill-light: #{$fill-light};
+    --tone-#{$name}-on-light: #{$on-light};
+    --tone-#{$name}-fg-light: #{$fg-light};
+
+    --tone-#{$name}-fill-dark: #{$fill-dark};
+    --tone-#{$name}-on-dark: #{$on-dark};
+    --tone-#{$name}-fg-dark: #{$fg-dark};
   }
-  @each $alias, $target in $tone-aliases {
+
+  // Semantic alias variables.
+
+  @each $alias in $tone-aliases {
+    $name: list.nth($alias, 1);
+    $target: list.nth($alias, 2);
+
     @each $mode in light, dark {
       @each $part in fill, on, fg {
-        --tone-#{$alias}-#{$part}-#{$mode}: var(--tone-#{$target}-#{$part}-#{$mode});
+        --tone-#{$name}-#{$part}-#{$mode}:
+          var(--tone-#{$target}-#{$part}-#{$mode});
       }
     }
   }
-  @include tone-theme(light);
-  @include tone-mix($tone-soft-light, $tone-ring-light);
 }
+
+
+/* ============================================================
+   5. ROOT THEME
+   ============================================================ */
+
+:root {
+  @include tone-palette;
+  @include tone-theme(light);
+
+  @include tone-mix(
+    $tone-soft-light,
+    $tone-ring-light
+  );
+}
+
+
+/* ============================================================
+   6. DARK THEME
+   ============================================================ */
 
 .dark {
   @include tone-theme(dark);
-  @include tone-mix($tone-soft-dark, $tone-ring-dark);
+
+  @include tone-mix(
+    $tone-soft-dark,
+    $tone-ring-dark
+  );
 }
 
-// Forced mode, independent of the page theme (--t-base = opaque surface it is tinted on)
-.tone--light { @include tone-mix($tone-soft-light, $tone-ring-light); --t-base: #fff; }
-.tone--dark  { @include tone-mix($tone-soft-dark, $tone-ring-dark); --t-base: #18181b; }
 
-// Variant rules — consume --t-fill / --t-on / --t-fg (set per element, see RBadge)
+/* ============================================================
+   7. FORCED THEME
+   ============================================================ */
+
+.tone--light {
+  @include tone-mix(
+    $tone-soft-light,
+    $tone-ring-light
+  );
+
+  --t-base: #fff;
+}
+
+.tone--dark {
+  @include tone-mix(
+    $tone-soft-dark,
+    $tone-ring-dark
+  );
+
+  --t-base: #18181b;
+}
+
+
+/* ============================================================
+   8. TONE COMPONENT
+   ============================================================ */
+
 .tone {
   --t-fill: var(--tone-neutral);
-  --t-on:   var(--tone-neutral-on);
-  --t-fg:   var(--tone-neutral-fg);
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  --t-on: var(--tone-neutral-on);
+  --t-fg: var(--tone-neutral-fg);
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+
+  /* SOLID */
 
   &--solid {
     background-color: var(--t-fill);
     color: var(--t-on);
+
     box-shadow: none;
+
     --t-dot: var(--t-on);
   }
+
+  /* OUTLINE */
 
   &--outline {
     background-color: var(--t-base, transparent);
     color: var(--t-fg);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--t-fg) 55%, transparent);
+
+    box-shadow:
+      inset 0 0 0 1px
+      color-mix(
+        in oklab,
+        var(--t-fg) 55%,
+        transparent
+      );
+
     --t-dot: var(--t-fill);
   }
 
+  /* SOFT */
+
   &--soft,
   &--subtle {
-    background-color: color-mix(in oklab, var(--t-fg) var(--tone-mix-soft), var(--t-base, transparent));
+    background-color:
+      color-mix(
+        in oklab,
+        var(--t-fg) var(--tone-mix-soft),
+        var(--t-base, transparent)
+      );
+
     color: var(--t-fg);
+
     --t-dot: var(--t-fill);
   }
 
@@ -588,7 +741,33 @@ $tone-ring-dark: 32%;
     box-shadow: none;
   }
 
+  /* SUBTLE */
+
   &--subtle {
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--t-fg) var(--tone-mix-ring), transparent);
+    box-shadow:
+      inset 0 0 0 1px
+      color-mix(
+        in oklab,
+        var(--t-fg) var(--tone-mix-ring),
+        transparent
+      );
   }
 }
+
+
+
+
+// Usage of tone:
+// <div class="tone tone--solid">Indigo</div>
+// <template>
+//   <span
+//     class="tone tone--solid"
+//     :style="{
+//       '--t-fill': 'var(--tone-indigo)',
+//       '--t-on': 'var(--tone-indigo-on)',
+//       '--t-fg': 'var(--tone-indigo-fg)'
+//     }"
+//   >
+//     Indigo
+//   </span>
+// </template>
