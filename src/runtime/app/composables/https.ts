@@ -2,7 +2,7 @@ import axios from "axios";
 import type { HttpOptions, Resp } from "../models/http.ts";
 import useOptions from "./useOptions";
 import { ref } from "vue";
-import { useToast, useOnline, useRefreshToken } from "#imports";
+import { useToast, useOnline, useRefreshToken ,useUserData} from "#imports";
 
 /**
  * const controller = new AbortController();
@@ -28,7 +28,7 @@ export const useRHttp = async (
       };
     }
 
-    const userCatch = useUserData().value
+    const userCatch = useUserData()
     // if (!options?.isGlobal) {
     //   await useRefreshToken();
     // }
@@ -42,7 +42,7 @@ export const useRHttp = async (
 
     if (!userCatch && !options?.isLogin) {
       await useRefreshToken();
-      userCatch = useUserData().value;
+      userCatch.value = null;
     }
     const httpConfig = useOptions(url, options);
 

@@ -2,12 +2,10 @@
 @use "scrollStyle";
 @use "color";
 @use "font";
-@use 'tokens';
-@use 'editor';
 
 body {
   font-family: var(--font-400);
-  background-color: var(--bg-wrapper);
+  background: var(--bg-wrapper);
   font-size: 14px;
 }
 

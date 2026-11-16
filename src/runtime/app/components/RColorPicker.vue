@@ -281,9 +281,8 @@ const mergedUI = computed(() => ({
 }))
 
 // ── i18n helper — optional, gracefully absent ────────────────────────────────
-const { tr } = useTr?.() ?? {}
 function trSafe(key, fallback) {
-  return tr ? tr(key) : fallback
+  return tr ? tBy(key) : fallback
 }
 
 defineExpose({ isOpen, openEyeDropper, eyeDropperSupported })

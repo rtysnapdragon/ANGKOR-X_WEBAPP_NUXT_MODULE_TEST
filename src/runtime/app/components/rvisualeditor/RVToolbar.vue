@@ -3,6 +3,7 @@
 // through the Tiptap editor passed in; every external value is treated as possibly null/invalid.
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import RTooltip from '../RTooltip.vue'
 
 defineOptions({ name: 'RVToolbar' })
 
@@ -125,6 +126,16 @@ function onTabKey(e) {
 
 // ---- selects --------------------------------------------------------------------------------------------------------
 const fontList = computed(() => list(props.fonts).filter((f) => f && typeof f.key === 'string'))
+const fontGroups = computed(() => {
+  const groups = []
+  for (const f of fontList.value) {
+    const name = typeof f.group === 'string' && f.group ? f.group : 'Other'
+    let g = groups.find((x) => x.name === name)
+    if (!g) groups.push((g = { name, label: tr(`rve_font_group_${name.toLowerCase()}`, name), items: [] }))
+    g.items.push(f)
+  }
+  return groups
+})
 const sizeList = computed(() => list(props.fontSizes).filter((n) => Number.isFinite(n)))
 const BLOCK_OPTS = computed(() => [
   ['p', 'Normal', 'rve_normal'],
@@ -161,8 +172,8 @@ onClickOutside(rootEl, () => { pop.value = null })
 const togglePop = (name) => { pop.value = pop.value === name ? null : name }
 const curColor = () => safeColor(attrs('textStyle').color)
 const curHighlight = () => safeColor(attrs('highlight').color)
-const setColor = (v) => (safeColor(v) ? chain().setColor(v).run() : chain().unsetColor().run())
-const setHighlight = (v) => (safeColor(v) ? chain().setHighlight({ color: v }).run() : chain().unsetHighlight().run())
+const setColor = (v) => { (safeColor(v) ? chain().setColor(v) : chain().unsetColor()).run(); pop.value = null }
+const setHighlight = (v) => { (safeColor(v) ? chain().setHighlight({ color: v }) : chain().unsetHighlight()).run(); pop.value = null }
 
 const linkUrl = ref('')
 const linkError = ref('')
@@ -209,9 +220,9 @@ onBeforeUnmount(() => { pop.value = null })
     <!-- ===== tab strip + quick access ===== -->
     <div class="rv-tb__strip">
       <div v-if="ids(G.history).length" class="rv-qat" role="group" :aria-label="tr('rve_quick_access', 'Quick access')">
-        <UTooltip v-for="id in ids(G.history)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+        <RTooltip v-for="id in ids(G.history)" :key="id" :text="tl(A[id].label)">
           <button type="button" class="rv-btn" :disabled="isOff(id)" :aria-label="tl(A[id].label)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
-        </UTooltip>
+        </RTooltip>
       </div>
       <div v-if="ribbon" class="rv-tabs" role="tablist" :aria-label="tr('rve_ribbon_tabs', 'Ribbon tabs')" @keydown="onTabKey">
         <button
@@ -228,9 +239,9 @@ onBeforeUnmount(() => { pop.value = null })
         >{{ tr(tab.labelKey, tab.label) }}</button>
       </div>
       <span class="rv-tb__grow" />
-      <UTooltip v-if="ribbon" :text="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')">
+      <RTooltip v-if="ribbon" :text="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')">
         <button type="button" class="rv-btn" :aria-label="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')" :aria-expanded="!collapsed" @click="collapsed = !collapsed"><UIcon :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" /></button>
-      </UTooltip>
+      </RTooltip>
     </div>
 
     <!-- ===== panel ===== -->
@@ -251,7 +262,9 @@ onBeforeUnmount(() => { pop.value = null })
             <div v-if="vis('fonts')" class="rv-rg__row">
               <select class="rv-select rv-select--font" :aria-label="tr('rve_font_family', 'Font family')" :value="attrs('textStyle').fontFamily ?? ''" :disabled="!usable('fonts')" @change="onFont">
                 <option value="">{{ tr('rve_font', 'Font') }}</option>
-                <option v-for="f in fontList" :key="f.key" :value="f.key">{{ f.key }}</option>
+                <optgroup v-for="g in fontGroups" :key="g.name" :label="g.label">
+                  <option v-for="f in g.items" :key="f.key" :value="f.key">{{ f.key }}</option>
+                </optgroup>
               </select>
               <select class="rv-select rv-select--size" :aria-label="tr('rve_font_size', 'Font size')" :value="attrs('textStyle').fontSize ?? ''" :disabled="!usable('fonts')" @change="onSize">
                 <option value="">{{ tr('rve_size', 'Size') }}</option>
@@ -259,13 +272,13 @@ onBeforeUnmount(() => { pop.value = null })
               </select>
             </div>
             <div class="rv-rg__row">
-              <UTooltip v-for="id in ids(G.marks)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+              <RTooltip v-for="id in ids(G.marks)" :key="id" :text="tl(A[id].label)">
                 <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
-              </UTooltip>
+              </RTooltip>
               <span v-if="vis('colors')" class="rv-pop-wrap">
-                <UTooltip :text="tr('rve_font_color', 'Font color')">
+                <RTooltip :text="tr('rve_font_color', 'Font color')">
                   <button type="button" class="rv-btn rv-btn--split" :class="{ 'is-active': pop === 'color' }" :disabled="!usable('colors')" :aria-label="tr('rve_font_color', 'Font color')" aria-haspopup="true" :aria-expanded="pop === 'color'"  @mousedown.prevent @click="togglePop('color')"><UIcon name="i-lucide-baseline" /><i v-if="curColor()" class="rv-btn__bar" :style="{ background: curColor() }" /></button>
-                </UTooltip>
+                </RTooltip>
                 <div v-if="pop === 'color'" class="rv-pop" role="dialog" :aria-label="tr('rve_font_color', 'Font color')">
                   <div class="rv-pop__label">{{ tr('rve_font_color', 'Font color') }}</div>
                   <div class="rv-swatches">
@@ -275,9 +288,9 @@ onBeforeUnmount(() => { pop.value = null })
                 </div>
               </span>
               <span v-if="vis('colors')" class="rv-pop-wrap">
-                <UTooltip :text="tr('rve_highlight_color', 'Highlight color')">
+                <RTooltip :text="tr('rve_highlight_color', 'Highlight color')">
                   <button type="button" class="rv-btn rv-btn--split" :class="{ 'is-active': pop === 'highlight' || act('highlight') }" :disabled="!usable('colors')" :aria-label="tr('rve_highlight_color', 'Highlight color')" aria-haspopup="true" :aria-expanded="pop === 'highlight'"  @mousedown.prevent @click="togglePop('highlight')"><UIcon name="i-lucide-highlighter" /><i v-if="curHighlight()" class="rv-btn__bar" :style="{ background: curHighlight() }" /></button>
-                </UTooltip>
+                </RTooltip>
                 <div v-if="pop === 'highlight'" class="rv-pop" role="dialog" :aria-label="tr('rve_highlight_color', 'Highlight color')">
                   <div class="rv-pop__label">{{ tr('rve_highlight', 'Highlight') }}</div>
                   <div class="rv-swatches">
@@ -286,9 +299,9 @@ onBeforeUnmount(() => { pop.value = null })
                   </div>
                 </div>
               </span>
-              <UTooltip v-if="vis('textFormatting')" :text="tr('rve_clear_formatting', 'Clear formatting')">
+              <RTooltip v-if="vis('textFormatting')" :text="tr('rve_clear_formatting', 'Clear formatting')">
                 <button type="button" class="rv-btn" :disabled="isOff('clear')" :aria-label="tr('rve_clear_formatting', 'Clear formatting')" @mousedown.prevent @click="run('clear')"><UIcon :name="A.clear.icon" /></button>
-              </UTooltip>
+              </RTooltip>
             </div>
           </div>
           <span class="rv-rg__label">{{ tr('rve_font', 'Font') }}</span>
@@ -297,14 +310,14 @@ onBeforeUnmount(() => { pop.value = null })
         <section v-if="ids(G.lists).length || ids(G.align).length" class="rv-rg" :aria-label="tr('rve_paragraph', 'Paragraph')">
           <div class="rv-rg__body rv-rg__body--rows">
             <div class="rv-rg__row">
-              <UTooltip v-for="id in ids(G.lists)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+              <RTooltip v-for="id in ids(G.lists)" :key="id" :text="tl(A[id].label)">
                 <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
-              </UTooltip>
+              </RTooltip>
             </div>
             <div class="rv-rg__row">
-              <UTooltip v-for="id in ids(G.align)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+              <RTooltip v-for="id in ids(G.align)" :key="id" :text="tl(A[id].label)">
                 <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
-              </UTooltip>
+              </RTooltip>
             </div>
           </div>
           <span class="rv-rg__label">{{ tr('rve_paragraph', 'Paragraph') }}</span>
@@ -316,9 +329,9 @@ onBeforeUnmount(() => { pop.value = null })
         <section v-if="vis('tables')" class="rv-rg" :aria-label="tr('rve_tables', 'Tables')">
           <div class="rv-rg__body">
             <span class="rv-pop-wrap">
-              <UTooltip :text="tr('rve_insert_table', 'Insert a table')">
+              <RTooltip :text="tr('rve_insert_table', 'Insert a table')">
                 <button type="button" class="rv-big" :class="{ 'is-active': pop === 'table' }" :disabled="!usable('tables')" aria-haspopup="true" :aria-expanded="pop === 'table'" @mousedown.prevent @click="togglePop('table')"><UIcon name="i-lucide-table" /><span>{{ tr('rve_table', 'Table') }}</span></button>
-              </UTooltip>
+              </RTooltip>
               <div v-if="pop === 'table'" class="rv-pop rv-pop--grid" role="dialog" :aria-label="tr('rve_insert_table', 'Insert a table')">
                 <div class="rv-pop__label">{{ grid.r > 0 ? `${grid.r} × ${grid.c} ${tr('rve_table', 'Table')}` : tr('rve_insert_table', 'Insert a table') }}</div>
                 <div class="rv-grid" :style="{ gridTemplateColumns: `repeat(${GRID_COLS}, 20px)` }" @mouseleave="grid.r = grid.c = 0">
@@ -334,9 +347,9 @@ onBeforeUnmount(() => { pop.value = null })
 
         <section v-if="mediaItems.length" class="rv-rg" :aria-label="tr('rve_media', 'Media')">
           <div class="rv-rg__body">
-            <UTooltip v-for="item in mediaItems" :key="item.id || item.title" :text="tr(item.hintKey, item.hint) || tr(item.titleKey, item.title)">
+            <RTooltip v-for="item in mediaItems" :key="item.id || item.title" :text="tr(item.hintKey, item.hint) || tr(item.titleKey, item.title)">
               <button type="button" class="rv-big" :disabled="!editable" @mousedown.prevent @click="runItem(item)"><UIcon :name="item.icon" /><span>{{ tr(item.titleKey, item.title) }}</span></button>
-            </UTooltip>
+            </RTooltip>
           </div>
           <span class="rv-rg__label">{{ tr('rve_media', 'Media') }}</span>
         </section>
@@ -344,9 +357,9 @@ onBeforeUnmount(() => { pop.value = null })
         <section v-if="vis('links')" class="rv-rg" :aria-label="tr('rve_links', 'Links')">
           <div class="rv-rg__body">
             <span class="rv-pop-wrap">
-              <UTooltip :text="tr('rve_link', 'Link')" :kbds="['meta', 'K']">
+              <RTooltip :text="tr('rve_link', 'Link')" :kbds="['meta', 'K']">
                 <button type="button" class="rv-big" :class="{ 'is-active': act('link') || pop === 'link' }" :disabled="!usable('links')" aria-haspopup="true" :aria-expanded="pop === 'link'" @mousedown.prevent @click="toggleLink()"><UIcon name="i-lucide-link" /><span>{{ tr('rve_link', 'Link') }}</span></button>
-              </UTooltip>
+              </RTooltip>
               <div v-if="pop === 'link'" class="rv-pop rv-pop--link" role="dialog" :aria-label="tr('rve_link', 'Link')">
                 <input ref="linkInput" v-model="linkUrl" class="rv-input" type="text" :placeholder="tr('rve_paste_link', 'Paste a link…')" :aria-label="tr('rve_link_url', 'Link URL')" @keydown.enter.prevent="submitLink" @keydown.esc.prevent="pop = null">
                 <p v-if="linkError" class="rv-pop__error" role="alert">{{ linkError }}</p>
@@ -362,9 +375,9 @@ onBeforeUnmount(() => { pop.value = null })
 
         <section v-if="blockItems.length" class="rv-rg" :aria-label="tr('rve_blocks', 'Blocks')">
           <div class="rv-rg__body">
-            <UTooltip v-for="item in blockItems" :key="item.id || item.title" :text="tr(item.hintKey, item.hint) || tr(item.titleKey, item.title)">
+            <RTooltip v-for="item in blockItems" :key="item.id || item.title" :text="tr(item.hintKey, item.hint) || tr(item.titleKey, item.title)">
               <button type="button" class="rv-big" :disabled="!editable" @mousedown.prevent @click="runItem(item)"><UIcon :name="item.icon" /><span>{{ tr(item.titleKey, item.title) }}</span></button>
-            </UTooltip>
+            </RTooltip>
           </div>
           <span class="rv-rg__label">{{ tr('rve_blocks', 'Blocks') }}</span>
         </section>
@@ -374,9 +387,9 @@ onBeforeUnmount(() => { pop.value = null })
       <template v-if="isShown('layout') && ribbon">
         <section v-if="ids(G.indent).length" class="rv-rg" :aria-label="tr('rve_indent', 'Indent')">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.indent)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+            <RTooltip v-for="id in ids(G.indent)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
-            </UTooltip>
+            </RTooltip>
           </div>
           <span class="rv-rg__label">{{ tr('rve_indent', 'Indent') }}</span>
         </section>
@@ -407,25 +420,25 @@ onBeforeUnmount(() => { pop.value = null })
       <template v-if="isShown('table') && tableActive">
         <section class="rv-rg" :aria-label="tr('rve_rows_and_columns', 'Rows and columns')">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.rows)" :key="id" :text="tl(A[id].label)">
+            <RTooltip v-for="id in ids(G.rows)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
-            </UTooltip>
+            </RTooltip>
           </div>
           <span class="rv-rg__label">{{ tr('rve_rows_and_columns', 'Rows & columns') }}</span>
         </section>
         <section class="rv-rg" :aria-label="tr('rve_merge', 'Merge')">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.merge)" :key="id" :text="tl(A[id].label)">
+            <RTooltip v-for="id in ids(G.merge)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
-            </UTooltip>
+            </RTooltip>
           </div>
           <span class="rv-rg__label">{{ tr('rve_merge', 'Merge') }}</span>
         </section>
         <section class="rv-rg" :aria-label="tr('rve_table', 'Table')">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.table)" :key="id" :text="tl(A[id].label)">
+            <RTooltip v-for="id in ids(G.table)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big rv-big--sm" :class="{ 'is-active': isOn(id), 'is-danger': id === 'deleteTable' }" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
-            </UTooltip>
+            </RTooltip>
           </div>
           <span class="rv-rg__label">{{ tr('rve_table', 'Table') }}</span>
         </section>
@@ -442,50 +455,50 @@ onBeforeUnmount(() => { pop.value = null })
   z-index: 30;
   background: var(--bg-content);
   border-bottom: 1px solid var(--border-card);
-  border-radius: 12px 12px 0 0;
+  border-radius: 14px 14px 0 0;
 }
-.rv-tb__strip { display: flex; align-items: center; gap: 8px; padding: 4px 12px 0; }
+.rv-tb__strip { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border-card); }
 .rv-tb__grow { flex: 1 1 auto; }
-.rv-qat { display: flex; align-items: center; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--border-card); }
-.rv-tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.rv-qat { display: flex; align-items: center; gap: 2px; padding: 3px; background: color-mix(in srgb, var(--color-w-b-1) 5%, transparent); border-radius: 10px; }
+.rv-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; padding: 3px; background: color-mix(in srgb, var(--color-w-b-1) 5%, transparent); border-radius: 10px; overflow-x: auto; scrollbar-width: none; }
 .rv-tab {
   position: relative;
-  padding: 7px 14px;
+  padding: 6px 14px;
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--c-muted);
-  border-radius: 6px 6px 0 0;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 120ms cubic-bezier(0.2, 0.7, 0.2, 1), background 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
-  &:hover { color: var(--color-w-b-1); background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); }
-  &.is-active { color: var(--color-primary); font-weight: 600; background: var(--bg-hover); }
-  &.is-active::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--color-primary); border-radius: 2px 2px 0 0; }
+  transition: color 140ms cubic-bezier(0.2, 0.7, 0.2, 1), background 140ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  &:hover { color: var(--color-w-b-1); background: color-mix(in srgb, var(--color-w-b-1) 7%, transparent); }
+  &.is-active { color: var(--color-primary); font-weight: 600; background: var(--bg-content); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent); }
   &.is-contextual { color: var(--c-accent); }
-  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 }
 .rv-tb__panel {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 0;
+  gap: 8px;
   min-height: 84px;
-  padding: 6px 8px 4px;
+  padding: 10px 12px;
   background: var(--bg-hover);
-  border-top: 1px solid var(--border-card);
 }
 .rv-rg {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 0 8px;
-  border-right: 1px solid var(--border-card);
-  &:last-child { border-right: 0; }
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-content);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 .rv-rg__body { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; flex: 1 1 auto; }
 .rv-rg__body--rows { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; flex-wrap: nowrap; }
 .rv-rg__row { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
-.rv-rg__label { padding-top: 2px; font-size: 0.6875rem; color: color-mix(in srgb, var(--c-muted) 65%, transparent); text-align: center; letter-spacing: 0.02em; }
+.rv-rg__label { order: -1; font-size: 0.625rem; font-weight: 600; color: color-mix(in srgb, var(--c-muted) 80%, transparent); text-align: left; text-transform: uppercase; letter-spacing: 0.06em; }
 .rv-pop-wrap { position: relative; display: inline-flex; }
 
 .rv-big {
@@ -495,24 +508,24 @@ onBeforeUnmount(() => { pop.value = null })
   justify-content: center;
   gap: 4px;
   min-width: 56px;
-  height: 60px;
+  height: 58px;
   padding: 4px 8px;
   font-size: 0.75rem;
   color: var(--color-w-b-1);
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 120ms cubic-bezier(0.2, 0.7, 0.2, 1), color 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
-  .iconify { font-size: 1.4rem; color: var(--color-primary); }
-  &:hover:not(:disabled) { background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); }
-  &.is-active { background: color-mix(in srgb, var(--color-primary) 11%, transparent); }
+  transition: background 140ms cubic-bezier(0.2, 0.7, 0.2, 1), color 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  .iconify { font-size: 1.35rem; color: var(--color-primary); }
+  &:hover:not(:disabled) { background: color-mix(in srgb, var(--color-w-b-1) 7%, transparent); }
+  &.is-active { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
   &.is-danger .iconify { color: var(--r-c-danger); }
   &:disabled { opacity: 0.38; cursor: not-allowed; }
   &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 }
-.rv-big--sm { min-width: 52px; height: 56px; .iconify { font-size: 1.2rem; } }
+.rv-big--sm { min-width: 52px; height: 54px; .iconify { font-size: 1.15rem; } }
 
 .rv-select {
-  height: 28px;
+  height: 30px;
   max-width: 10rem;
   padding: 0 8px;
   font: inherit;
@@ -520,7 +533,7 @@ onBeforeUnmount(() => { pop.value = null })
   color: var(--color-w-b-1);
   background: var(--bg-content);
   border: 1px solid var(--border-card);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   &:hover:not(:disabled) { border-color: var(--color-w-b-4); }
   &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }

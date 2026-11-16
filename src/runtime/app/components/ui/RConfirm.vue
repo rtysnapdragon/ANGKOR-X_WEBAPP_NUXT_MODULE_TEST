@@ -102,7 +102,6 @@ import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { useConfirmStore } from '../../stores/confirm'
 import { h, isVNode, defineComponent } from 'vue'
-const { tr } = useTr()
 const confirmStore = useConfirmStore();
 
 // const isOpen = computed(() => !!confirmStore.data);

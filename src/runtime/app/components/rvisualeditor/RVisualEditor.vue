@@ -14,10 +14,12 @@ import { TableKit } from '@tiptap/extension-table'
 import { Placeholder, CharacterCount } from '@tiptap/extensions'
 import { Typography } from '@tiptap/extension-typography'
 import { Suggestion } from '@tiptap/suggestion'
-import { onClickOutside, useElementSize, usePreferredDark } from '@vueuse/core'
+import { onClickOutside, useElementSize } from '@vueuse/core'
 import createDOMPurify from 'dompurify'
 import RVToolbar from './RVToolbar.vue'
 import { z } from 'zod'
+import { useI18n } from 'vue-i18n'
+import RTooltip from '../RTooltip.vue'
 
 defineOptions({ name: 'RVisualEditor' })
 
@@ -40,12 +42,30 @@ const props = defineProps({
   minHeight: { type: [Number, String], default: 480 },
   maxWidth: { type: [Number, String], default: 860 },
   autofocus: { type: [Boolean, String, Number], default: false },
+  canvasOptions: { type: Object, default: () => ({}) }, // { width, height, background } — default design page
+  designs: { type: Object, default: () => ({}) }, // { [imageUrl]: design } — reopen saved designs
 })
 
 const emit = defineEmits([
   'update:modelValue', 'update', 'change', 'save', 'error', 'focus', 'blur',
-  'upload', 'media-select', 'object-select', 'object-transform', 'ready',
+  'upload', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved',
 ])
+
+// =====================================================================================================
+// i18n: use vue-i18n when the host app provides it, otherwise fall back to the English literal.
+// `t(key, fallback)` is always safe to call; `tKey(label)` derives a stable `rve_*` key from a label.
+// =====================================================================================================
+let i18n = null
+try { i18n = useI18n() } catch { i18n = null }
+const t = (key, fallback) => {
+  try {
+    if (i18n && typeof i18n.te === 'function' && i18n.te(key)) return i18n.t(key)
+    if (i18n && typeof i18n.t === 'function') { const v = i18n.t(key); if (v && v !== key) return v }
+  } catch { /* not translated */ }
+  return fallback
+}
+const tKey = (label) => `rve_${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+const tl = (label) => t(tKey(label), label)
 
 // =====================================================================================================
 // Constants and pure helpers
@@ -67,15 +87,33 @@ const EXT_MIME = {
   mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', pdf: 'application/pdf',
 }
 const KIND_LABEL = { image: 'Image', video: 'Video', audio: 'Audio', file: 'File' }
+const kindLabel = (k) => t(`rve_kind_${k}`, KIND_LABEL[k] ?? '')
 
 // Font storage contract: the document stores the canonical family KEY only (e.g. "Georgia").
 const DEFAULT_FONTS = [
-  { key: 'System UI', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
-  { key: 'Arial', stack: 'Arial, Helvetica, sans-serif' },
-  { key: 'Verdana', stack: 'Verdana, Geneva, sans-serif' },
-  { key: 'Georgia', stack: 'Georgia, "Times New Roman", serif' },
-  { key: 'Times New Roman', stack: '"Times New Roman", Times, serif' },
-  { key: 'Courier New', stack: '"Courier New", Courier, monospace' },
+  { key: 'System UI', group: 'Latin', stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
+  { key: 'Inter', group: 'Latin', stack: 'Inter, system-ui, -apple-system, sans-serif' },
+  { key: 'Roboto', group: 'Latin', stack: 'Roboto, Arial, Helvetica, sans-serif' },
+  { key: 'Arial', group: 'Latin', stack: 'Arial, Helvetica, sans-serif' },
+  { key: 'Verdana', group: 'Latin', stack: 'Verdana, Geneva, sans-serif' },
+  { key: 'Georgia', group: 'Latin', stack: 'Georgia, "Times New Roman", serif' },
+  { key: 'Times New Roman', group: 'Latin', stack: '"Times New Roman", Times, serif' },
+  { key: 'Courier New', group: 'Latin', stack: '"Courier New", Courier, monospace' },
+  { key: 'Noto Sans Khmer', group: 'Khmer', stack: '"Noto Sans Khmer", "Khmer OS", sans-serif' },
+  { key: 'Kantumruy Pro', group: 'Khmer', stack: '"Kantumruy Pro", "Noto Sans Khmer", sans-serif' },
+  { key: 'Battambang', group: 'Khmer', stack: 'Battambang, "Noto Sans Khmer", sans-serif' },
+  { key: 'Hanuman', group: 'Khmer', stack: 'Hanuman, "Noto Sans Khmer", sans-serif' },
+  { key: 'Nokora', group: 'Khmer', stack: 'Nokora, "Noto Sans Khmer", sans-serif' },
+  { key: 'Siemreap', group: 'Khmer', stack: 'Siemreap, "Noto Sans Khmer", sans-serif' },
+  { key: 'Suwannaphum', group: 'Khmer', stack: 'Suwannaphum, "Noto Sans Khmer", sans-serif' },
+  { key: 'Koh Santepheap', group: 'Khmer', stack: '"Koh Santepheap", "Noto Sans Khmer", sans-serif' },
+  { key: 'Kdam Thmor Pro', group: 'Khmer', stack: '"Kdam Thmor Pro", "Noto Sans Khmer", sans-serif' },
+  { key: 'Bayon', group: 'Khmer', stack: 'Bayon, "Noto Sans Khmer", serif' },
+  { key: 'Moul', group: 'Khmer', stack: 'Moul, "Noto Sans Khmer", serif' },
+  { key: 'Khmer OS', group: 'Khmer', stack: '"Khmer OS", "Noto Sans Khmer", sans-serif' },
+  { key: 'Khmer OS Battambang', group: 'Khmer', stack: '"Khmer OS Battambang", Battambang, "Noto Sans Khmer", sans-serif' },
+  { key: 'Khmer OS Siemreap', group: 'Khmer', stack: '"Khmer OS Siemreap", Siemreap, "Noto Sans Khmer", sans-serif' },
+  { key: 'Khmer OS Content', group: 'Khmer', stack: '"Khmer OS Content", "Noto Sans Khmer", sans-serif' },
 ]
 const FAMILY_RE = /^[\w .\-]{1,64}$/
 const SIZE_RE = /^\d{1,3}(\.\d{1,2})?(px|pt|em|rem)$/
@@ -139,7 +177,7 @@ const sanitizeHTML = (html) => getPurify()?.sanitize(String(html), { ADD_ATTR: [
 
 async function sanitizeSvgFile(file) {
   const clean = getPurify()?.sanitize(await file.text(), { USE_PROFILES: { svg: true, svgFilters: true } })
-  if (!clean) throw new Error('This SVG could not be sanitized.')
+  if (!clean) throw new Error(t('rve_svg_sanitize_error', 'This SVG could not be sanitized.'))
   return new File([clean], file.name, { type: 'image/svg+xml' })
 }
 
@@ -159,15 +197,15 @@ async function xhrUpload(file, cfg, { onProgress, signal }) {
     xhr.withCredentials = !!cfg.withCredentials
     for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total) }
-    xhr.onerror = () => reject(new Error('Network error while uploading.'))
+    xhr.onerror = () => reject(new Error(t('rve_network_error', 'Network error while uploading.')))
     xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
     xhr.onload = () => {
-      if (xhr.status < 200 || xhr.status >= 300) return reject(new Error(`Upload failed (HTTP ${xhr.status}).`))
+      if (xhr.status < 200 || xhr.status >= 300) return reject(new Error(`${t('rve_upload_failed', 'Upload failed')} (HTTP ${xhr.status}).`))
       try {
         const json = JSON.parse(xhr.responseText)
         const mapped = cfg.mapResponse ? cfg.mapResponse(json) : json
         resolve({ url: mapped?.url ?? mapped?.data?.url ?? mapped?.location, ...mapped })
-      } catch { reject(new Error('The upload endpoint returned an invalid response.')) }
+      } catch { reject(new Error(t('rve_upload_invalid_response', 'The upload endpoint returned an invalid response.'))) }
     }
     signal?.addEventListener('abort', () => xhr.abort())
     const form = new FormData()
@@ -185,23 +223,25 @@ const FEATURE_KEYS = [
   'toolbar', 'footer', 'history', 'wordCount', 'zoom', 'textFormatting', 'fonts', 'colors', 'headings', 'alignment', 'lists', 'blockquote',
   'indent', 'spacing', 'links', 'tables', 'codeBlock', 'divider', 'callout', 'typography',
   'slashMenu', 'bubbleMenu', 'blockHandle', 'dropFiles', 'media', 'images', 'videos', 'audio', 'files',
-  'floatingMedia', 'shapes', 'drawing',
+  'floatingMedia', 'shapes', 'drawing', 'canvas',
 ]
 const optShape = {
+  // Generic feature flags first, so the explicit config keys below can override the flag schema.
+  ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, flag])),
   theme: z.enum(['light', 'dark', 'system']),
   appearance: z.enum(['notion', 'paper']),
   toolbarMode: z.enum(['ribbon', 'compact']), // ribbon = Word-style tabs; compact = single-row (UEditor-style)
   editable: z.boolean(),
   emitDebounce: z.number().int().min(0).max(10000),
   allowBlobUrls: z.boolean(), // demos only: accept blob: URLs returned by an uploader
-  fonts: z.array(z.object({ key: z.string().regex(FAMILY_RE), stack: z.string().optional() })).min(1),
+  // `fonts` is both a feature flag (true | 'hidden' | 'disabled' | false) and the font-list config.
+  fonts: z.union([flag, z.array(z.object({ key: z.string().regex(FAMILY_RE), group: z.string().optional(), stack: z.string().optional() })).min(1)]),
   fontSizes: z.array(z.number().int().min(6).max(200)).min(1),
-  ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, flag])),
 }
 const OPT_DEFAULTS = {
-  theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false,
-  fonts: DEFAULT_FONTS, fontSizes: [12, 14, 16, 18, 20, 24, 28, 32, 40, 48],
   ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, true])),
+  theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false,
+  fonts: DEFAULT_FONTS, fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96],
   wordCount: true,
   zoom: false,
 }
@@ -229,10 +269,17 @@ function resolveOptions(raw, overrides) {
     if (r.success) merged[key] = r.data
     else warn(`Invalid option "${key}" (${r.error.issues[0]?.message}); using default.`)
   }
+  // `fonts` is both a feature flag and the font-list config: keep `merged.fonts` as an array (so
+  // `opts.fonts.find` is always safe) and remember an explicit flag value for the feature state.
+  const fontFlag = Array.isArray(merged.fonts) ? undefined : merged.fonts
+  if (fontFlag !== undefined) merged.fonts = OPT_DEFAULTS.fonts
   for (const [child, parent] of Object.entries(DEPENDS_ON)) merged[child] = inherit(merged[parent], merged[child])
+  const stateOf = (key) => (key === 'fonts'
+    ? (fontFlag !== undefined ? toState(fontFlag) : { register: true, visible: true, enabled: true })
+    : toState(merged[key]))
   return Object.freeze({
     ...merged,
-    features: Object.freeze(Object.fromEntries(FEATURE_KEYS.map((k) => [k, toState(merged[k])]))),
+    features: Object.freeze(Object.fromEntries(FEATURE_KEYS.map((k) => [k, stateOf(k)]))),
   })
 }
 const opts = computed(() => resolveOptions(props.options, { editable: props.editable, theme: props.theme }))
@@ -266,9 +313,22 @@ const uploading = ref(0) // uploads currently in flight
 const toolbarRef = ref(null)
 const mounted = ref(false) // client-only values are computed after mount so SSR and hydration markup match
 const hostHasMode = ref(false)
-const prefersDark = usePreferredDark()
-// `.dark` on the editor root re-scopes the _color.scss tokens (theme="dark", or system with no host color mode)
-const forceDark = computed(() => mounted.value && (opts.value.theme === 'dark' || (opts.value.theme === 'system' && !hostHasMode.value && prefersDark.value)))
+// The host may toggle dark/light by adding a class to <html> or <body> after mount; track it live so the
+// editor never gets stuck in the wrong mode. Falls back gracefully when there is no DOM (SSR).
+const readHostMode = () => {
+  if (!import.meta.client) return false
+  const roots = [document.documentElement, document.body].filter(Boolean)
+  return roots.some((el) => el.classList.contains('dark') || el.classList.contains('light'))
+}
+let hostModeObserver = null
+function watchHostMode() {
+  hostHasMode.value = readHostMode()
+  if (typeof MutationObserver === 'undefined') return
+  hostModeObserver = new MutationObserver(() => { hostHasMode.value = readHostMode() })
+  const watch = { attributes: true, attributeFilter: ['class'] }
+  if (document.documentElement) hostModeObserver.observe(document.documentElement, watch)
+  if (document.body) hostModeObserver.observe(document.body, watch)
+}
 const notice = ref('')
 let noticeTimer = null
 let bumpRaf = 0
@@ -308,7 +368,7 @@ const attrs = (name) => { try { return any()?.getAttributes(name) ?? {} } catch 
 const RVTextStyle = Extension.create({
   name: 'rvTextStyle',
   addGlobalAttributes() {
-    const stacks = opts.value.fonts ?? []
+    const stacks = Array.isArray(opts.value.fonts) ? opts.value.fonts : []
     const attributes = {}
     if (on('fonts')) {
       attributes.fontFamily = {
@@ -431,6 +491,48 @@ const ICONS = {
   download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'),
   alert: svg('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
   retry: svg('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'),
+  design: svg('<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.7-1.7h2C18.6 16.4 21 14 21 11c0-5-4.5-9-9-9Z"/>'),
+  floatLeft: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>'),
+  floatRight: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>'),
+  size: svg('<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M14 15H9v-5"/><path d="M16 3h5v5"/><path d="M21 3l-7 7"/>'),
+}
+// Media editing constants (shared by the media NodeView).
+const MEDIA_LAYOUTS = ['float-left', 'float-right']
+const RESIZE_DIRS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+const RESIZE_HANDLES = { image: RESIZE_DIRS, video: ['nw', 'ne', 'se', 'sw', 'w', 'e'] }
+const LAYOUT_CSS = { 'float-left': 'float:left;margin:0 1rem .5rem 0;max-width:60%', 'float-right': 'float:right;margin:0 0 .5rem 1rem;max-width:60%' }
+// Reads a pixel number from an inline style string, e.g. pxValue('height:120px', 'height') -> 120.
+const pxValue = (style, prop) => {
+  const m = typeof style === 'string' ? style.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)px`)) : null
+  return m ? Math.round(Number(m[1])) : null
+}
+// A single floating menu shared by every media bar (only one open at a time).
+let barMenuEl = null
+function closeBarMenu() {
+  if (!barMenuEl) return
+  barMenuEl.remove()
+  barMenuEl = null
+  document.removeEventListener('pointerdown', onBarMenuOutside, true)
+  window.removeEventListener('scroll', closeBarMenu, true)
+}
+function onBarMenuOutside(e) { if (barMenuEl && !barMenuEl.contains(e.target)) closeBarMenu() }
+function openBarMenu(anchor, items) {
+  closeBarMenu()
+  const menu = h('div', 'rv-media__menu', { role: 'menu' })
+  for (const it of items) {
+    const btn = h('button', 'rv-media__menu-item', { type: 'button', role: 'menuitem' })
+    btn.textContent = it.label
+    if (it.active) btn.classList.add('is-active')
+    btn.addEventListener('click', () => { closeBarMenu(); it.onClick() })
+    menu.append(btn)
+  }
+  document.body.append(menu)
+  const r = anchor.getBoundingClientRect()
+  menu.style.top = `${r.bottom + 4}px`
+  menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`
+  barMenuEl = menu
+  setTimeout(() => document.addEventListener('pointerdown', onBarMenuOutside, true), 0)
+  window.addEventListener('scroll', closeBarMenu, true)
 }
 const h = (tag, cls, attrsObj = {}) => {
   const n = document.createElement(tag)
@@ -444,11 +546,12 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
   const dom = h('div', 'rv-media')
   const figure = h('figure', 'rv-media__figure')
   const body = h('div', 'rv-media__body')
-  const bar = h('div', 'rv-media__bar', { 'data-rv-interactive': '', role: 'toolbar', 'aria-label': 'Media options' })
-  const caption = h('input', 'rv-media__caption', { type: 'text', placeholder: 'Write a caption…', 'aria-label': 'Caption', 'data-rv-interactive': '' })
-  const handleL = h('div', 'rv-media__resize rv-media__resize--l', { 'data-rv-interactive': '', 'aria-hidden': 'true' })
-  const handleR = h('div', 'rv-media__resize rv-media__resize--r', { 'data-rv-interactive': '', 'aria-hidden': 'true' })
-  figure.append(body, bar, handleL, handleR, caption)
+  const bar = h('div', 'rv-media__bar', { 'data-rv-interactive': '', role: 'toolbar', 'aria-label': t('rve_media_options', 'Media options') })
+  const caption = h('input', 'rv-media__caption', { type: 'text', placeholder: t('rve_write_caption', 'Write a caption…'), 'aria-label': t('rve_caption', 'Caption'), 'data-rv-interactive': '' })
+  const badge = h('div', 'rv-media__badge', { 'aria-hidden': 'true' })
+  const handles = {}
+  for (const dir of RESIZE_DIRS) handles[dir] = h('div', `rv-media__resize rv-media__resize--${dir}`, { 'data-rv-interactive': '', 'aria-hidden': 'true', 'data-dir': dir })
+  figure.append(body, bar, badge, ...RESIZE_DIRS.map((d) => handles[d]), caption)
   dom.append(figure)
   let progressEl = null
   let progressLabel = null
@@ -463,18 +566,82 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     if (typeof pos === 'number') ed.view.dispatch(ed.state.tr.delete(pos, pos + node.nodeSize))
   }
   const button = (icon, label, onClick, text) => {
-    const b = h('button', 'rv-media__btn', { type: 'button', title: label, 'aria-label': label })
-    if (text) b.textContent = text
-    else b.innerHTML = icon
-    b.addEventListener('mousedown', (e) => e.preventDefault())
-    b.addEventListener('click', (e) => { e.stopPropagation(); onClick() })
-    return b
+    const b = h(
+      'button',
+      {
+        type: 'button',
+        class: 'rv-media__btn',
+        'aria-label': label
+      },
+      text || null
+    )
+
+    if (!text) {
+      b.children = icon
+    }
+
+    b.props = {
+      ...b.props,
+      onMousedown: (e) => e.preventDefault(),
+      onClick: (e) => {
+        e.stopPropagation()
+        onClick()
+      }
+    }
+
+    return h(RTooltip, {
+      text: label
+    }, {
+      default: () => b
+    })
   }
   const setProgress = (p) => {
     if (progressEl) progressEl.style.width = `${Math.round(p * 100)}%`
     if (progressLabel) progressLabel.textContent = `${Math.round(p * 100)}%`
   }
   const register = () => { if (node.attrs.uploadId) mediaCtx.views.set(node.attrs.uploadId, { setProgress }) }
+
+  const columnWidth = () => dom.parentElement?.clientWidth || dom.getBoundingClientRect().width || 1
+  const downloadMedia = () => {
+    const src = safeUrl(node.attrs.src, opts.value.allowBlobUrls)
+    if (!src) return
+    const link = document.createElement('a')
+    link.href = src
+    link.download = node.attrs.filename || node.attrs.alt || ''
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    link.click()
+  }
+  // Swap the file behind this node, keeping its size / layout / caption.
+  const replaceMedia = () => {
+    const kind = node.attrs.kind
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = (MEDIA_MIME[kind] ?? []).join(',')
+    input.addEventListener('change', () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const v = validateFile(file)
+      if (v.error) { showNotice(v.error); emit('error', { source: 'media', code: v.code, file, error: new Error(v.error) }); return }
+      const pos = getPos()
+      if (typeof pos !== 'number') return
+      const uploadId = uid()
+      ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, kind: v.kind, status: 'uploading', uploadId, filename: file.name, size: file.size, mime: v.type, error: '' }))
+      startUpload({ file, kind: v.kind, uploadId })
+    })
+    input.click()
+  }
+  const sizeItems = () => {
+    const col = columnWidth()
+    const items = [25, 50, 75, 100].map((p) => ({ label: `${p}% ${t('rve_of_column', 'of column')}`, active: clampWidth(node.attrs.width) === p, onClick: () => patch({ width: p, height: null }) }))
+    items.push({ label: t('rve_size_original', 'Original size'), onClick: () => {
+      const el = body.querySelector('img,video')
+      const natural = el?.naturalWidth || el?.videoWidth
+      if (natural) patch({ width: clampWidth((Math.min(natural, col) / col) * 100), height: null })
+    } })
+    items.push({ label: t('rve_size_reset', 'Reset size'), onClick: () => patch({ width: 100, height: null }) })
+    return items
+  }
 
   function renderBody() {
     const a = node.attrs
@@ -483,11 +650,11 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     if (a.status === 'uploading') {
       const box = h('div', 'rv-media__state')
       const label = h('div', 'rv-media__label')
-      label.textContent = `Uploading ${a.filename || KIND_LABEL[a.kind]?.toLowerCase() || 'file'}…`
+      label.textContent = `${t('rve_uploading', 'Uploading')} ${a.filename || kindLabel(a.kind).toLowerCase() || t('rve_file_singular', 'file')}…`
       progressLabel = h('span', 'rv-media__pct')
       progressLabel.textContent = '0%'
       label.append(progressLabel)
-      const track = h('div', 'rv-media__progress', { role: 'progressbar', 'aria-label': 'Upload progress' })
+      const track = h('div', 'rv-media__progress', { role: 'progressbar', 'aria-label': t('rve_upload_progress', 'Upload progress') })
       progressEl = h('span')
       progressEl.style.width = '0%'
       track.append(progressEl)
@@ -495,17 +662,17 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       body.append(box)
       return
     }
-    const src = safeUrl(a.src, opts.value.allowBlobUrls)
+    const src = a.draft ? (a.src || null) : safeUrl(a.src, opts.value.allowBlobUrls)
     if (a.status === 'error' || !src) {
       const box = h('div', 'rv-media__state rv-media__state--error')
       const msg = h('div', 'rv-media__label')
       msg.innerHTML = ICONS.alert
       const text = h('span')
-      text.textContent = a.error || 'This file is not available.'
+      text.textContent = a.error || t('rve_this_file_not_available', 'This file is not available.')
       msg.append(text)
       const row = h('div', 'rv-media__actions', { 'data-rv-interactive': '' })
-      if (a.uploadId && mediaCtx.canRetry(a.uploadId)) row.append(button(ICONS.retry, 'Retry upload', () => { patch({ status: 'uploading', error: '' }); mediaCtx.onRetry(a.uploadId) }, 'Retry'))
-      row.append(button(ICONS.trash, 'Remove', remove, 'Remove'))
+      if (a.uploadId && mediaCtx.canRetry(a.uploadId)) row.append(button(ICONS.retry, t('rve_retry_upload', 'Retry upload'), () => { patch({ status: 'uploading', error: '' }); mediaCtx.onRetry(a.uploadId) }, t('rve_retry', 'Retry')))
+      row.append(button(ICONS.trash, t('rve_remove', 'Remove'), remove, t('rve_remove', 'Remove')))
       box.append(msg, row)
       body.append(box)
       return
@@ -514,7 +681,8 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       const img = h('img', 'rv-media__img', { loading: 'lazy', decoding: 'async', draggable: 'false' })
       img.alt = a.alt || ''
       img.src = src
-      img.addEventListener('error', () => { img.replaceWith(Object.assign(h('div', 'rv-media__state rv-media__state--error'), { textContent: 'The image could not be loaded.' })) })
+      if (a.height) { img.style.height = `${Math.round(a.height)}px`; img.style.objectFit = 'fill' }
+      img.addEventListener('error', () => { img.replaceWith(Object.assign(h('div', 'rv-media__state rv-media__state--error'), { textContent: t('rve_image_load_error', 'The image could not be loaded.') })) })
       body.append(img)
     } else if (a.kind === 'video') {
       const v = h('video', 'rv-media__video', { controls: '', preload: 'metadata', playsinline: '' })
@@ -532,7 +700,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       icon.innerHTML = ICONS.file
       const meta = h('span', 'rv-file__meta')
       const name = h('strong')
-      name.textContent = a.filename || 'Attachment'
+      name.textContent = a.filename || t('rve_attachment', 'Attachment')
       const sub = h('small')
       sub.textContent = [a.mime === 'application/pdf' ? 'PDF' : '', fmtBytes(a.size)].filter(Boolean).join(' · ')
       meta.append(name, sub)
@@ -547,48 +715,111 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     const a = node.attrs
     bar.replaceChildren()
     if (a.status !== 'ready') return
-    if (a.kind !== 'audio') {
+    const floated = MEDIA_LAYOUTS.includes(a.layout)
+    if (a.kind !== 'audio' && !floated) {
       for (const al of ALIGNS) {
-        const b = button(ICONS[al], `Align ${al}`, () => patch({ align: al }))
+        const b = button(ICONS[al], `${t('rve_align', 'Align')} ${t(`rve_align_${al}`, al)}`, () => patch({ align: al }))
         if (a.align === al) b.classList.add('is-active')
         bar.append(b)
       }
     }
-    if (a.kind === 'image') bar.append(button('', 'Alternative text', () => { const v = window.prompt('Alternative text (describe the image)', a.alt || ''); if (v !== null) patch({ alt: v.slice(0, 300) }) }, 'Alt'))
-    bar.append(button(ICONS.trash, 'Delete', remove))
+    if (a.kind === 'image' || a.kind === 'video') {
+      for (const [val, icon] of [['float-left', ICONS.floatLeft], ['float-right', ICONS.floatRight]]) {
+        const b = button(icon, t(`rve_${val.replace('-', '_')}`, val === 'float-left' ? 'Float left' : 'Float right'), () => patch({ layout: a.layout === val ? null : val }))
+        if (a.layout === val) b.classList.add('is-active')
+        bar.append(b)
+      }
+      const sb = button(ICONS.size, t('rve_size', 'Size'), () => {})
+      sb.addEventListener('click', () => openBarMenu(sb, sizeItems()))
+      bar.append(sb)
+    }
+    if (a.kind === 'image' && on('canvas')) bar.append(button(ICONS.design, t('rve_edit_design', 'Edit design'), () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }))
+    if (a.kind === 'image') bar.append(button('', t('rve_alt_text', 'Alternative text'), () => { const v = window.prompt(t('rve_alt_text_prompt', 'Alternative text (describe the image)'), a.alt || ''); if (v !== null) patch({ alt: v.slice(0, 300) }) }, t('rve_alt', 'Alt')))
+    if (a.linked) bar.append(button(ICONS.download, t('rve_download', 'Download'), downloadMedia))
+    bar.append(button(ICONS.retry, t('rve_replace', 'Replace'), replaceMedia))
+    bar.append(button(ICONS.trash, t('rve_delete', 'Delete'), remove))
   }
 
   function render() {
     const a = node.attrs
+    const floated = MEDIA_LAYOUTS.includes(a.layout)
+    const pct = clampWidth(a.width)
     dom.dataset.kind = a.kind
     dom.dataset.align = ALIGNS.includes(a.align) ? a.align : 'center'
+    dom.dataset.layout = floated ? a.layout : ''
     dom.dataset.status = a.status
-    figure.style.width = a.kind === 'image' || a.kind === 'video' ? `${clampWidth(a.width)}%` : ''
+    if (a.kind === 'image' || a.kind === 'video') {
+      dom.style.width = floated ? `${pct}%` : ''
+      figure.style.width = floated ? '100%' : `${pct}%`
+    } else {
+      dom.style.width = ''
+      figure.style.width = ''
+    }
     renderBody()
     renderBar()
     if (document.activeElement !== caption) caption.value = a.caption || ''
     caption.disabled = !ed.isEditable
-    handleL.hidden = handleR.hidden = !(a.status === 'ready' && (a.kind === 'image' || a.kind === 'video')) || !ed.isEditable
+    const dirs = a.status === 'ready' && ed.isEditable ? RESIZE_HANDLES[a.kind] : null
+    for (const d of RESIZE_DIRS) handles[d].hidden = !dirs || !dirs.includes(d)
     register()
   }
 
-  function startResize(side, e) {
+  function startResize(dir, e) {
     e.preventDefault()
     e.stopPropagation()
-    const container = dom.getBoundingClientRect().width || 1
+    const col = columnWidth()
+    const floated = MEDIA_LAYOUTS.includes(node.attrs.layout)
     const startW = figure.getBoundingClientRect().width
+    const startH = body.getBoundingClientRect().height || 1
+    const ratio = startW / startH
     const startX = e.clientX
-    const factor = node.attrs.align === 'center' ? 2 : 1
-    const dir = side === 'l' ? -1 : 1
+    const startY = e.clientY
+    const horizontal = dir.includes('w') || dir.includes('e')
+    const vertical = dir.includes('n') || dir.includes('s')
+    const sideX = dir.includes('w') ? -1 : 1
+    const sideY = dir.includes('n') ? -1 : 1
+    const corner = horizontal && vertical
+    const minW = node.attrs.kind === 'video' ? 160 : 40
+    let w = startW
+    let h = startH
     let pct = clampWidth(node.attrs.width)
-    const move = (ev) => { pct = clampWidth(((startW + dir * (ev.clientX - startX) * factor) / container) * 100); figure.style.width = `${pct}%` }
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); patch({ width: pct }) }
+    const snap = (val, ev) => (!ev.altKey && Math.abs(val - col) <= 10 ? col : val)
+    const move = (ev) => {
+      if (corner) {
+        w = Math.min(snap(Math.max(minW, startW + sideX * (ev.clientX - startX)), ev), col)
+        h = w / ratio
+      } else if (horizontal) {
+        w = Math.min(col, snap(Math.max(minW, startW + sideX * (ev.clientX - startX)), ev))
+        h = startH
+      } else {
+        h = Math.max(24, startH + sideY * (ev.clientY - startY))
+        w = startW
+      }
+      pct = clampWidth((w / col) * 100)
+      if (floated) dom.style.width = `${pct}%`
+      figure.style.width = floated ? '100%' : `${pct}%`
+      const media = body.querySelector('img,video')
+      if (media) {
+        media.style.height = corner ? '' : `${Math.round(h)}px`
+        media.style.objectFit = corner ? '' : 'fill'
+      }
+      badge.textContent = `${Math.round(w)} × ${Math.round(h)}`
+      badge.hidden = false
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      badge.hidden = true
+      const attrs = { width: pct }
+      attrs.height = corner ? null : Math.round(h)
+      patch(attrs)
+    }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
-  for (const [side, el] of [['l', handleL], ['r', handleR]]) {
-    el.addEventListener('mousedown', (e) => e.preventDefault())
-    el.addEventListener('pointerdown', (e) => startResize(side, e))
+  for (const dir of RESIZE_DIRS) {
+    handles[dir].addEventListener('mousedown', (e) => e.preventDefault())
+    handles[dir].addEventListener('pointerdown', (e) => startResize(dir, e))
   }
   const commitCaption = () => { if (caption.value !== node.attrs.caption) patch({ caption: caption.value.slice(0, 500) }) }
   caption.addEventListener('change', commitCaption)
@@ -611,6 +842,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     stopEvent: (event) => !!event.target?.closest?.('[data-rv-interactive]'),
     ignoreMutation: () => true,
     destroy() {
+      closeBarMenu()
       if (node.attrs.uploadId) mediaCtx.views.delete(node.attrs.uploadId)
       mediaCtx.onRemoved(node.attrs)
     },
@@ -626,8 +858,10 @@ const RVMedia = Node.create({
   addAttributes() {
     return {
       kind: { default: 'image' }, src: { default: null }, alt: { default: '' }, caption: { default: '' },
-      width: { default: 100 }, align: { default: 'center' }, filename: { default: '' }, size: { default: 0 }, mime: { default: '' },
+      width: { default: 100 }, height: { default: null }, align: { default: 'center' }, layout: { default: null },
+      filename: { default: '' }, size: { default: 0 }, mime: { default: '' },
       status: { default: 'ready' }, uploadId: { default: null }, error: { default: '' },
+      fileId: { default: null }, draft: { default: false }, design: { default: null }, linked: { default: false },
     }
   },
   parseHTML() {
@@ -641,10 +875,15 @@ const RVMedia = Node.create({
           const a = el.querySelector('a[href]')
           const src = safeUrl(m?.getAttribute('src') ?? a?.getAttribute('href'), opts.value.allowBlobUrls)
           const al = el.getAttribute('data-align')
+          const lay = el.getAttribute('data-layout')
+          const media = el.querySelector('img,video,audio')
           return {
             kind, src, alt: m?.getAttribute('alt') ?? '', caption: el.querySelector('figcaption')?.textContent ?? '',
             width: clampWidth(el.getAttribute('data-width')), align: ALIGNS.includes(al) ? al : 'center',
-            filename: a?.getAttribute('download') ?? '', status: src ? 'ready' : 'error', error: src ? '' : 'This file is not available.',
+            layout: MEDIA_LAYOUTS.includes(lay) ? lay : null,
+            height: pxValue(media?.getAttribute('style'), 'height'),
+            linked: el.getAttribute('data-linked') === 'true',
+            filename: a?.getAttribute('download') ?? '', status: src ? 'ready' : 'error', error: src ? '' : t('rve_this_file_not_available', 'This file is not available.'),
           }
         },
       },
@@ -653,14 +892,23 @@ const RVMedia = Node.create({
   },
   renderHTML({ node }) {
     const a = node.attrs
-    const src = safeUrl(a.src, opts.value.allowBlobUrls)
-    const wrap = { 'data-rv-media': KINDS.includes(a.kind) ? a.kind : 'image', 'data-align': ALIGNS.includes(a.align) ? a.align : 'center', 'data-width': clampWidth(a.width), style: `width: ${clampWidth(a.width)}%` }
+    const src = a.draft ? null : safeUrl(a.src, opts.value.allowBlobUrls)
+    const pct = clampWidth(a.width)
+    const layout = MEDIA_LAYOUTS.includes(a.layout) ? a.layout : null
+    const style = layout ? `width:${pct}%;${LAYOUT_CSS[layout]}` : `width:${pct}%`
+    const wrap = { 'data-rv-media': KINDS.includes(a.kind) ? a.kind : 'image', 'data-align': ALIGNS.includes(a.align) ? a.align : 'center', 'data-width': pct, style }
+    if (layout) wrap['data-layout'] = layout
+    if (a.linked) wrap['data-linked'] = 'true'
     const out = ['figure', wrap]
     if (src) {
       if (a.kind === 'video') out.push(['video', { src, controls: '', preload: 'metadata' }])
       else if (a.kind === 'audio') out.push(['audio', { src, controls: '', preload: 'metadata' }])
-      else if (a.kind === 'file') out.push(['a', { href: src, download: a.filename || '', target: '_blank', rel: 'noopener noreferrer' }, a.filename || 'Download'])
-      else out.push(['img', { src, alt: a.alt || '', loading: 'lazy' }])
+      else if (a.kind === 'file') out.push(['a', { href: src, download: a.filename || '', target: '_blank', rel: 'noopener noreferrer' }, a.filename || t('rve_download', 'Download')])
+      else {
+        const img = { src, alt: a.alt || '', loading: 'lazy' }
+        if (a.height) img.style = `height:${Math.round(a.height)}px;object-fit:fill`
+        out.push(['img', img])
+      }
     }
     if (a.caption) out.push(['figcaption', a.caption])
     return out
@@ -688,15 +936,15 @@ const slash = reactive({ open: false, items: [], index: 0, rect: null, command: 
 const slashGroups = computed(() => {
   const groups = []
   slash.items.forEach((item, i) => {
-    let g = groups.find((x) => x.name === item.group)
-    if (!g) groups.push((g = { name: item.group, items: [] }))
+    let g = groups.find((x) => x.key === item.groupKey)
+    if (!g) groups.push((g = { key: item.groupKey, name: t(item.groupKey, item.group), items: [] }))
     g.items.push({ item, i })
   })
   return groups
 })
 const slashStyle = computed(() => {
   const r = slash.rect
-  if (!r) return { visibility: 'hidden' }
+  if (!r || !import.meta.client) return { visibility: 'hidden' }
   const left = `${Math.max(8, Math.min(r.left, window.innerWidth - 340))}px`
   const below = window.innerHeight - r.bottom
   return below < 340 && r.top > below ? { left, bottom: `${window.innerHeight - r.top + 8}px`, maxHeight: `${Math.min(420, r.top - 16)}px` } : { left, top: `${r.bottom + 8}px`, maxHeight: `${Math.min(420, below - 16)}px` }
@@ -704,45 +952,58 @@ const slashStyle = computed(() => {
 const slashEl = ref(null)
 watch(() => slash.index, async () => { await nextTick(); slashEl.value?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }) })
 
+// Each item carries a stable `id` (used for lookups), a `groupKey`/`group`, and `titleKey`/`title` + `hintKey`/`hint`
+// pairs so the UI can be translated while code keeps matching on ids (never on translated text).
 function buildSlashItems() {
   const list = []
-  const add = (group, title, hint, icon, keywords, run) => list.push({ group, title, hint, icon, keywords, run })
+  const add = (id, group, groupKey, title, titleKey, hint, hintKey, icon, keywords, run) =>
+    list.push({ id, group, groupKey, title, titleKey, hint, hintKey, icon, keywords, run })
   const B = 'Basic blocks'
-  add(B, 'Text', 'Just start writing with plain text.', 'i-lucide-pilcrow', ['paragraph', 'p'], (e) => e.chain().focus().setParagraph().run())
+  const BK = 'rve_basic_blocks'
+  add('text', B, BK, 'Text', 'rve_text', 'Just start writing with plain text.', 'rve_just_start_writing', 'i-lucide-pilcrow', ['paragraph', 'p'], (e) => e.chain().focus().setParagraph().run())
   if (on('headings')) {
-    add(B, 'Heading 1', 'Big section heading.', 'i-lucide-heading-1', ['title', 'h1'], (e) => e.chain().focus().setHeading({ level: 1 }).run())
-    add(B, 'Heading 2', 'Medium section heading.', 'i-lucide-heading-2', ['subtitle', 'h2'], (e) => e.chain().focus().setHeading({ level: 2 }).run())
-    add(B, 'Heading 3', 'Small section heading.', 'i-lucide-heading-3', ['h3'], (e) => e.chain().focus().setHeading({ level: 3 }).run())
+    add('heading-1', B, BK, 'Heading 1', 'rve_heading_1', 'Big section heading.', 'rve_heading_1_hint', 'i-lucide-heading-1', ['title', 'h1'], (e) => e.chain().focus().setHeading({ level: 1 }).run())
+    add('heading-2', B, BK, 'Heading 2', 'rve_heading_2', 'Medium section heading.', 'rve_heading_2_hint', 'i-lucide-heading-2', ['subtitle', 'h2'], (e) => e.chain().focus().setHeading({ level: 2 }).run())
+    add('heading-3', B, BK, 'Heading 3', 'rve_heading_3', 'Small section heading.', 'rve_heading_3_hint', 'i-lucide-heading-3', ['h3'], (e) => e.chain().focus().setHeading({ level: 3 }).run())
   }
   if (on('lists')) {
-    add(B, 'Bulleted list', 'Create a simple bulleted list.', 'i-lucide-list', ['ul', 'bullet'], (e) => e.chain().focus().toggleBulletList().run())
-    add(B, 'Numbered list', 'Create a list with numbering.', 'i-lucide-list-ordered', ['ol', 'ordered'], (e) => e.chain().focus().toggleOrderedList().run())
-    add(B, 'To-do list', 'Track tasks with a to-do list.', 'i-lucide-list-checks', ['task', 'checkbox', 'todo'], (e) => e.chain().focus().toggleTaskList().run())
+    add('bullet-list', B, BK, 'Bulleted list', 'rve_bulleted_list', 'Create a simple bulleted list.', 'rve_bulleted_list_hint', 'i-lucide-list', ['ul', 'bullet'], (e) => e.chain().focus().toggleBulletList().run())
+    add('numbered-list', B, BK, 'Numbered list', 'rve_numbered_list', 'Create a list with numbering.', 'rve_numbered_list_hint', 'i-lucide-list-ordered', ['ol', 'ordered'], (e) => e.chain().focus().toggleOrderedList().run())
+    add('todo-list', B, BK, 'To-do list', 'rve_todo_list', 'Track tasks with a to-do list.', 'rve_todo_list_hint', 'i-lucide-list-checks', ['task', 'checkbox', 'todo'], (e) => e.chain().focus().toggleTaskList().run())
   }
-  if (on('blockquote')) add(B, 'Quote', 'Capture a quote.', 'i-lucide-text-quote', ['blockquote', 'cite'], (e) => e.chain().focus().toggleBlockquote().run())
+  if (on('blockquote')) add('quote', B, BK, 'Quote', 'rve_quote', 'Capture a quote.', 'rve_quote_hint', 'i-lucide-text-quote', ['blockquote', 'cite'], (e) => e.chain().focus().toggleBlockquote().run())
   if (on('callout')) {
-    add(B, 'Callout', 'Make writing stand out.', 'i-lucide-lightbulb', ['info', 'note', 'tip'], (e) => e.chain().focus().toggleWrap('callout', { tone: 'info' }).run())
-    add(B, 'Warning callout', 'Highlight something risky.', 'i-lucide-triangle-alert', ['warning', 'caution'], (e) => e.chain().focus().toggleWrap('callout', { tone: 'warning' }).run())
+    add('callout', B, BK, 'Callout', 'rve_callout', 'Make writing stand out.', 'rve_callout_hint', 'i-lucide-lightbulb', ['info', 'note', 'tip'], (e) => e.chain().focus().toggleWrap('callout', { tone: 'info' }).run())
+    add('warning-callout', B, BK, 'Warning callout', 'rve_warning_callout', 'Highlight something risky.', 'rve_warning_callout_hint', 'i-lucide-triangle-alert', ['warning', 'caution'], (e) => e.chain().focus().toggleWrap('callout', { tone: 'warning' }).run())
   }
-  if (on('divider')) add(B, 'Divider', 'Visually divide blocks.', 'i-lucide-minus', ['hr', 'rule', 'line'], (e) => e.chain().focus().setHorizontalRule().run())
+  if (on('divider')) add('divider', B, BK, 'Divider', 'rve_divider', 'Visually divide blocks.', 'rve_divider_hint', 'i-lucide-minus', ['hr', 'rule', 'line'], (e) => e.chain().focus().setHorizontalRule().run())
   const M = 'Media'
-  if (kindAllowed('image')) add(M, 'Image', 'Upload or drop an image (PNG, JPG, WEBP, GIF, SVG, AVIF).', 'i-lucide-image', ['photo', 'picture', 'png', 'jpg'], () => pickFiles('image'))
-  if (kindAllowed('video')) add(M, 'Video', 'Upload a video (MP4, WEBM).', 'i-lucide-video', ['movie', 'mp4', 'webm'], () => pickFiles('video'))
-  if (kindAllowed('audio')) add(M, 'Audio', 'Upload audio (MP3, WAV, OGG).', 'i-lucide-music', ['sound', 'mp3', 'wav', 'ogg'], () => pickFiles('audio'))
-  if (kindAllowed('file')) add(M, 'File', 'Attach a PDF document.', 'i-lucide-paperclip', ['pdf', 'attachment', 'document'], () => pickFiles('file'))
+  const MK = 'rve_media'
+  if (kindAllowed('image')) add('image', M, MK, 'Image', 'rve_image', 'Upload or drop an image (PNG, JPG, WEBP, GIF, SVG, AVIF).', 'rve_image_hint', 'i-lucide-image', ['photo', 'picture', 'png', 'jpg'], () => pickFiles('image'))
+  if (kindAllowed('video')) add('video', M, MK, 'Video', 'rve_video', 'Upload a video (MP4, WEBM).', 'rve_video_hint', 'i-lucide-video', ['movie', 'mp4', 'webm'], () => pickFiles('video'))
+  if (kindAllowed('audio')) add('audio', M, MK, 'Audio', 'rve_audio', 'Upload audio (MP3, WAV, OGG).', 'rve_audio_hint', 'i-lucide-music', ['sound', 'mp3', 'wav', 'ogg'], () => pickFiles('audio'))
+  if (kindAllowed('file')) add('file', M, MK, 'File', 'rve_file', 'Attach a PDF document.', 'rve_file_hint', 'i-lucide-paperclip', ['pdf', 'attachment', 'document'], () => pickFiles('file'))
+  if (on('canvas')) add('design', M, MK, 'Design', 'rve_design', 'Create an image with the design canvas.', 'rve_design_hint', 'i-lucide-palette', ['canva', 'design', 'draw', 'poster', 'canvas', 'shape'], () => openDesign())
   const X = 'Advanced'
-  if (on('tables')) add(X, 'Table', 'Add a 3 × 3 table with a header row.', 'i-lucide-table', ['grid', 'spreadsheet'], (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())
-  if (on('codeBlock')) add(X, 'Code', 'Capture a code snippet.', 'i-lucide-square-code', ['pre', 'snippet', 'code'], (e) => e.chain().focus().toggleCodeBlock().run())
-  add(X, 'Date', 'Insert today’s date.', 'i-lucide-calendar', ['today', 'time'], (e) => e.chain().focus().insertContent(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })).run())
+  const XK = 'rve_advanced'
+  if (on('tables')) add('table', X, XK, 'Table', 'rve_table', 'Add a 3 × 3 table with a header row.', 'rve_table_hint', 'i-lucide-table', ['grid', 'spreadsheet'], (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())
+  if (on('codeBlock')) add('code', X, XK, 'Code', 'rve_code', 'Capture a code snippet.', 'rve_code_hint', 'i-lucide-square-code', ['pre', 'snippet', 'code'], (e) => e.chain().focus().toggleCodeBlock().run())
+  add('date', X, XK, 'Date', 'rve_date', 'Insert today’s date.', 'rve_date_hint', 'i-lucide-calendar', ['today', 'time'], (e) => e.chain().focus().insertContent(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })).run())
   return list.map((it) => {
     const run = it.run
-    return { ...it, run: (e) => { const ed = e ?? live(); if (!ed) return; try { run(ed) } catch (err) { warn(`Block "${it.title}" failed:`, err) } } }
+    return { ...it, run: (e) => { const ed = e ?? live(); if (!ed) return; try { run(ed) } catch (err) { warn(`Block "${it.id}" failed:`, err) } } }
   })
 }
 let slashItems = []
 const filterSlash = (query) => {
   const q = query.trim().toLowerCase()
-  return slashItems.filter((i) => !q || i.title.toLowerCase().includes(q) || i.keywords.some((k) => k.includes(q)) || i.group.toLowerCase().includes(q))
+  return slashItems.filter((i) => {
+    if (!q) return true
+    const title = t(i.titleKey, i.title).toLowerCase()
+    const hint = t(i.hintKey, i.hint).toLowerCase()
+    const group = t(i.groupKey, i.group).toLowerCase()
+    return title.includes(q) || hint.includes(q) || group.includes(q) || i.keywords.some((k) => k.includes(q))
+  })
 }
 function setSlash(p, reset) {
   slash.open = true
@@ -798,9 +1059,9 @@ const allAccept = () => KINDS.filter(kindAllowed).flatMap((k) => MEDIA_MIME[k]).
 
 function validateFile(file) {
   const k = kindOfFile(file)
-  if (!k) return { error: `“${asStr(file?.name, 'This file')}” is not a supported file type.`, code: 'unsupported-type' }
-  if (!kindAllowed(k.kind)) return { error: `${KIND_LABEL[k.kind]} uploads are disabled here.`, code: 'kind-disabled' }
-  if (file.size > maxSizeFor(k.kind)) return { error: `“${file.name}” is larger than ${fmtBytes(maxSizeFor(k.kind))}.`, code: 'too-large' }
+  if (!k) return { error: `“${asStr(file?.name, t('rve_this_file', 'This file'))}” ${t('rve_unsupported_file_type', 'is not a supported file type.')}`, code: 'unsupported-type' }
+  if (!kindAllowed(k.kind)) return { error: `${kindLabel(k.kind)} ${t('rve_kind_disabled', 'uploads are disabled here.')}`, code: 'kind-disabled' }
+  if (file.size > maxSizeFor(k.kind)) return { error: `“${file.name}” ${t('rve_file_too_large', 'is larger than')} ${fmtBytes(maxSizeFor(k.kind))}.`, code: 'too-large' }
   return k
 }
 
@@ -856,7 +1117,7 @@ function patchMedia(uploadId, attrsPatch) {
 async function runUploader(file, ctx) {
   if (typeof props.uploader === 'function') return props.uploader(file, ctx)
   if (isObj(props.uploadApi) && asStr(props.uploadApi.url).trim()) return xhrUpload(file, props.uploadApi, ctx)
-  throw new Error('No upload endpoint configured (set the upload-api or uploader prop).')
+  throw new Error(t('rve_no_upload_endpoint', 'No upload endpoint configured (set the upload-api or uploader prop).'))
 }
 
 async function startUpload({ file, kind, uploadId }) {
@@ -871,14 +1132,14 @@ async function startUpload({ file, kind, uploadId }) {
       onProgress: (p) => { mediaCtx.views.get(uploadId)?.setProgress(p); emit('upload', { phase: 'progress', file, uploadId, progress: p }) },
     })
     const url = safeUrl(result?.url, opts.value.allowBlobUrls)
-    if (!url) throw new Error('The uploader did not return a persistent http(s) URL.')
+    if (!url) throw new Error(t('rve_upload_no_url', 'The uploader did not return a persistent http(s) URL.'))
     pending.delete(uploadId)
     patchMedia(uploadId, { src: url, status: 'ready', uploadId: null, error: '' })
     emit('upload', { phase: 'success', file, uploadId, url })
   } catch (err) {
     if (controller.signal.aborted) return // the block was removed
     pending.set(uploadId, { file, kind, controller: null }) // keep the file so Retry works
-    patchMedia(uploadId, { status: 'error', error: err?.message || 'Upload failed.' })
+    patchMedia(uploadId, { status: 'error', error: err?.message || t('rve_upload_failed', 'Upload failed.') })
     emit('upload', { phase: 'error', file, uploadId, error: err })
     emit('error', { source: 'upload', file, error: err })
   } finally {
@@ -903,8 +1164,8 @@ function onPicked(e) {
 }
 function insertMediaUrl(kind, url) {
   const src = safeUrl(asStr(url).trim(), opts.value.allowBlobUrls)
-  if (!src || !kindAllowed(kind) || !live()) { emit('error', { source: 'media', code: 'invalid-url', error: new Error('Invalid or disallowed media URL.') }); return false }
-  insertBlocks([{ type: 'media', attrs: { kind, src, status: 'ready', filename: src.split('/').pop() ?? '' } }])
+  if (!src || !kindAllowed(kind) || !live()) { emit('error', { source: 'media', code: 'invalid-url', error: new Error(t('rve_invalid_media_url', 'Invalid or disallowed media URL.')) }); return false }
+  insertBlocks([{ type: 'media', attrs: { kind, src, status: 'ready', filename: src.split('/').pop() ?? '', linked: true } }])
   return true
 }
 
@@ -942,6 +1203,851 @@ function onDrop(e) {
 }
 
 // =====================================================================================================
+// Design canvas — fabric, built into the editor (no separate component).
+// Flow: add files (any type) → move / resize / align / distribute → Insert as an image.
+// Non-image files appear as cards and can also be attached to the article.
+// fabric is imported on first open, so it never touches SSR or the initial bundle.
+// =====================================================================================================
+const DESIGN_PRESETS = [
+  { id: 'article', label: 'Article 16:9', w: 1200, h: 675 },
+  { id: 'square', label: 'Square', w: 1080, h: 1080 },
+  { id: 'portrait', label: 'Portrait 4:5', w: 1080, h: 1350 },
+  { id: 'story', label: 'Story 9:16', w: 1080, h: 1920 },
+  { id: 'a4', label: 'A4', w: 794, h: 1123 },
+]
+const ALIGN_BUTTONS = [
+  ['left', 'i-lucide-align-start-vertical', 'Align left'],
+  ['hcenter', 'i-lucide-align-center-vertical', 'Center horizontally'],
+  ['right', 'i-lucide-align-end-vertical', 'Align right'],
+  ['top', 'i-lucide-align-start-horizontal', 'Align top'],
+  ['vcenter', 'i-lucide-align-center-horizontal', 'Center vertically'],
+  ['bottom', 'i-lucide-align-end-horizontal', 'Align bottom'],
+]
+const ORDER_BUTTONS = [
+  ['front', 'i-lucide-bring-to-front', 'Bring to front'],
+  ['forward', 'i-lucide-arrow-up', 'Forward'],
+  ['backward', 'i-lucide-arrow-down', 'Backward'],
+  ['back', 'i-lucide-send-to-back', 'Send to back'],
+]
+const DESIGN_EXTRA = ['rcId', 'rcFileId', 'rcMeta']
+const ORIGIN = { originX: 'left', originY: 'top' } // explicit: fabric 6 and 7 differ on the default origin
+const DESIGN_FONT = 'Inter, "Noto Sans Khmer", system-ui, sans-serif'
+const EXT_COLORS = {
+  PDF: '#ef4444', DOC: '#2563eb', DOCX: '#2563eb', XLS: '#16a34a', XLSX: '#16a34a', CSV: '#16a34a',
+  PPT: '#f97316', PPTX: '#f97316', ZIP: '#a16207', RAR: '#a16207', MP4: '#7c3aed', MOV: '#7c3aed',
+  WEBM: '#7c3aed', MP3: '#db2777', WAV: '#db2777', TXT: '#64748b',
+}
+
+const canvasEnabled = computed(() => on('canvas') && isEditable.value)
+
+const designOpen = ref(false)
+const designDoc = ref(null) // saved design to reopen
+const designImage = ref('') // or: an existing image to start from
+const designTarget = ref(null) // { pos, src, fileId } when editing an image already in the article
+const designStage = ref(null)
+const designCanvasEl = ref(null)
+const designRoot = ref(null)
+const designFileInput = ref(null)
+const designPage = reactive({ w: 1200, h: 675, bg: '#ffffff', preset: 'article' })
+const designUi = reactive({
+  ready: false, busy: false, zoom: 1, canUndo: false, canRedo: false,
+  alignTo: 'page', snap: true, attach: true, msg: '', expanded: false,
+})
+// Screen rectangle of the image being edited (the canvas is drawn exactly over it).
+const designRect = reactive({ left: 0, top: 0, width: 0, height: 0 })
+const designPlaceholder = ref(null) // marker of the blank image inserted for a brand-new design
+let rafId = 0
+const designSel = reactive({ n: 0, kind: '', x: 0, y: 0, w: 0, h: 0, fill: '#8c52ff', opacity: 100, lock: true, hasFill: false })
+
+// Not reactive on purpose — fabric objects must stay out of Vue's proxies.
+let fabricMod = null
+let fc = null
+let designHistory = []
+let historyAt = -1
+let restoring = false
+let commitTimer = null
+const designFiles = new Map() // rcFileId → File (documents / videos placed on the canvas)
+
+const clampNum = (n, min, max) => Math.min(max, Math.max(min, n))
+const designObjects = () => (fc ? fc.getObjects().filter((o) => !o.rcGuide) : [])
+
+// Scene-space bounding box (rotation-aware). getCoords() is absolute, also for objects inside a selection.
+function designBox(o) {
+  const pts = o.getCoords()
+  const xs = pts.map((p) => p.x)
+  const ys = pts.map((p) => p.y)
+  const l = Math.min(...xs); const r = Math.max(...xs); const t = Math.min(...ys); const b = Math.max(...ys)
+  return { l, r, t, b, cx: (l + r) / 2, cy: (t + b) / 2, w: r - l, h: b - t }
+}
+function designShift(o, dx, dy) {
+  if (!dx && !dy) return
+  o.set({ left: o.left + dx, top: o.top + dy })
+  o.setCoords()
+}
+function designSelected() {
+  const a = fc?.getActiveObject()
+  if (!a) return []
+  return a instanceof fabricMod.ActiveSelection ? [...a.getObjects()] : [a]
+}
+function designReselect(list) {
+  if (!list.length) return
+  fc.setActiveObject(list.length > 1 ? new fabricMod.ActiveSelection(list, { canvas: fc }) : list[0])
+  fc.requestRenderAll()
+}
+
+// ── Media node helpers ────────────────────────────────────────────────────
+function findPosByFileId(fileId) {
+  let found = null
+  any()?.state.doc.descendants((n, p) => {
+    if (found != null) return false
+    if (n.type.name === 'media' && n.attrs.fileId === fileId) { found = p; return false }
+    return true
+  })
+  return found
+}
+// Current document position of the image being edited (it can move while editing).
+function resolveTargetPos() {
+  const ed = live()
+  const tgt = designTarget.value
+  if (!ed || !tgt) return null
+  const hit = (n) => n?.type.name === 'media' && (tgt.fileId ? n.attrs.fileId === tgt.fileId : n.attrs.src === tgt.src)
+  if (hit(ed.state.doc.nodeAt(tgt.pos))) return tgt.pos
+  let found = null
+  ed.state.doc.descendants((n, p) => {
+    if (found != null) return false
+    if (hit(n)) { found = p; return false }
+    return true
+  })
+  if (found != null) tgt.pos = found
+  return found
+}
+function patchAt(pos, attrsPatch) {
+  const ed = live()
+  if (!ed || pos == null) return false
+  const node = ed.state.doc.nodeAt(pos)
+  if (!node || node.type.name !== 'media') return false
+  ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attrsPatch }).setMeta('addToHistory', false))
+  return true
+}
+function deleteMediaAt(pos) {
+  const ed = live()
+  if (!ed || pos == null) return
+  const node = ed.state.doc.nodeAt(pos)
+  if (!node) return
+  ed.view.dispatch(ed.state.tr.delete(pos, pos + node.nodeSize))
+}
+function blankPlaceholderDataUrl(w, h, bg) {
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const x = c.getContext('2d')
+  x.fillStyle = bg
+  x.fillRect(0, 0, w, h)
+  return c.toDataURL('image/png')
+}
+function insertDesignPlaceholder(w, h, bg) {
+  const ed = live()
+  if (!ed) return null
+  const fileId = uid()
+  const src = blankPlaceholderDataUrl(w, h, bg)
+  const range = topRange(ed.state.selection.$from)
+  ed.chain().focus().insertContentAt(range, {
+    type: 'media',
+    attrs: { kind: 'image', src, draft: true, status: 'ready', fileId, width: 100, align: 'center', alt: '' },
+  }).run()
+  const pos = findPosByFileId(fileId)
+  return pos != null ? { pos, fileId } : null
+}
+const designFor = (node) => node?.attrs?.design ?? props.designs?.[node?.attrs?.src] ?? null
+
+// ── Open / close ─────────────────────────────────────────────────────────
+// The canvas opens IN PLACE: it is drawn exactly over the image in the article
+// (follows scroll / resize). "Expand" switches to a full-screen workspace.
+//   openDesign()          → new blank design: a placeholder image is inserted at the cursor
+//   openDesign({ pos })   → edit the image at `pos` (its saved design, else the image itself)
+async function openDesign({ pos = null } = {}) {
+  if (!canvasEnabled.value || designOpen.value) return
+  const ed = live()
+  if (!ed) return
+  designTarget.value = null
+  designDoc.value = null
+  designImage.value = ''
+  designPlaceholder.value = null
+  Object.assign(designUi, { msg: '', ready: false, expanded: false })
+  designFiles.clear()
+
+  const o = props.canvasOptions || {}
+  designPage.w = o.width ?? 1200
+  designPage.h = o.height ?? 675
+  designPage.bg = o.background ?? '#ffffff'
+
+  let node = pos != null ? ed.state.doc.nodeAt(pos) : null
+  if (node?.type.name !== 'media' || node.attrs.kind !== 'image') {
+    // New design → insert a blank image first, then edit that image in place.
+    const ph = insertDesignPlaceholder(designPage.w, designPage.h, designPage.bg)
+    if (!ph) return
+    designPlaceholder.value = { fileId: ph.fileId }
+    pos = ph.pos
+    node = ed.state.doc.nodeAt(pos)
+    if (!node) return
+  } else {
+    designDoc.value = designFor(node)
+    if (!designDoc.value) designImage.value = node.attrs.src
+    // A stretched image would not match the page's aspect ratio.
+    if (node.attrs.width && node.attrs.width !== 100) patchAt(pos, { width: 100 })
+  }
+  designTarget.value = { pos, src: node.attrs.src, fileId: node.attrs.fileId }
+  designPage.preset = DESIGN_PRESETS.find((p) => p.w === designPage.w && p.h === designPage.h)?.id ?? 'custom'
+  designOpen.value = true
+  await nextTick()
+  ed.view.nodeDOM(pos)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+  trackRect()
+  await initDesign()
+}
+
+// Keep the canvas glued to the image: follows scrolling, resizing and layout shifts.
+function trackRect() {
+  cancelAnimationFrame(rafId)
+  const step = () => {
+    if (!designOpen.value) return
+    if (!designUi.expanded) {
+      const pos = resolveTargetPos()
+      const host = pos != null ? live()?.view.nodeDOM(pos) : null
+      const target = host?.querySelector?.('.rv-media__img') ?? host?.querySelector?.('.rv-media__figure') ?? host
+      if (target) {
+        const r = target.getBoundingClientRect()
+        if (r.left !== designRect.left || r.top !== designRect.top || r.width !== designRect.width || r.height !== designRect.height) {
+          Object.assign(designRect, { left: r.left, top: r.top, width: r.width, height: r.height })
+        }
+      }
+      if (fc && designRect.width && Math.abs(designUi.zoom - designRect.width / designPage.w) > 0.001) setDesignZoom(designRect.width / designPage.w)
+    }
+    rafId = requestAnimationFrame(step)
+  }
+  rafId = requestAnimationFrame(step)
+}
+
+// Dock (header + tools): above the image, or below it when there is no room.
+const designDockStyle = computed(() => {
+  if (designUi.expanded) return {}
+  const below = designRect.top < 170
+  const left = Math.max(8, Math.min(designRect.left, (typeof window === 'undefined' ? 1200 : window.innerWidth) - 760))
+  return below
+    ? { left: `${left}px`, top: `min(${Math.round(designRect.top + designRect.height + 8)}px, calc(100vh - 190px))` }
+    : { left: `${left}px`, bottom: `${(typeof window === 'undefined' ? 0 : window.innerHeight) - Math.round(designRect.top) + 8}px` }
+})
+const designFrameStyle = computed(() => (designUi.expanded ? {} : {
+  left: `${designRect.left}px`, top: `${designRect.top}px`, width: `${designRect.width}px`, height: `${designRect.height}px`,
+}))
+
+function closeDesign({ cancelled = false } = {}) {
+  clearTimeout(commitTimer)
+  cancelAnimationFrame(rafId)
+  // Cancelled a brand-new design → remove the placeholder image again.
+  if (cancelled && designPlaceholder.value) {
+    const pos = resolveTargetPos()
+    if (pos != null) deleteMediaAt(pos)
+  }
+  designOpen.value = false
+  designTarget.value = null
+  designDoc.value = null
+  designImage.value = ''
+  designPlaceholder.value = null
+  designUi.expanded = false
+  disposeCanvas()
+}
+
+function disposeCanvas() {
+  const c = fc
+  fc = null
+  designHistory = []
+  historyAt = -1
+  if (c) Promise.resolve(c.dispose?.()).catch(() => {})
+}
+
+async function initDesign() {
+  try {
+    fabricMod ??= await import('fabric')
+    if (!designOpen.value || !designCanvasEl.value) return
+    const { Canvas } = fabricMod
+    fc = new Canvas(designCanvasEl.value, {
+      width: designPage.w, height: designPage.h, backgroundColor: designPage.bg,
+      preserveObjectStacking: true, uniformScaling: true, selectionColor: 'rgba(140,82,255,.12)',
+      selectionBorderColor: '#8c52ff', targetFindTolerance: 6,
+    })
+    fc.on('object:added', (e) => styleObject(e.target))
+    fc.on('selection:created', syncSelection)
+    fc.on('selection:updated', syncSelection)
+    fc.on('selection:cleared', syncSelection)
+    fc.on('object:moving', (e) => { snapMoving(e.target); syncSelection() })
+    fc.on('object:scaling', syncSelection)
+    fc.on('object:rotating', syncSelection)
+    fc.on('object:modified', () => { syncSelection(); designCommit() })
+    fc.on('text:changed', () => designCommitSoon())
+    fc.on('mouse:up', clearGuides)
+
+    const doc = designDoc.value
+    if (doc?.json) {
+      restoring = true
+      Object.assign(designPage, { w: doc.w, h: doc.h, bg: doc.bg, preset: 'custom' })
+      await fc.loadFromJSON(doc.json)
+      restoring = false
+    } else if (designImage.value) {
+      try {
+        const img = await fabricMod.FabricImage.fromURL(designImage.value, { crossOrigin: 'anonymous' })
+        const k = Math.min(1, 2400 / Math.max(img.width, img.height))
+        Object.assign(designPage, { w: Math.round(img.width * k), h: Math.round(img.height * k), preset: 'custom' })
+        img.set({ ...ORIGIN, left: 0, top: 0, scaleX: k, scaleY: k })
+        fc.add(img)
+      } catch {
+        designUi.msg = 'Could not load the image (it may block cross-origin access). Starting with a blank page.'
+      }
+    }
+    applyDesignSize()
+    fit()
+    designHistory = []
+    historyAt = -1
+    designCommit(true)
+    designUi.ready = true
+    designRoot.value?.focus({ preventScroll: true })
+  } catch (e) {
+    designUi.msg = e?.message || 'Could not start the canvas'
+    emit('error', { source: 'design', error: e })
+  }
+}
+
+function styleObject(o) {
+  if (!o || o.rcGuide) return
+  o.set({
+    cornerStyle: 'circle', cornerSize: 11, transparentCorners: false, cornerColor: '#ffffff',
+    cornerStrokeColor: '#8c52ff', borderColor: '#8c52ff', borderScaleFactor: 1.5,
+  })
+  // Images and file cards keep their ratio: corners only (like Canva).
+  if (o instanceof fabricMod.FabricImage || o.rcMeta) o.setControlsVisibility?.({ mt: false, mb: false, ml: false, mr: false })
+  o.rcId ??= uid()
+}
+
+// ── Page size / zoom ─────────────────────────────────────────────────────
+function applyDesignSize() {
+  if (!fc) return
+  const z = designUi.zoom
+  fc.setZoom(z)
+  fc.setDimensions({ width: designPage.w * z, height: designPage.h * z })
+  fc.set({ backgroundColor: designPage.bg })
+  fc.requestRenderAll()
+}
+function setDesignZoom(z) {
+  designUi.zoom = clampNum(z, 0.05, 4)
+  applyDesignSize()
+}
+function fit() {
+  if (!designUi.expanded) {
+    if (designRect.width) setDesignZoom(designRect.width / designPage.w)
+    return
+  }
+  const el = designStage.value
+  if (!el) return
+  setDesignZoom(Math.min((el.clientWidth - 80) / designPage.w, (el.clientHeight - 80) / designPage.h, 1.5))
+}
+function setPageSize(w, h) {
+  designPage.w = clampNum(Math.round(w) || designPage.w, 100, 4000)
+  designPage.h = clampNum(Math.round(h) || designPage.h, 100, 4000)
+  designPage.preset = DESIGN_PRESETS.find((p) => p.w === designPage.w && p.h === designPage.h)?.id ?? 'custom'
+  applyDesignSize()
+  fit()
+  designCommit()
+}
+function onPreset(id) {
+  const p = DESIGN_PRESETS.find((x) => x.id === id)
+  if (p) setPageSize(p.w, p.h)
+}
+function setBackground(color) {
+  designPage.bg = color
+  applyDesignSize()
+  designCommitSoon()
+}
+// Run `fn` with the viewport at 1:1, so exports are page-sized whatever the zoom.
+function designUnzoomed(fn) {
+  fc.setZoom(1)
+  fc.setDimensions({ width: designPage.w, height: designPage.h })
+  try { return fn() } finally { applyDesignSize() }
+}
+
+// ── History ──────────────────────────────────────────────────────────────
+const designSnapshot = () => JSON.stringify({ w: designPage.w, h: designPage.h, bg: designPage.bg, c: fc.toObject(DESIGN_EXTRA) })
+function designCommit(force = false) {
+  clearTimeout(commitTimer)
+  if (!fc || restoring) return
+  const s = designSnapshot()
+  if (!force && designHistory[historyAt] === s) return
+  designHistory = designHistory.slice(0, historyAt + 1)
+  designHistory.push(s)
+  if (designHistory.length > 60) designHistory.shift()
+  historyAt = designHistory.length - 1
+  syncHistory()
+}
+function designCommitSoon() {
+  clearTimeout(commitTimer)
+  commitTimer = setTimeout(designCommit, 400)
+}
+const syncHistory = () => {
+  designUi.canUndo = historyAt > 0
+  designUi.canRedo = historyAt < designHistory.length - 1
+}
+async function designRestore(index) {
+  if (!fc || index < 0 || index >= designHistory.length) return
+  restoring = true
+  try {
+    const s = JSON.parse(designHistory[index])
+    Object.assign(designPage, { w: s.w, h: s.h, bg: s.bg })
+    designPage.preset = DESIGN_PRESETS.find((p) => p.w === s.w && p.h === s.h)?.id ?? 'custom'
+    await fc.loadFromJSON(s.c)
+    historyAt = index
+    applyDesignSize()
+  } finally { restoring = false; syncHistory(); syncSelection() }
+}
+const undo = () => { clearTimeout(commitTimer); designCommit(); return designRestore(historyAt - 1) }
+const redo = () => designRestore(historyAt + 1)
+
+// ── Selection → side panel ───────────────────────────────────────────────
+function kindOf(o) {
+  const F = fabricMod
+  if (o.rcMeta?.card) return 'file'
+  if (o instanceof F.FabricImage) return 'image'
+  if (o instanceof F.Textbox) return 'text'
+  if (o instanceof F.Line) return 'line'
+  if (o instanceof F.Rect) return 'shape'
+  return 'object'
+}
+function syncSelection() {
+  const list = designSelected()
+  designSel.n = list.length
+  if (!list.length) { designSel.kind = ''; return }
+  const a = fc.getActiveObject()
+  const b = designBox(a)
+  designSel.kind = list.length > 1 ? 'multi' : kindOf(list[0])
+  designSel.x = Math.round(b.l)
+  designSel.y = Math.round(b.t)
+  designSel.w = Math.round(b.w)
+  designSel.h = Math.round(b.h)
+  designSel.opacity = Math.round((a.opacity ?? 1) * 100)
+  const first = list[0]
+  const color = first instanceof fabricMod.Line ? first.stroke : first.fill
+  designSel.hasFill = typeof color === 'string' && !(first instanceof fabricMod.FabricImage) && !first.rcMeta
+  if (designSel.hasFill) designSel.fill = /^#[0-9a-f]{6}$/i.test(color) ? color : designSel.fill
+}
+
+// ── Snap guides (page edges / centre / other objects) ────────────────────
+let guides = []
+function clearGuides() {
+  if (!fc || !guides.length) return
+  guides.forEach((g) => fc.remove(g))
+  guides = []
+  fc.requestRenderAll()
+}
+function snapMoving(o) {
+  clearGuides()
+  if (!designUi.snap || !o) return
+  const th = 6 / fc.getZoom()
+  const skip = new Set([o, ...(o.getObjects?.() ?? [])])
+  const xs = [0, designPage.w / 2, designPage.w]
+  const ys = [0, designPage.h / 2, designPage.h]
+  for (const other of designObjects()) {
+    if (skip.has(other) || other.visible === false) continue
+    const q = designBox(other)
+    xs.push(q.l, q.cx, q.r)
+    ys.push(q.t, q.cy, q.b)
+  }
+  const b = designBox(o)
+  const nearest = (mine, targets) => {
+    let best = null
+    for (const m of mine) for (const tg of targets) {
+      const d = tg - m
+      if (Math.abs(d) <= th && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, at: tg }
+    }
+    return best
+  }
+  const sx = nearest([b.l, b.cx, b.r], xs)
+  const sy = nearest([b.t, b.cy, b.b], ys)
+  if (sx || sy) designShift(o, sx?.d ?? 0, sy?.d ?? 0)
+  const z = fc.getZoom()
+  const line = (pts) => {
+    const g = new fabricMod.Line(pts, {
+      stroke: '#ff3b7f', strokeWidth: 1 / z, selectable: false, evented: false,
+      excludeFromExport: true, rcGuide: true,
+    })
+    guides.push(g)
+    fc.add(g)
+  }
+  if (sx) line([sx.at, 0, sx.at, designPage.h])
+  if (sy) line([0, sy.at, designPage.w, sy.at])
+}
+
+// ── Align / distribute / size / position ─────────────────────────────────
+function align(mode) {
+  const list = designSelected()
+  if (!list.length) return
+  fc.discardActiveObject() // work on absolute coordinates, then re-select
+  const boxes = list.map(designBox)
+  const U = {
+    l: Math.min(...boxes.map((b) => b.l)), r: Math.max(...boxes.map((b) => b.r)),
+    t: Math.min(...boxes.map((b) => b.t)), b: Math.max(...boxes.map((b) => b.b)),
+  }
+  U.cx = (U.l + U.r) / 2
+  U.cy = (U.t + U.b) / 2
+  const toObjects = list.length > 1 && designUi.alignTo === 'objects'
+  const ref = toObjects ? U : { l: 0, r: designPage.w, t: 0, b: designPage.h, cx: designPage.w / 2, cy: designPage.h / 2 }
+  list.forEach((o, i) => {
+    const m = toObjects ? boxes[i] : U // page mode moves the selection as one unit
+    const dx = { left: ref.l - m.l, hcenter: ref.cx - m.cx, right: ref.r - m.r }[mode] ?? 0
+    const dy = { top: ref.t - m.t, vcenter: ref.cy - m.cy, bottom: ref.b - m.b }[mode] ?? 0
+    designShift(o, dx, dy)
+  })
+  designReselect(list)
+  syncSelection()
+  designCommit()
+}
+function distribute(axis) {
+  const list = designSelected()
+  if (list.length < 3) return
+  fc.discardActiveObject()
+  const x = axis === 'x'
+  const items = list.map((o) => ({ o, b: designBox(o) })).sort((a, b) => (x ? a.b.l - b.b.l : a.b.t - b.b.t))
+  const start = x ? items[0].b.l : items[0].b.t
+  const end = x ? items.at(-1).b.r : items.at(-1).b.b
+  const total = items.reduce((s, i) => s + (x ? i.b.w : i.b.h), 0)
+  const gap = (end - start - total) / (items.length - 1)
+  let cursor = start
+  for (const { o, b } of items) {
+    designShift(o, x ? cursor - b.l : 0, x ? 0 : cursor - b.t)
+    cursor += (x ? b.w : b.h) + gap
+  }
+  designReselect(list)
+  syncSelection()
+  designCommit()
+}
+function setDimension(axis, value) {
+  const o = fc?.getActiveObject()
+  const v = Number(value)
+  if (!o || !(v > 0)) return
+  if (designSel.lock) {
+    if (axis === 'w') o.scaleToWidth(v)
+    else o.scaleToHeight(v)
+  } else {
+    o.set(axis === 'w' ? 'scaleX' : 'scaleY', v / (axis === 'w' ? o.width : o.height))
+  }
+  o.setCoords()
+  fc.requestRenderAll()
+  syncSelection()
+  designCommit()
+}
+function setPosition(axis, value) {
+  const o = fc?.getActiveObject()
+  const v = Number(value)
+  if (!o || Number.isNaN(v)) return
+  const b = designBox(o)
+  designShift(o, axis === 'x' ? v - b.l : 0, axis === 'y' ? v - b.t : 0)
+  fc.requestRenderAll()
+  syncSelection()
+  designCommit()
+}
+function designNudge(dx, dy) {
+  const o = fc?.getActiveObject()
+  if (!o) return
+  designShift(o, dx, dy)
+  fc.requestRenderAll()
+  syncSelection()
+  designCommitSoon()
+}
+
+// ── Style / arrange ──────────────────────────────────────────────────────
+function setFill(color) {
+  designSel.fill = color
+  for (const o of designSelected()) {
+    if (o instanceof fabricMod.FabricImage || o.rcMeta) continue
+    o.set(o instanceof fabricMod.Line ? 'stroke' : 'fill', color)
+  }
+  fc.requestRenderAll()
+  designCommitSoon()
+}
+function setOpacity(percent) {
+  designSel.opacity = percent
+  fc.getActiveObject()?.set('opacity', percent / 100)
+  fc.requestRenderAll()
+  designCommitSoon()
+}
+function flip() {
+  for (const o of designSelected()) o.set('flipX', !o.flipX)
+  fc.requestRenderAll()
+  designCommit()
+}
+function arrange(op) {
+  const list = designSelected()
+  if (!list.length) return
+  fc.discardActiveObject()
+  const fn = { front: 'bringObjectToFront', back: 'sendObjectToBack', forward: 'bringObjectForward', backward: 'sendObjectBackwards' }[op]
+  const ordered = [...list].sort((a, b) => fc.getObjects().indexOf(a) - fc.getObjects().indexOf(b))
+  for (const o of (op === 'front' || op === 'forward' ? ordered : ordered.reverse())) fc[fn](o)
+  designReselect(list)
+  designCommit()
+}
+async function duplicate() {
+  const list = designSelected()
+  if (!list.length) return
+  fc.discardActiveObject()
+  const copies = []
+  for (const o of list) {
+    const c = await o.clone(DESIGN_EXTRA)
+    c.rcId = undefined
+    designShift(c, 24, 24)
+    fc.add(c)
+    copies.push(c)
+  }
+  designReselect(copies)
+  designCommit()
+}
+function removeSelected() {
+  const list = designSelected()
+  if (!list.length) return
+  fc.discardActiveObject()
+  list.forEach((o) => fc.remove(o))
+  fc.requestRenderAll()
+  designCommit()
+}
+function designSelectAll() {
+  fc.discardActiveObject()
+  designReselect(designObjects().filter((o) => o.selectable !== false))
+}
+
+// ── Add content ──────────────────────────────────────────────────────────
+// `fit`: fraction of the page an object may fill when first placed (0 = keep size).
+function designPlace(o, { fit: k = 0 } = {}) {
+  const empty = designObjects().length === 0
+  o.set({ ...ORIGIN })
+  if (k) {
+    const s = Math.min((designPage.w * (empty ? 1 : k)) / o.width, (designPage.h * (empty ? 1 : k)) / o.height, 1)
+    o.set({ scaleX: s, scaleY: s })
+  }
+  o.setCoords()
+  const b = designBox(o)
+  const stagger = empty ? 0 : (designObjects().length % 6) * 18
+  designShift(o, designPage.w / 2 - b.cx + stagger, designPage.h / 2 - b.cy + stagger)
+  fc.add(o)
+  fc.setActiveObject(o)
+  fc.requestRenderAll()
+  syncSelection()
+  designCommit()
+}
+
+const readAsDataURL = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader()
+  r.onload = () => resolve(r.result)
+  r.onerror = () => reject(r.error)
+  r.readAsDataURL(file)
+})
+
+function videoFrame(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const v = document.createElement('video')
+    const finish = (fn, value) => { URL.revokeObjectURL(url); fn(value) }
+    v.muted = true
+    v.preload = 'metadata'
+    v.onloadeddata = () => { v.currentTime = Math.min(0.1, (v.duration || 1) / 2) }
+    v.onseeked = () => {
+      try {
+        const s = Math.min(1, 1280 / v.videoWidth)
+        const c = document.createElement('canvas')
+        c.width = Math.round(v.videoWidth * s)
+        c.height = Math.round(v.videoHeight * s)
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height)
+        finish(resolve, c.toDataURL('image/jpeg', 0.82))
+      } catch (e) { finish(reject, e) }
+    }
+    v.onerror = () => finish(reject, new Error('Cannot read video'))
+    setTimeout(() => finish(reject, new Error('Video timed out')), 8000)
+    v.src = url
+  })
+}
+
+// Light client-side image compression (skips GIF/SVG, never returns a bigger file).
+async function compressImageLocal(file, { quality = 0.86, maxPx = 2000 } = {}) {
+  if (!file.type.startsWith('image/') || /gif|svg/.test(file.type)) return file
+  const bitmap = await createImageBitmap(file)
+  const ratio = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height))
+  const w = Math.round(bitmap.width * ratio)
+  const h = Math.round(bitmap.height * ratio)
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h)
+  bitmap.close?.()
+  const type = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/webp'
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+  if (!blob || (ratio === 1 && blob.size >= file.size)) return file
+  const ext = { 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' }[blob.type] ?? 'jpg'
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.${ext}`, { type: blob.type, lastModified: Date.now() })
+}
+
+// Card for any non-image file: coloured type badge + name + size.
+function fileCard(file) {
+  const F = fabricMod
+  const ext = (file.name.split('.').pop() || 'file').slice(0, 4).toUpperCase()
+  const color = EXT_COLORS[ext] ?? '#6366f1'
+  const name = file.name.length > 28 ? `${file.name.slice(0, 25)}…` : file.name
+  const card = new F.Rect({ ...ORIGIN, left: 0, top: 0, width: 300, height: 92, rx: 14, ry: 14, fill: '#ffffff', stroke: '#e5e7eb', strokeWidth: 1 })
+  const badge = new F.Rect({ ...ORIGIN, left: 14, top: 14, width: 52, height: 64, rx: 8, ry: 8, fill: color })
+  const glyph = new F.Path('M0 0h14l6 6v18H0z M14 0v6h6', {
+    ...ORIGIN, left: 30, top: 20, fill: 'rgba(255,255,255,.92)', stroke: color, strokeWidth: 1,
+  })
+  const tag = new F.Textbox(ext, { ...ORIGIN, left: 14, top: 54, width: 52, fontSize: 13, fontWeight: 700, fill: '#ffffff', textAlign: 'center', fontFamily: DESIGN_FONT })
+  const title = new F.Textbox(name, { ...ORIGIN, left: 82, top: 22, width: 200, fontSize: 16, fontWeight: 600, fill: '#111827', fontFamily: DESIGN_FONT })
+  const sub = new F.Textbox(`${ext} · ${fmtBytes(file.size)}`, { ...ORIGIN, left: 82, top: 52, width: 200, fontSize: 13, fill: '#6b7280', fontFamily: DESIGN_FONT })
+  return new F.Group([card, badge, glyph, tag, title, sub], {
+    ...ORIGIN, subTargetCheck: false, rcMeta: { card: true, name: file.name, size: file.size, type: file.type },
+  })
+}
+
+async function addDesignFile(file) {
+  if (!fc) return
+  const kind = kindOfFile(file)?.kind ?? 'file'
+  try {
+    if (kind === 'image') {
+      const small = await compressImageLocal(file).catch(() => file)
+      const img = await fabricMod.FabricImage.fromURL(await readAsDataURL(small))
+      img.set({ rcMeta: { name: file.name, size: file.size, type: file.type } })
+      designPlace(img, { fit: 0.6 })
+      return
+    }
+    const id = uid()
+    designFiles.set(id, file)
+    let obj = null
+    if (kind === 'video') {
+      try {
+        obj = await fabricMod.FabricImage.fromURL(await videoFrame(file))
+        obj.set({ rcMeta: { name: file.name, size: file.size, type: file.type, video: true } })
+        designPlace(obj, { fit: 0.6 })
+      } catch { obj = null }
+    }
+    if (!obj) { obj = fileCard(file); designPlace(obj) }
+    obj.set({ rcFileId: id })
+    syncSelection()
+  } catch (e) {
+    designUi.msg = `${file.name}: ${e?.message || 'could not be added'}`
+  }
+}
+async function addDesignFiles(list) {
+  for (const f of Array.from(list)) await addDesignFile(f)
+}
+function onDesignPick(e) {
+  addDesignFiles(e.target.files ?? [])
+  e.target.value = ''
+}
+const onDesignDrop = (e) => addDesignFiles(e.dataTransfer?.files ?? [])
+function onDesignPaste(e) {
+  const list = Array.from(e.clipboardData?.files ?? [])
+  if (!list.length) return
+  e.preventDefault()
+  addDesignFiles(list)
+}
+
+function addText() {
+  const box = new fabricMod.Textbox('Double-click to edit', {
+    ...ORIGIN, width: designPage.w * 0.5, fontSize: Math.round(designPage.w / 22), fill: '#111827', fontFamily: DESIGN_FONT, fontWeight: 600,
+  })
+  designPlace(box)
+}
+function addRect() {
+  designPlace(new fabricMod.Rect({ ...ORIGIN, width: Math.round(designPage.w / 4), height: Math.round(designPage.h / 4), fill: '#8c52ff', rx: 12, ry: 12 }))
+}
+function addLine() {
+  const w = Math.round(designPage.w / 3)
+  designPlace(new fabricMod.Line([0, 0, w, 0], { ...ORIGIN, stroke: '#111827', strokeWidth: 6, strokeLineCap: 'round' }))
+}
+
+// ── Keyboard ─────────────────────────────────────────────────────────────
+function onDesignKey(e) {
+  if (!fc) return
+  const tgt = e.target
+  if (tgt instanceof HTMLElement && (tgt.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(tgt.tagName))) return
+  if (fc.getActiveObject()?.isEditing) return
+  const mod = e.ctrlKey || e.metaKey
+  const k = e.key.toLowerCase()
+  if (mod && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo() }
+  else if (mod && k === 'y') { e.preventDefault(); redo() }
+  else if (mod && k === 'd') { e.preventDefault(); duplicate() }
+  else if (mod && k === 'a') { e.preventDefault(); designSelectAll() }
+  else if (k === 'delete' || k === 'backspace') { e.preventDefault(); removeSelected() }
+  else if (k === 'escape') { fc.discardActiveObject(); fc.requestRenderAll() }
+  else if (k.startsWith('arrow')) {
+    e.preventDefault()
+    const s = e.shiftKey ? 10 : 1
+    designNudge({ arrowleft: -s, arrowright: s }[k] ?? 0, { arrowup: -s, arrowdown: s }[k] ?? 0)
+  }
+}
+
+// ── Insert into the article ──────────────────────────────────────────────
+async function insertDesign() {
+  if (!fc || designUi.busy) return
+  designUi.busy = true
+  designUi.msg = ''
+  try {
+    clearGuides()
+    fc.discardActiveObject()
+    const canvas = designUnzoomed(() => fc.toCanvasElement(1))
+    const blob = await new Promise((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Export failed'))), 'image/png'))
+    const file = new File([blob], `design-${Date.now()}.png`, { type: 'image/png', lastModified: Date.now() })
+    const problem = validateFile(file)
+    if (problem.error) { designUi.msg = problem.error; return }
+
+    const design = { version: 1, w: designPage.w, h: designPage.h, bg: designPage.bg, json: fc.toObject(DESIGN_EXTRA) }
+    const onCanvas = new Set(designObjects().map((o) => o.rcFileId).filter(Boolean))
+    const attach = designUi.attach ? [...designFiles].filter(([id]) => onCanvas.has(id)).map(([, f]) => f) : []
+
+    const pos = resolveTargetPos()
+    const uploadId = uid()
+    patchAt(pos, {
+      draft: false, status: 'uploading', uploadId, design, kind: 'image',
+      filename: file.name, size: file.size, mime: 'image/png', error: '',
+    })
+    startUpload({ file, kind: 'image', uploadId })
+    if (attach.length) insertFiles(attach, pos != null ? pos + 1 : undefined)
+    emit('design-saved', { design, pos })
+    closeDesign()
+  } catch (e) {
+    designUi.msg = e?.name === 'SecurityError'
+      ? 'An image on the canvas blocks cross-origin export (CORS). Re-add it from your computer or allow CORS on its server.'
+      : (e?.message || 'Export failed')
+  } finally { designUi.busy = false }
+}
+
+// Paste / resize listeners only while open (page scroll stays free: the canvas follows the image).
+const onWindowResize = () => fit()
+watch(() => designUi.expanded, async (full) => {
+  if (typeof document === 'undefined') return
+  document.documentElement.style.overflow = full ? 'hidden' : ''
+  await nextTick()
+  fit()
+})
+watch(designOpen, (open) => {
+  if (typeof document === 'undefined') return
+  if (!open) document.documentElement.style.overflow = ''
+  const method = open ? 'addEventListener' : 'removeEventListener'
+  window[method]('paste', onDesignPaste)
+  window[method]('resize', onWindowResize)
+})
+onBeforeUnmount(() => {
+  if (typeof document === 'undefined') return
+  document.documentElement.style.overflow = ''
+  window.removeEventListener('paste', onDesignPaste)
+  window.removeEventListener('resize', onWindowResize)
+  clearTimeout(commitTimer)
+  cancelAnimationFrame(rafId)
+  disposeCanvas()
+})
+
+// =====================================================================================================
 // Content in/out (envelope, sanitization, v-model sync)
 // =====================================================================================================
 function scrubDoc(doc) {
@@ -956,9 +2062,12 @@ function scrubDoc(doc) {
       a.kind = KINDS.includes(a.kind) ? a.kind : 'image'
       a.align = ALIGNS.includes(a.align) ? a.align : 'center'
       a.width = clampWidth(a.width)
+      a.layout = MEDIA_LAYOUTS.includes(a.layout) ? a.layout : null
+      a.height = Number.isFinite(Number(a.height)) && Number(a.height) > 0 ? Math.round(Number(a.height)) : null
+      a.linked = a.linked === true
       a.src = safeUrl(a.src, allowTemp)
-      if (a.status === 'uploading' && !pending.has(a.uploadId)) { a.status = 'error'; a.error = 'Upload was interrupted.'; a.uploadId = null }
-      else if (!a.src && a.status !== 'uploading') { a.status = 'error'; a.error = asStr(a.error) || 'This file is not available.' }
+      if (a.status === 'uploading' && !pending.has(a.uploadId)) { a.status = 'error'; a.error = t('rve_upload_interrupted', 'Upload was interrupted.'); a.uploadId = null }
+      else if (!a.src && a.status !== 'uploading') { a.status = 'error'; a.error = asStr(a.error) || t('rve_this_file_not_available', 'This file is not available.') }
     }
     asArray(node.content).forEach(walk)
   }
@@ -995,7 +2104,7 @@ function buildEnvelope(ed) {
   walk(doc)
   return {
     schema: SCHEMA_ID, version: SCHEMA_VERSION, doc,
-    fonts: [...fonts].sort().map((family) => ({ family, stack: opts.value.fonts.find((f) => f.key === family)?.stack ?? null })),
+    fonts: [...fonts].sort().map((family) => ({ family, stack: (Array.isArray(opts.value.fonts) ? opts.value.fonts : []).find((f) => f.key === family)?.stack ?? null })),
     meta: { pendingUploads },
   }
 }
@@ -1064,7 +2173,7 @@ function buildExtensions() {
   if (on('slashMenu')) list.push(RVSlash)
   if (on('wordCount')) list.push(CharacterCount)
   list.push(Placeholder.configure({
-    placeholder: ({ node, editor: e }) => (node.type.name === 'heading' ? `Heading ${node.attrs.level}` : e.isEmpty ? props.placeholder : "Type '/' for commands…"),
+    placeholder: ({ node, editor: e }) => (node.type.name === 'heading' ? t(`rve_heading_${node.attrs.level}`, `Heading ${node.attrs.level}`) : e.isEmpty ? props.placeholder : t('rve_type_slash', "Type '/' for commands…")),
     showOnlyCurrent: true,
     includeChildren: true,
   }))
@@ -1083,7 +2192,7 @@ const editor = useEditor({
   autofocus: props.autofocus,
   immediatelyRender: false,
   editorProps: {
-    attributes: { class: 'rv-prose', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Document body' },
+    attributes: { class: 'rv-prose', role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('rve_document_body', 'Document body') },
     handleDOMEvents: { pointerdown: () => { selecting = true; return false } },
   },
   onCreate: ({ editor: e }) => { try { docEmpty.value = e.isEmpty } catch { /* not ready */ } bump() },
@@ -1187,7 +2296,7 @@ const turnInto = (fn) => { const ed = live(); if (!ed) return; ed.chain().focus(
 function duplicateBlock() {
   const ed = live(); const node = blockNode()
   if (!ed || !node) return
-  const copy = node.type.name === 'media' ? node.type.create({ ...node.attrs, uploadId: null, status: node.attrs.status === 'ready' ? 'ready' : 'error', error: node.attrs.status === 'ready' ? '' : 'Duplicate of an unfinished upload.' }, node.content, node.marks) : node
+  const copy = node.type.name === 'media' ? node.type.create({ ...node.attrs, uploadId: null, status: node.attrs.status === 'ready' ? 'ready' : 'error', error: node.attrs.status === 'ready' ? '' : t('rve_duplicate_unfinished', 'Duplicate of an unfinished upload.') }, node.content, node.marks) : node
   ed.view.dispatch(ed.state.tr.insert(handle.pos + node.nodeSize, copy))
   blockMenu.open = false
 }
@@ -1216,10 +2325,10 @@ const blockActions = computed(() => {
   void tick.value
   const turn = []
   if (canTurn()) {
-    turn.push(['Text', 'i-lucide-pilcrow', (e) => e.chain().focus().setParagraph().run()])
-    if (on('headings')) for (const n of [1, 2, 3]) turn.push([`Heading ${n}`, `i-lucide-heading-${n}`, (e) => e.chain().focus().setHeading({ level: n }).run()])
-    if (on('lists')) turn.push(['Bulleted list', 'i-lucide-list', (e) => e.chain().focus().toggleBulletList().run()], ['Numbered list', 'i-lucide-list-ordered', (e) => e.chain().focus().toggleOrderedList().run()], ['To-do list', 'i-lucide-list-checks', (e) => e.chain().focus().toggleTaskList().run()])
-    if (on('blockquote')) turn.push(['Quote', 'i-lucide-text-quote', (e) => e.chain().focus().toggleBlockquote().run()])
+    turn.push([tl('Text'), 'i-lucide-pilcrow', (e) => e.chain().focus().setParagraph().run()])
+    if (on('headings')) for (const n of [1, 2, 3]) turn.push([t(`rve_heading_${n}`, `Heading ${n}`), `i-lucide-heading-${n}`, (e) => e.chain().focus().setHeading({ level: n }).run()])
+    if (on('lists')) turn.push([tl('Bulleted list'), 'i-lucide-list', (e) => e.chain().focus().toggleBulletList().run()], [tl('Numbered list'), 'i-lucide-list-ordered', (e) => e.chain().focus().toggleOrderedList().run()], [tl('To-do list'), 'i-lucide-list-checks', (e) => e.chain().focus().toggleTaskList().run()])
+    if (on('blockquote')) turn.push([tl('Quote'), 'i-lucide-text-quote', (e) => e.chain().focus().toggleBlockquote().run()])
   }
   return turn
 })
@@ -1270,13 +2379,13 @@ function scheduleBubble() {
 const onWindowPointerUp = () => { if (selecting) { selecting = false; scheduleBubble() } }
 const onWindowScroll = () => { scheduleBubble(); refreshHandle(); if (slash.open) slash.rect = slash.rect && { ...slash.rect } }
 
-const bubbleBlockLabel = () => (act('heading') ? `Heading ${attrs('heading').level}` : act('bulletList') ? 'Bulleted list' : act('orderedList') ? 'Numbered list' : act('taskList') ? 'To-do list' : act('blockquote') ? 'Quote' : 'Text')
+const bubbleBlockLabel = () => (act('heading') ? t(`rve_heading_${attrs('heading').level}`, `Heading ${attrs('heading').level}`) : act('bulletList') ? tl('Bulleted list') : act('orderedList') ? tl('Numbered list') : act('taskList') ? tl('To-do list') : act('blockquote') ? tl('Quote') : tl('Text'))
 const bubbleTurn = computed(() => {
   void tick.value
-  const list = [['Text', 'i-lucide-pilcrow', () => chain().setParagraph().run()]]
-  if (on('headings')) for (const n of [1, 2, 3]) list.push([`Heading ${n}`, `i-lucide-heading-${n}`, () => chain().setHeading({ level: n }).run()])
-  if (on('lists')) list.push(['Bulleted list', 'i-lucide-list', () => chain().toggleBulletList().run()], ['Numbered list', 'i-lucide-list-ordered', () => chain().toggleOrderedList().run()], ['To-do list', 'i-lucide-list-checks', () => chain().toggleTaskList().run()])
-  if (on('blockquote')) list.push(['Quote', 'i-lucide-text-quote', () => chain().toggleBlockquote().run()])
+  const list = [[tl('Text'), 'i-lucide-pilcrow', () => chain().setParagraph().run()]]
+  if (on('headings')) for (const n of [1, 2, 3]) list.push([t(`rve_heading_${n}`, `Heading ${n}`), `i-lucide-heading-${n}`, () => chain().setHeading({ level: n }).run()])
+  if (on('lists')) list.push([tl('Bulleted list'), 'i-lucide-list', () => chain().toggleBulletList().run()], [tl('Numbered list'), 'i-lucide-list-ordered', () => chain().toggleOrderedList().run()], [tl('To-do list'), 'i-lucide-list-checks', () => chain().toggleTaskList().run()])
+  if (on('blockquote')) list.push([tl('Quote'), 'i-lucide-text-quote', () => chain().toggleBlockquote().run()])
   return list
 })
 function openBubbleMode(mode) {
@@ -1313,7 +2422,7 @@ function applyLink(raw) {
   return true
 }
 function submitBubbleLink() {
-  if (!applyLink(bubble.url)) { bubble.error = 'Enter a valid http(s), mailto or tel link.'; return }
+  if (!applyLink(bubble.url)) { bubble.error = t('rve_enter_valid_link', 'Enter a valid http(s), mailto or tel link.'); return }
   closeBubble(true)
 }
 function removeBubbleLink() { chain().extendMarkRange('link').unsetLink().run(); closeBubble(true) }
@@ -1331,8 +2440,8 @@ const MARKS = [
   { id: 'strike', icon: 'i-lucide-strikethrough', label: 'Strikethrough', kbd: ['meta', 'shift', 'S'], run: () => chain().toggleStrike().run() },
   { id: 'code', icon: 'i-lucide-code', label: 'Inline code', kbd: ['meta', 'E'], run: () => chain().toggleCode().run() },
 ]
-const setTextColor = (v) => (typeof v === 'string' && COLOR_RE.test(v) ? chain().setColor(v).run() : chain().unsetColor().run())
-const setHighlightColor = (v) => (typeof v === 'string' && COLOR_RE.test(v) ? chain().setHighlight({ color: v }).run() : chain().unsetHighlight().run())
+const setTextColor = (v) => { (typeof v === 'string' && COLOR_RE.test(v) ? chain().setColor(v) : chain().unsetColor()).run(); closeBubble(true) }
+const setHighlightColor = (v) => { (typeof v === 'string' && COLOR_RE.test(v) ? chain().setHighlight({ color: v }) : chain().unsetHighlight()).run(); closeBubble(true) }
 function openLink() {
   const ed = live()
   if (!ed || !usable('links')) return
@@ -1353,7 +2462,8 @@ function onRootKeydown(e) {
 }
 
 const showStart = computed(() => docEmpty.value && isEditable.value && on('slashMenu') && !slash.open)
-const startItems = computed(() => ['Heading 1', 'Bulleted list', 'To-do list', 'Table', 'Image', 'Video', 'Audio', 'File', 'Callout'].map((t) => slashItems.find((i) => i.title === t)).filter(Boolean))
+const START_IDS = ['heading-1', 'bullet-list', 'todo-list', 'table', 'image', 'video', 'audio', 'file', 'callout']
+const startItems = computed(() => START_IDS.map((id) => slashItems.find((i) => i.id === id)).filter(Boolean))
 function runStart(item) { const e = live(); if (!e) return; e.commands.focus('start'); item.run(e) }
 
 const counts = computed(() => {
@@ -1366,12 +2476,14 @@ const setZoom = (v) => { const n = Number(v); zoom.value = Number.isFinite(n) ? 
 
 onMounted(() => {
   mounted.value = true
-  hostHasMode.value = ['dark', 'light'].some((c) => document.documentElement.classList.contains(c))
+  watchHostMode()
   window.addEventListener('pointerup', onWindowPointerUp)
   window.addEventListener('scroll', onWindowScroll, true)
   window.addEventListener('resize', onWindowScroll)
 })
 onBeforeUnmount(() => {
+  hostModeObserver?.disconnect()
+  hostModeObserver = null
   window.removeEventListener('pointerup', onWindowPointerUp)
   window.removeEventListener('scroll', onWindowScroll, true)
   window.removeEventListener('resize', onWindowScroll)
@@ -1405,10 +2517,10 @@ defineExpose({
 </script>
 
 <template>
+  <!-- :class="{ dark: forceDark }" -->
   <div
     ref="root"
     class="rv-editor"
-    :class="{ dark: forceDark }"
     :data-rv-theme="opts.theme"
     :data-rv-appearance="opts.appearance"
     :data-rv-compact="compact"
@@ -1437,6 +2549,7 @@ defineExpose({
       :highlights="HIGHLIGHTS"
       :apply-link="applyLink"
       :tick="tick"
+      :t="t"
     />
 
     <!-- ================= Document ================= -->
@@ -1444,109 +2557,210 @@ defineExpose({
       <div class="rv-page" :style="pageStyle">
         <EditorContent :editor="editor" class="rv-content" />
         <div v-if="showStart" class="rv-start">
-          <p class="rv-start__hint">Press <kbd>/</kbd> for commands, or start with</p>
+          <p class="rv-start__hint">{{ t('rve_press_slash', 'Press') }} <kbd>/</kbd> {{ t('rve_press_slash_suffix', 'for commands, or start with') }}</p>
           <div class="rv-start__chips">
-            <button v-for="item in startItems" :key="item.title" type="button" class="rv-chip" @mousedown.prevent @click="runStart(item)"><UIcon :name="item.icon" />{{ item.title }}</button>
+            <button v-for="item in startItems" :key="item.id" type="button" class="rv-chip" @mousedown.prevent @click="runStart(item)"><UIcon :name="item.icon" />{{ t(item.titleKey, item.title) }}</button>
           </div>
-          <p v-if="feat.dropFiles.register" class="rv-start__drop"><UIcon name="i-lucide-cloud-upload" /> Drag &amp; drop images, video, audio or PDFs anywhere on the page</p>
+          <p v-if="feat.dropFiles.register" class="rv-start__drop"><UIcon name="i-lucide-cloud-upload" /> {{ t('rve_drag_drop_hint', 'Drag & drop images, video, audio or PDFs anywhere on the page') }}</p>
         </div>
       </div>
     </div>
 
     <!-- ================= Block handle + menu (Notion style) ================= -->
     <div v-if="handleShown" class="rv-handle" :style="{ top: `${handle.top}px`, left: `${handle.left}px` }">
-      <button type="button" class="rv-handle__btn" aria-label="Add a block below" title="Click to add a block below" @mousedown.prevent @click="insertBelow"><UIcon name="i-lucide-plus" /></button>
-      <button type="button" class="rv-handle__btn rv-handle__grip" draggable="true" aria-label="Drag to move, click for options" title="Drag to move · click for options" @dragstart="onHandleDragStart" @dragend="onHandleDragEnd" @click="toggleBlockMenu"><UIcon name="i-lucide-grip-vertical" /></button>
+      <button type="button" class="rv-handle__btn" :aria-label="t('rve_add_block_below', 'Add a block below')" :title="t('rve_add_block_below_title', 'Click to add a block below')" @mousedown.prevent @click="insertBelow"><UIcon name="i-lucide-plus" /></button>
+      <button type="button" class="rv-handle__btn rv-handle__grip" draggable="true" :aria-label="t('rve_drag_move_options', 'Drag to move, click for options')" :title="t('rve_drag_move_options_title', 'Drag to move · click for options')" @dragstart="onHandleDragStart" @dragend="onHandleDragEnd" @click="toggleBlockMenu"><UIcon name="i-lucide-grip-vertical" /></button>
     </div>
     <div v-if="blockMenu.open && handleShown" ref="blockMenuEl" class="rv-menu" role="menu" :style="{ top: `${handle.top + 28}px`, left: `${handle.left}px` }">
       <template v-if="blockActions.length">
-        <div class="rv-menu__label">Turn into</div>
+        <div class="rv-menu__label">{{ t('rve_turn_into', 'Turn into') }}</div>
         <button v-for="a in blockActions" :key="a[0]" type="button" class="rv-menu__item" role="menuitem" @click="turnInto(a[2])"><UIcon :name="a[1]" />{{ a[0] }}</button>
         <div class="rv-menu__sep" />
       </template>
-      <button type="button" class="rv-menu__item" role="menuitem" @click="duplicateBlock"><UIcon name="i-lucide-copy" />Duplicate</button>
-      <button type="button" class="rv-menu__item" role="menuitem" @click="moveBlock(-1)"><UIcon name="i-lucide-arrow-up" />Move up</button>
-      <button type="button" class="rv-menu__item" role="menuitem" @click="moveBlock(1)"><UIcon name="i-lucide-arrow-down" />Move down</button>
+      <button type="button" class="rv-menu__item" role="menuitem" @click="duplicateBlock"><UIcon name="i-lucide-copy" />{{ t('rve_duplicate', 'Duplicate') }}</button>
+      <button type="button" class="rv-menu__item" role="menuitem" @click="moveBlock(-1)"><UIcon name="i-lucide-arrow-up" />{{ t('rve_move_up', 'Move up') }}</button>
+      <button type="button" class="rv-menu__item" role="menuitem" @click="moveBlock(1)"><UIcon name="i-lucide-arrow-down" />{{ t('rve_move_down', 'Move down') }}</button>
       <div class="rv-menu__sep" />
-      <button type="button" class="rv-menu__item rv-menu__item--danger" role="menuitem" @click="deleteBlock"><UIcon name="i-lucide-trash-2" />Delete</button>
+      <button type="button" class="rv-menu__item rv-menu__item--danger" role="menuitem" @click="deleteBlock"><UIcon name="i-lucide-trash-2" />{{ t('rve_delete', 'Delete') }}</button>
     </div>
 
     <!-- ================= Selection bubble ================= -->
     <div v-show="bubble.visible" ref="bubbleEl" class="rv-bubble" :style="{ left: `${bubble.x}px`, top: `${bubble.y}px` }" @mouseenter="bubble.hover = true" @mouseleave="bubble.hover = false">
-      <div v-if="bubble.mode !== 'link'" class="rv-bubble__bar" role="toolbar" aria-label="Selection formatting">
+      <div v-if="bubble.mode !== 'link'" class="rv-bubble__bar" role="toolbar" :aria-label="t('rve_selection_formatting', 'Selection formatting')">
         <button v-if="bubbleTurn.length > 1" type="button" class="rv-bubble__turn" aria-haspopup="true" :aria-expanded="bubble.mode === 'turn'" @mousedown.prevent @click="openBubbleMode('turn')">{{ bubbleBlockLabel() }} <UIcon name="i-lucide-chevron-down" /></button>
-        <UTooltip v-for="m in MARKS" :key="m.id" :text="m.label" :kbds="m.kbd">
-          <button type="button" class="rv-btn" :class="{ 'is-active': act(m.id) }" :aria-label="m.label" :aria-pressed="act(m.id)" @mousedown.prevent @click="m.run()"><UIcon :name="m.icon" /></button>
-        </UTooltip>
-        <UTooltip v-if="vis('links') && usable('links')" text="Link" :kbds="['meta', 'K']">
-          <button type="button" class="rv-btn" :class="{ 'is-active': act('link') }" aria-label="Link" @mousedown.prevent @click="openBubbleMode('link')"><UIcon name="i-lucide-link" /></button>
-        </UTooltip>
-        <UTooltip v-if="vis('colors') && usable('colors')" text="Color">
-          <button type="button" class="rv-btn" :class="{ 'is-active': bubble.mode === 'color' }" aria-label="Color" aria-haspopup="true" @mousedown.prevent @click="openBubbleMode('color')"><UIcon name="i-lucide-baseline" /></button>
-        </UTooltip>
+        <RTooltip v-for="m in MARKS" :key="m.id" :text="tl(m.label)">
+          <button type="button" class="rv-btn" :class="{ 'is-active': act(m.id) }" :aria-label="tl(m.label)" :aria-pressed="act(m.id)" @mousedown.prevent @click="m.run()"><UIcon :name="m.icon" /></button>
+        </RTooltip>
+        <RTooltip v-if="vis('links') && usable('links')" :text="t('rve_link', 'Link')">
+          <button type="button" class="rv-btn" :class="{ 'is-active': act('link') }" :aria-label="t('rve_link', 'Link')" @mousedown.prevent @click="openBubbleMode('link')"><UIcon name="i-lucide-link" /></button>
+        </RTooltip>
+        <RTooltip v-if="vis('colors') && usable('colors')" :text="t('rve_text_color', 'Text color')">
+          <button type="button" class="rv-btn" :class="{ 'is-active': bubble.mode === 'color' }" :aria-label="t('rve_text_color', 'Text color')" aria-haspopup="true" @mousedown.prevent @click="openBubbleMode('color')"><UIcon name="i-lucide-baseline" /></button>
+        </RTooltip>
+        <RTooltip v-if="vis('colors') && usable('colors')" :text="t('rve_highlight', 'Highlight')">
+          <button type="button" class="rv-btn" :class="{ 'is-active': bubble.mode === 'highlight' }" :aria-label="t('rve_highlight', 'Highlight')" aria-haspopup="true" @mousedown.prevent @click="openBubbleMode('highlight')"><UIcon name="i-lucide-highlighter" /></button>
+        </RTooltip>
       </div>
       <div v-else class="rv-bubble__link">
-        <input ref="bubbleInput" v-model="bubble.url" class="rv-input" type="text" placeholder="Paste a link…" aria-label="Link URL" @keydown.enter.prevent="submitBubbleLink" @keydown.esc.prevent="closeBubble(true)">
-        <button type="button" class="rv-pill rv-pill--primary" @click="submitBubbleLink">Apply</button>
-        <button v-if="act('link')" type="button" class="rv-pill" @click="removeBubbleLink">Remove</button>
+        <input ref="bubbleInput" v-model="bubble.url" class="rv-input" type="text" :placeholder="t('rve_paste_link', 'Paste a link…')" :aria-label="t('rve_link_url', 'Link URL')" @keydown.enter.prevent="submitBubbleLink" @keydown.esc.prevent="closeBubble(true)">
+        <button type="button" class="rv-pill rv-pill--primary" @click="submitBubbleLink">{{ t('rve_apply', 'Apply') }}</button>
+        <button v-if="act('link')" type="button" class="rv-pill" @click="removeBubbleLink">{{ t('rve_remove', 'Remove') }}</button>
         <p v-if="bubble.error" class="rv-pop__error" role="alert">{{ bubble.error }}</p>
       </div>
       <div v-if="bubble.mode === 'turn'" class="rv-bubble__panel" role="menu">
-        <button v-for="t in bubbleTurn" :key="t[0]" type="button" class="rv-menu__item" role="menuitem" @mousedown.prevent @click="t[2](); closeBubble(true)"><UIcon :name="t[1]" />{{ t[0] }}</button>
+        <button v-for="t2 in bubbleTurn" :key="t2[0]" type="button" class="rv-menu__item" role="menuitem" @mousedown.prevent @click="t2[2](); closeBubble(true)"><UIcon :name="t2[1]" />{{ t2[0] }}</button>
       </div>
       <div v-if="bubble.mode === 'color'" class="rv-bubble__panel rv-bubble__panel--colors">
-        <div class="rv-pop__label">Text color</div>
+        <div class="rv-pop__label">{{ t('rve_text_color', 'Text color') }}</div>
         <div class="rv-swatches">
-          <button type="button" class="rv-swatch rv-swatch--none" aria-label="Default text color" @mousedown.prevent @click="setTextColor(null)">A</button>
-          <button v-for="c in TEXT_COLORS" :key="c.value" type="button" class="rv-swatch" :style="{ color: c.value }" :aria-label="`${c.name} text`" @mousedown.prevent @click="setTextColor(c.value)">A</button>
+          <button type="button" class="rv-swatch rv-swatch--none" :aria-label="t('rve_default_text_color', 'Default text color')" @mousedown.prevent @click="setTextColor(null)">A</button>
+          <button v-for="c in TEXT_COLORS" :key="c.value" type="button" class="rv-swatch" :style="{ color: c.value }" :aria-label="`${tl(c.name)} ${t('rve_text_color', 'Text color')}`" @mousedown.prevent @click="setTextColor(c.value)">A</button>
         </div>
-        <div class="rv-pop__label">Highlight</div>
+      </div>
+      <div v-if="bubble.mode === 'highlight'" class="rv-bubble__panel rv-bubble__panel--colors">
+        <div class="rv-pop__label">{{ t('rve_highlight', 'Highlight') }}</div>
         <div class="rv-swatches">
-          <button type="button" class="rv-swatch rv-swatch--none" aria-label="No highlight" @mousedown.prevent @click="setHighlightColor(null)"><UIcon name="i-lucide-ban" /></button>
-          <button v-for="c in HIGHLIGHTS" :key="c.value" type="button" class="rv-swatch rv-swatch--bg" :style="{ background: c.value }" :aria-label="`${c.name} highlight`" @mousedown.prevent @click="setHighlightColor(c.value)" />
+          <button type="button" class="rv-swatch rv-swatch--none" :aria-label="t('rve_no_highlight', 'No highlight')" @mousedown.prevent @click="setHighlightColor(null)"><UIcon name="i-lucide-ban" /></button>
+          <button v-for="c in HIGHLIGHTS" :key="c.value" type="button" class="rv-swatch rv-swatch--bg" :style="{ background: c.value }" :aria-label="`${tl(c.name)} ${t('rve_highlight', 'Highlight')}`" @mousedown.prevent @click="setHighlightColor(c.value)" />
         </div>
       </div>
     </div>
 
     <!-- ================= Slash menu: shows every tool the moment "/" is typed ================= -->
-    <div v-if="slash.open" ref="slashEl" class="rv-slash" role="listbox" aria-label="Insert a block" :style="slashStyle">
+    <div v-if="slash.open" ref="slashEl" class="rv-slash" role="listbox" :aria-label="t('rve_insert_a_block', 'Insert a block')" :style="slashStyle">
       <template v-if="slashGroups.length">
-        <div v-for="g in slashGroups" :key="g.name" class="rv-slash__section">
+        <div v-for="g in slashGroups" :key="g.key" class="rv-slash__section">
           <div class="rv-slash__group">{{ g.name }}</div>
-          <button v-for="e in g.items" :key="e.item.title" type="button" class="rv-slash__item" role="option" :aria-selected="e.i === slash.index" @mousedown.prevent="slash.command(e.item)" @mousemove="slash.index = e.i">
+          <button v-for="e in g.items" :key="e.item.id" type="button" class="rv-slash__item" role="option" :aria-selected="e.i === slash.index" @mousedown.prevent="slash.command(e.item)" @mousemove="slash.index = e.i">
             <span class="rv-slash__icon"><UIcon :name="e.item.icon" /></span>
-            <span class="rv-slash__text"><strong>{{ e.item.title }}</strong><small>{{ e.item.hint }}</small></span>
+            <span class="rv-slash__text"><strong>{{ t(e.item.titleKey, e.item.title) }}</strong><small>{{ t(e.item.hintKey, e.item.hint) }}</small></span>
           </button>
         </div>
       </template>
-      <div v-else class="rv-slash__empty">No results</div>
+      <div v-else class="rv-slash__empty">{{ t('rve_no_results', 'No results') }}</div>
     </div>
 
     <!-- ================= Drop zone, notices, status ================= -->
     <div v-if="dropping" class="rv-drop" aria-hidden="true">
       <div class="rv-drop__card">
         <UIcon name="i-lucide-cloud-upload" class="rv-drop__icon" />
-        <strong>Drop to upload</strong>
-        <span>Images, video, audio and PDFs</span>
+        <strong>{{ t('rve_drop_to_upload', 'Drop to upload') }}</strong>
+        <span>{{ t('rve_drop_hint', 'Images, video, audio and PDFs') }}</span>
       </div>
     </div>
+
+    <!-- ── Design canvas (fabric) — edits IN PLACE ──────────────────────────
+         The canvas is drawn exactly over the image in the article (it follows
+         scroll / resize). "Expand" switches to a full-screen workspace.
+         Built into REditor; fabric loads on first use. -->
+    <Teleport v-if="canvasEnabled" to="body">
+      <div
+        v-if="designOpen" ref="designRoot" class="r-design" :class="designUi.expanded ? 'is-full' : 'is-inplace'"
+        :style="designFrameStyle" role="dialog" aria-label="Design canvas" tabindex="-1" @keydown="onDesignKey"
+      >
+        <div class="r-design__dock" :style="designDockStyle">
+          <!-- Header -->
+          <div class="r-design__bar">
+            <strong class="r-design__title">{{ designPlaceholder ? 'New design' : 'Edit design' }}</strong>
+            <button type="button" class="r-design__btn" title="Undo (Ctrl+Z)" :disabled="!designUi.canUndo" @click="undo"><i class="i-lucide-undo-2" /></button>
+            <button type="button" class="r-design__btn" title="Redo (Ctrl+Shift+Z)" :disabled="!designUi.canRedo" @click="redo"><i class="i-lucide-redo-2" /></button>
+            <select class="r-design__field" :value="designPage.preset" aria-label="Page size" @change="onPreset($event.target.value)">
+              <option v-for="p in DESIGN_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
+              <option value="custom" disabled>Custom</option>
+            </select>
+            <input class="r-design__field r-design__num" type="number" min="100" max="4000" :value="designPage.w" aria-label="Page width" @change="setPageSize($event.target.value, designPage.h)">
+            <span>×</span>
+            <input class="r-design__field r-design__num" type="number" min="100" max="4000" :value="designPage.h" aria-label="Page height" @change="setPageSize(designPage.w, $event.target.value)">
+            <input class="r-design__color" type="color" :value="designPage.bg" title="Page background" aria-label="Page background" @input="setBackground($event.target.value)">
+            <span class="r-design__grow" />
+            <label class="r-design__check" title="Also insert the documents / videos you added as file blocks under the image">
+              <input v-model="designUi.attach" type="checkbox"> Attach files
+            </label>
+            <button type="button" class="r-design__btn" :title="designUi.expanded ? 'Back to in-place' : 'Expand to full screen'" @click="designUi.expanded = !designUi.expanded">
+              <i :class="designUi.expanded ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'" />
+            </button>
+            <button type="button" class="r-design__btn r-design__btn--text" @click="closeDesign({ cancelled: true })">Cancel</button>
+            <button type="button" class="r-design__btn r-design__btn--text r-design__btn--primary" :disabled="!designUi.ready || designUi.busy" @click="insertDesign">
+              {{ designUi.busy ? 'Working…' : 'Done' }}
+            </button>
+          </div>
+
+          <!-- Tools: add / align / arrange -->
+          <div class="r-design__tools">
+            <input ref="designFileInput" type="file" multiple hidden @change="onDesignPick">
+            <button type="button" class="r-design__btn r-design__btn--text" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
+            <button type="button" class="r-design__btn" title="Text" @click="addText"><i class="i-lucide-type" /></button>
+            <button type="button" class="r-design__btn" title="Rectangle" @click="addRect"><i class="i-lucide-square" /></button>
+            <button type="button" class="r-design__btn" title="Line" @click="addLine"><i class="i-lucide-minus" /></button>
+            <span class="r-design__sep" />
+            <select v-model="designUi.alignTo" class="r-design__field" aria-label="Align relative to" title="Align relative to">
+              <option value="page">To page</option>
+              <option value="objects">To each other</option>
+            </select>
+            <button v-for="[mode, icon, label] in ALIGN_BUTTONS" :key="mode" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="align(mode)"><i :class="icon" /></button>
+            <button type="button" class="r-design__btn" title="Distribute horizontally" :disabled="designSel.n < 3" @click="distribute('x')"><i class="i-lucide-align-horizontal-distribute-center" /></button>
+            <button type="button" class="r-design__btn" title="Distribute vertically" :disabled="designSel.n < 3" @click="distribute('y')"><i class="i-lucide-align-vertical-distribute-center" /></button>
+            <span class="r-design__sep" />
+            <button v-for="[op, icon, label] in ORDER_BUTTONS" :key="op" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="arrange(op)"><i :class="icon" /></button>
+            <button type="button" class="r-design__btn" title="Flip horizontally" :disabled="!designSel.n" @click="flip"><i class="i-lucide-flip-horizontal-2" /></button>
+            <button type="button" class="r-design__btn" title="Duplicate (Ctrl+D)" :disabled="!designSel.n" @click="duplicate"><i class="i-lucide-copy" /></button>
+            <button type="button" class="r-design__btn r-design__btn--danger" title="Delete" :disabled="!designSel.n" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
+            <span class="r-design__sep" />
+            <label class="r-design__check"><input v-model="designUi.snap" type="checkbox"> Snap</label>
+          </div>
+
+          <!-- Properties of the selection -->
+          <div v-if="designSel.n" class="r-design__props">
+            <span class="r-design__kind">{{ designSel.n > 1 ? `${designSel.n} objects` : designSel.kind }}</span>
+            <label>X <input class="r-design__field r-design__num" type="number" :value="designSel.x" @change="setPosition('x', $event.target.value)"></label>
+            <label>Y <input class="r-design__field r-design__num" type="number" :value="designSel.y" @change="setPosition('y', $event.target.value)"></label>
+            <label>W <input class="r-design__field r-design__num" type="number" min="1" :value="designSel.w" @change="setDimension('w', $event.target.value)"></label>
+            <label>H <input class="r-design__field r-design__num" type="number" min="1" :value="designSel.h" @change="setDimension('h', $event.target.value)"></label>
+            <label class="r-design__check"><input v-model="designSel.lock" type="checkbox"> Ratio</label>
+            <label v-if="designSel.hasFill" class="r-design__check">Colour <input class="r-design__color" type="color" :value="designSel.fill" @input="setFill($event.target.value)"></label>
+            <label class="r-design__check">Opacity
+              <input type="range" min="5" max="100" :value="designSel.opacity" @input="setOpacity(Number($event.target.value))" @change="designCommit()">
+            </label>
+          </div>
+          <p v-else class="r-design__hint">Drop or paste any file onto the canvas · drag corners to resize · Shift-click to select several, then align / distribute</p>
+          <p v-if="designUi.msg" class="r-design__error" role="alert">{{ designUi.msg }}</p>
+        </div>
+
+        <div class="r-design__body">
+          <div ref="designStage" class="r-design__stage" @dragover.prevent @drop.prevent="onDesignDrop">
+            <div class="r-design__page"><canvas ref="designCanvasEl" /></div>
+            <div v-if="!designUi.ready" class="r-design__loading" role="status">Loading canvas…</div>
+          </div>
+        </div>
+
+        <footer v-if="designUi.expanded" class="r-design__foot">
+          <span class="r-design__grow" />
+          <button type="button" class="r-design__btn" title="Zoom out" @click="setDesignZoom(designUi.zoom / 1.2)"><i class="i-lucide-zoom-out" /></button>
+          <input type="range" min="5" max="300" :value="Math.round(designUi.zoom * 100)" aria-label="Zoom" @input="setDesignZoom(Number($event.target.value) / 100)">
+          <button type="button" class="r-design__btn" title="Zoom in" @click="setDesignZoom(designUi.zoom * 1.2)"><i class="i-lucide-zoom-in" /></button>
+          <span class="r-design__pct">{{ Math.round(designUi.zoom * 100) }}%</span>
+          <button type="button" class="r-design__btn" title="Fit to screen" @click="fit"><i class="i-lucide-maximize" /></button>
+        </footer>
+      </div>
+    </Teleport>
+
     <div v-if="notice" class="rv-notice" role="status"><UIcon name="i-lucide-info" />{{ notice }}</div>
     <!-- ================= Footer (optional: options.footer) ================= -->
     <footer v-if="editor && feat.footer.visible" class="rv-footer" role="contentinfo">
       <div class="rv-footer__group">
-        <span v-if="!isEditable" class="rv-badge">Read-only</span>
-        <span v-if="uploading > 0" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> Uploading {{ uploading }} {{ uploading === 1 ? 'file' : 'files' }}…</span>
+        <span v-if="!isEditable" class="rv-badge">{{ t('rve_read_only', 'Read-only') }}</span>
+        <span v-if="uploading > 0" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_uploading', 'Uploading') }} {{ uploading }} {{ uploading === 1 ? t('rve_file_singular', 'file') : t('rve_file_plural', 'files') }}…</span>
       </div>
       <div class="rv-footer__group">
         <template v-if="feat.wordCount.visible && counts">
-          <span>{{ counts.words }} {{ counts.words === 1 ? 'word' : 'words' }}</span>
-          <span>{{ counts.characters }} {{ counts.characters === 1 ? 'character' : 'characters' }}</span>
+          <span>{{ counts.words }} {{ counts.words === 1 ? t('rve_word', 'word') : t('rve_words', 'words') }}</span>
+          <span>{{ counts.characters }} {{ counts.characters === 1 ? t('rve_character', 'character') : t('rve_characters', 'characters') }}</span>
         </template>
-        <div v-if="feat.zoom.visible" class="rv-zoom" role="group" aria-label="Zoom">
-          <button type="button" class="rv-btn rv-btn--sm" aria-label="Zoom out" :disabled="zoom <= 50" @click="setZoom(zoom - 10)"><UIcon name="i-lucide-minus" /></button>
-          <input class="rv-zoom__range" type="range" min="50" max="200" step="10" :value="zoom" aria-label="Zoom level" @input="setZoom($event.target.value)">
-          <button type="button" class="rv-btn rv-btn--sm" aria-label="Zoom in" :disabled="zoom >= 200" @click="setZoom(zoom + 10)"><UIcon name="i-lucide-plus" /></button>
-          <button type="button" class="rv-zoom__value" aria-label="Reset zoom" @click="setZoom(100)">{{ zoom }}%</button>
+        <div v-if="feat.zoom.visible" class="rv-zoom" role="group" :aria-label="t('rve_zoom', 'Zoom')">
+          <button type="button" class="rv-btn rv-btn--sm" :aria-label="t('rve_zoom_out', 'Zoom out')" :disabled="zoom <= 50" @click="setZoom(zoom - 10)"><UIcon name="i-lucide-minus" /></button>
+          <input class="rv-zoom__range" type="range" min="50" max="200" step="10" :value="zoom" :aria-label="t('rve_zoom_level', 'Zoom level')" @input="setZoom($event.target.value)">
+          <button type="button" class="rv-btn rv-btn--sm" :aria-label="t('rve_zoom_in', 'Zoom in')" :disabled="zoom >= 200" @click="setZoom(zoom + 10)"><UIcon name="i-lucide-plus" /></button>
+          <button type="button" class="rv-zoom__value" :aria-label="t('rve_reset_zoom', 'Reset zoom')" @click="setZoom(100)">{{ zoom }}%</button>
         </div>
       </div>
     </footer>
@@ -1561,33 +2775,33 @@ defineExpose({
   position: relative;
   display: flex;
   flex-direction: column;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-400 , ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif) ;
   color: var(--color-w-b-1);
 }
-// theme="light" inside a dark host: re-state the light values of the _color.scss tokens used here (mirrors its :root).
-.dark .rv-editor[data-rv-theme='light']:not(.dark) {
-  --bg-tertiary: #f1f3f6;
-  --bg-content: #ffffff;
-  --bg-wrapper: #ffffff;
-  --bg-hover: #f2f2f2;
-  --border-card: #f0f0f0;
-  --color-w-b-1: #111827;
-  --color-w-b-4: #d0d2d6;
-  --color-w-b-5: #f8f5f0;
-  --c-muted: #8a7f72;
-  --color-primary: #d11717;
-  --c-accent: #ff8c42;
-  --color-shadow: rgba(26, 26, 26, 0.2);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
-}
+// // theme="light" inside a dark host: re-state the light values of the _color.scss tokens used here (mirrors its :root).
+// .dark .rv-editor[data-rv-theme='light']:not(.dark) {
+//   --bg-tertiary: #f1f3f6;
+//   --bg-content: #ffffff;
+//   --bg-wrapper: #ffffff;
+//   --bg-hover: #f2f2f2;
+//   --border-card: #f0f0f0;
+//   --color-w-b-1: #111827;
+//   --color-w-b-4: #d0d2d6;
+//   --color-w-b-5: #f8f5f0;
+//   --c-muted: #8a7f72;
+//   --color-primary: #d11717;
+//   --c-accent: #ff8c42;
+//   --color-shadow: rgba(26, 26, 26, 0.2);
+//   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+// }
 
 // ---- appearances: paper (Word/Canva sheet on a canvas) and notion (seamless page) ----------------------
 .rv-editor[data-rv-appearance='paper'] {
-  background: var(--bg-tertiary);
+  background: var(--c-bg);
   border: 1px solid var(--border-card);
   border-radius: 12px;
   .rv-body { padding: 28px 16px 40px; cursor: text; }
-  .rv-page { padding: 56px 72px; background: var(--bg-content); border-radius: 8px; box-shadow: var(--glass-shadow); }
+  .rv-page { padding: 56px 62px; background: var(--bg-content); border-radius: 8px; box-shadow: var(--glass-shadow); }
   .rv-start { left: 72px; right: 72px; }
 }
 .rv-editor[data-rv-appearance='notion'] {
@@ -1610,11 +2824,11 @@ defineExpose({
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--c-muted);
   font-size: 1rem;
   position: relative;
-  transition: background 120ms cubic-bezier(0.2, 0.7, 0.2, 1), color 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: background 140ms cubic-bezier(0.2, 0.7, 0.2, 1), color 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
   &:hover:not(:disabled) { background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); color: var(--color-w-b-1); }
   &.is-active { background: color-mix(in srgb, var(--color-primary) 11%, transparent); color: var(--color-primary); }
   &:disabled { opacity: 0.38; cursor: not-allowed; }
@@ -1823,7 +3037,7 @@ defineExpose({
   transition: background 120ms cubic-bezier(0.2, 0.7, 0.2, 1), border-color 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
   &:hover { background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); border-color: var(--color-w-b-4); }
 }
-.rv-editor kbd { padding: 0 5px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 0.85em; border: 1px solid var(--color-w-b-4); border-radius: 4px; background: var(--bg-hover); }
+.rv-editor kbd { padding: 0 5px; font-family: var(--font-400, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace); font-size: 0.85em; border: 1px solid var(--color-w-b-4); border-radius: 4px; background: var(--bg-hover); }
 
 // ---- drop zone, notice, status -----------------------------------------------------------------------
 .rv-drop {
@@ -1863,7 +3077,7 @@ defineExpose({
 .rv-prose {
   flex: 1 1 auto;
   outline: none;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-400, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
   font-size: 1rem;
   line-height: 1.65;
   color: var(--color-w-b-1);
@@ -1890,8 +3104,8 @@ defineExpose({
   a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--c-muted) 65%, transparent); text-underline-offset: 3px; cursor: pointer; &:hover { text-decoration-color: currentColor; } }
   mark { border-radius: 3px; padding: 0 0.12em; }
   hr { border: 0; border-top: 1px solid var(--color-w-b-4); margin: 1.4em 0; }
-  pre { margin: 0.8em 0; padding: 0.9em 1.1em; overflow-x: auto; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 0.88em; background: var(--bg-hover); border-radius: 8px; code { background: none; padding: 0; } }
-  :not(pre) > code { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 0.88em; padding: 0.12em 0.4em; color: var(--r-c-danger); background: var(--bg-hover); border-radius: 4px; }
+  pre { margin: 0.8em 0; padding: 0.9em 1.1em; overflow-x: auto; font-family: var(--fong-400,ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace); font-size: 0.88em; background: var(--bg-hover); border-radius: 8px; code { background: none; padding: 0; } }
+  :not(pre) > code { font-family: var(--font-500,ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace); font-size: 0.88em; padding: 0.12em 0.4em; color: var(--r-c-danger); background: var(--bg-hover); border-radius: 4px; }
   p.is-empty::before, h1.is-empty::before, h2.is-empty::before, h3.is-empty::before, h4.is-empty::before, h5.is-empty::before, h6.is-empty::before {
     content: attr(data-placeholder);
     float: left;
@@ -1932,6 +3146,8 @@ defineExpose({
   &[data-align='left'] { justify-content: flex-start; }
   &[data-align='center'] { justify-content: center; }
   &[data-align='right'] { justify-content: flex-end; }
+  &[data-layout='float-left'] { float: left; margin: 0.25em 1rem 0.5em 0; }
+  &[data-layout='float-right'] { float: right; margin: 0.25em 0 0.5em 1rem; }
 }
 .rv-media__figure { position: relative; width: 100%; max-width: 100%; margin: 0; border-radius: 8px; transition: outline-color 120ms cubic-bezier(0.2, 0.7, 0.2, 1); outline: 2px solid transparent; outline-offset: 3px; }
 .rv-media[data-kind='audio'] .rv-media__figure, .rv-media[data-kind='file'] .rv-media__figure { max-width: 640px; }
@@ -1975,22 +3191,63 @@ defineExpose({
 .rv-media__state .rv-media__btn { color: var(--color-w-b-1); background: var(--bg-content); border: 1px solid var(--color-w-b-4); padding: 0 12px; }
 .rv-media__resize {
   position: absolute;
-  top: 50%;
   z-index: 3;
-  width: 8px;
-  height: 44px;
-  margin-top: -22px;
-  background: color-mix(in srgb, var(--color-w-b-1) 70%, transparent);
-  border: 1px solid var(--bg-content);
-  border-radius: 6px;
-  cursor: ew-resize;
+  width: 10px;
+  height: 10px;
+  background: var(--bg-content);
+  border: 1px solid var(--color-primary);
+  border-radius: 2px;
   opacity: 0;
   transition: opacity 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
   &[hidden] { display: none; }
 }
-.rv-media__resize--l { left: 6px; }
-.rv-media__resize--r { right: 6px; }
+.rv-media__resize--nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.rv-media__resize--n { top: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+.rv-media__resize--ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.rv-media__resize--e { top: 50%; right: -5px; margin-top: -5px; cursor: ew-resize; }
+.rv-media__resize--se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+.rv-media__resize--s { bottom: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+.rv-media__resize--sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.rv-media__resize--w { top: 50%; left: -5px; margin-top: -5px; cursor: ew-resize; }
 .rv-media__figure:hover .rv-media__resize, .rv-media.is-selected .rv-media__resize { opacity: 1; }
+.rv-media__badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 4;
+  padding: 2px 7px;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--bg-content);
+  background: color-mix(in srgb, var(--color-w-b-1) 85%, transparent);
+  border-radius: 4px;
+  pointer-events: none;
+  &[hidden] { display: none; }
+}
+.rv-media__menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 150px;
+  padding: 4px;
+  background: var(--c-surface);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 18%, transparent);
+}
+.rv-media__menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  color: var(--color-w-b-1);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  &:hover { background: var(--bg-hover); }
+  &.is-active { color: var(--color-primary); font-weight: 600; }
+}
 .rv-media__caption {
   display: block;
   width: 100%;
@@ -2046,6 +3303,75 @@ defineExpose({
 .rv-zoom__range { width: 96px; accent-color: var(--color-primary); cursor: pointer; }
 .rv-zoom__value { min-width: 3.2rem; padding: 2px 6px; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--color-w-b-1); border-radius: 6px; cursor: pointer; &:hover { background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); } }
 .rv-btn--sm { width: 22px; height: 22px; font-size: 0.8rem; }
+
+// ---- design canvas (fabric) — teleported to <body>, so these are global ---------------------------------
+.r-design {
+  --d-accent: var(--color-primary, #8c52ff);
+  --d-bg: var(--bg-content, #ffffff);
+  --d-soft: var(--bg-hover, #f3f4f6);
+  --d-border: var(--border-card, #e5e7eb);
+  --d-text: var(--color-w-b-1, #1f2937);
+  --d-muted: var(--c-muted, #6b7280);
+  color: var(--d-text);
+  font-family: var(--font-400, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+  font-size: 13px;
+  outline: none;
+}
+.r-design *, .r-design *::before, .r-design *::after { box-sizing: border-box; }
+.r-design.is-inplace { position: fixed; z-index: 1500; }
+.r-design.is-full { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; background: var(--d-bg); }
+
+.r-design__dock {
+  display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--d-bg);
+  border: 1px solid var(--d-border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.is-inplace .r-design__dock { position: fixed; z-index: 1600; width: min(752px, calc(100vw - 16px)); }
+.is-full .r-design__dock { border: 0; border-bottom: 1px solid var(--d-border); border-radius: 0; box-shadow: none; }
+.r-design__bar, .r-design__tools, .r-design__props, .r-design__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.r-design__foot { padding: 6px 12px; border-top: 1px solid var(--d-border); }
+.r-design__title { margin-right: 6px; }
+.r-design__grow { flex: 1; }
+.r-design__sep { width: 1px; height: 22px; background: var(--d-border); margin: 0 2px; }
+.r-design__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 30px; height: 30px;
+  padding: 0 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: inherit;
+  font: inherit; cursor: pointer; white-space: nowrap;
+}
+.r-design__btn i { width: 17px; height: 17px; }
+.r-design__btn:hover:not(:disabled) { background: var(--d-soft); }
+.r-design__btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.r-design__btn--text { padding: 0 12px; border-color: var(--d-border); }
+.r-design__btn--primary { background: var(--d-accent); border-color: var(--d-accent); color: #fff; font-weight: 600; }
+.r-design__btn--primary:hover:not(:disabled) { background: var(--d-accent); filter: brightness(1.08); }
+.r-design__btn--danger:hover:not(:disabled) { color: #dc2626; }
+.r-design__btn:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 1px; }
+.r-design__field {
+  height: 30px; min-width: 0; padding: 0 6px; border: 1px solid var(--d-border); border-radius: 8px;
+  background: var(--d-bg); color: inherit; font: inherit;
+}
+.r-design__field:focus { outline: 2px solid var(--d-accent); outline-offset: -1px; }
+.r-design__num { width: 68px; }
+.r-design__color { width: 30px; height: 28px; padding: 0; border: none; background: none; cursor: pointer; }
+.r-design__check { display: inline-flex; align-items: center; gap: 6px; color: var(--d-muted); cursor: pointer; }
+.r-design__props label { display: inline-flex; align-items: center; gap: 4px; color: var(--d-muted); }
+.r-design__kind { min-width: 60px; text-transform: capitalize; font-weight: 600; }
+.r-design__hint { margin: 0; color: var(--d-muted); font-size: 12px; }
+.r-design__error { margin: 0; padding: 6px 10px; border-radius: 8px; background: #dc2626; color: #fff; }
+.r-design input[type='range'] { accent-color: var(--d-accent); }
+
+.is-inplace .r-design__body { position: absolute; inset: 0; }
+.is-full .r-design__body { flex: 1; min-height: 0; display: flex; }
+.r-design__stage { position: relative; flex: 1; min-width: 0; }
+.is-inplace .r-design__stage { width: 100%; height: 100%; }
+.is-inplace .r-design__page { box-shadow: 0 0 0 2px var(--d-accent); }
+.is-full .r-design__stage { overflow: auto; display: flex; background: color-mix(in srgb, var(--d-text) 7%, var(--d-bg)); }
+.is-full .r-design__page { margin: auto; padding: 40px; }
+.r-design__page .canvas-container { box-shadow: 0 6px 28px rgba(0, 0, 0, 0.22); }
+.r-design__loading {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--d-bg) 70%, transparent); color: var(--d-muted);
+}
+.r-design__pct { width: 40px; text-align: right; color: var(--d-muted); font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) { .rv-editor * { transition: none !important; } }
 </style>
