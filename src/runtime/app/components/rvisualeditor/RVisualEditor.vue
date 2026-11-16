@@ -537,7 +537,7 @@ function openBarMenu(anchor, items) {
 const h = (tag, cls, attrsObj = {}) => {
   const n = document.createElement(tag)
   if (cls) n.className = cls
-  for (const [k, v] of Object.entries(attrsObj)) n.setAttribute(k, v)
+  for (const [k, v] of Object.entries(attrsObj || {})) n.setAttribute(k, v)
   return n
 }
 
@@ -2568,8 +2568,12 @@ defineExpose({
 
     <!-- ================= Block handle + menu (Notion style) ================= -->
     <div v-if="handleShown" class="rv-handle" :style="{ top: `${handle.top}px`, left: `${handle.left}px` }">
-      <button type="button" class="rv-handle__btn" :aria-label="t('rve_add_block_below', 'Add a block below')" :title="t('rve_add_block_below_title', 'Click to add a block below')" @mousedown.prevent @click="insertBelow"><UIcon name="i-lucide-plus" /></button>
-      <button type="button" class="rv-handle__btn rv-handle__grip" draggable="true" :aria-label="t('rve_drag_move_options', 'Drag to move, click for options')" :title="t('rve_drag_move_options_title', 'Drag to move · click for options')" @dragstart="onHandleDragStart" @dragend="onHandleDragEnd" @click="toggleBlockMenu"><UIcon name="i-lucide-grip-vertical" /></button>
+      <RTooltip :text="t('rve_add_block_below_title', 'Click to add a block below')" side="top"  >
+        <button type="button" class="rv-handle__btn" :aria-label="t('rve_add_block_below', 'Add a block below')" @mousedown.prevent @click="insertBelow"><UIcon name="i-lucide-plus" /></button>
+      </RTooltip>
+      <RTooltip :text="t('rve_drag_move_options_title', 'Drag to move · click for options')" side="top" >
+        <button type="button" class="rv-handle__btn rv-handle__grip" draggable="true" :aria-label="t('rve_drag_move_options', 'Drag to move, click for options')" @dragstart="onHandleDragStart" @dragend="onHandleDragEnd" @click="toggleBlockMenu"><UIcon name="i-lucide-grip-vertical" /></button>
+      </RTooltip>
     </div>
     <div v-if="blockMenu.open && handleShown" ref="blockMenuEl" class="rv-menu" role="menu" :style="{ top: `${handle.top + 28}px`, left: `${handle.left}px` }">
       <template v-if="blockActions.length">
@@ -2685,26 +2689,16 @@ defineExpose({
             </button>
           </div>
 
-          <!-- Tools: add / align / arrange -->
+          <!-- Tools: file actions -->
           <div class="r-design__tools">
             <input ref="designFileInput" type="file" multiple hidden @change="onDesignPick">
-            <button type="button" class="r-design__btn r-design__btn--text" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
-            <button type="button" class="r-design__btn" title="Text" @click="addText"><i class="i-lucide-type" /></button>
-            <button type="button" class="r-design__btn" title="Rectangle" @click="addRect"><i class="i-lucide-square" /></button>
-            <button type="button" class="r-design__btn" title="Line" @click="addLine"><i class="i-lucide-minus" /></button>
+            <RTooltip :text="t('rve_add_files', 'Add files')">
+              <button type="button" class="r-design__btn r-design__btn--text" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
+            </RTooltip>
             <span class="r-design__sep" />
-            <select v-model="designUi.alignTo" class="r-design__field" aria-label="Align relative to" title="Align relative to">
-              <option value="page">To page</option>
-              <option value="objects">To each other</option>
-            </select>
-            <button v-for="[mode, icon, label] in ALIGN_BUTTONS" :key="mode" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="align(mode)"><i :class="icon" /></button>
-            <button type="button" class="r-design__btn" title="Distribute horizontally" :disabled="designSel.n < 3" @click="distribute('x')"><i class="i-lucide-align-horizontal-distribute-center" /></button>
-            <button type="button" class="r-design__btn" title="Distribute vertically" :disabled="designSel.n < 3" @click="distribute('y')"><i class="i-lucide-align-vertical-distribute-center" /></button>
-            <span class="r-design__sep" />
-            <button v-for="[op, icon, label] in ORDER_BUTTONS" :key="op" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="arrange(op)"><i :class="icon" /></button>
-            <button type="button" class="r-design__btn" title="Flip horizontally" :disabled="!designSel.n" @click="flip"><i class="i-lucide-flip-horizontal-2" /></button>
-            <button type="button" class="r-design__btn" title="Duplicate (Ctrl+D)" :disabled="!designSel.n" @click="duplicate"><i class="i-lucide-copy" /></button>
-            <button type="button" class="r-design__btn r-design__btn--danger" title="Delete" :disabled="!designSel.n" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
+            <RTooltip :text="t('rve_delete', 'Delete')">
+              <button type="button" class="r-design__btn r-design__btn--danger" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
+            </RTooltip>
             <span class="r-design__sep" />
             <label class="r-design__check"><input v-model="designUi.snap" type="checkbox"> Snap</label>
           </div>
