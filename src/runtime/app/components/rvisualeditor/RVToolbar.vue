@@ -203,8 +203,8 @@ onBeforeUnmount(() => { pop.value = null })
     <!-- ===== tab strip + quick access ===== -->
     <div class="rv-tb__strip">
       <div v-if="ids(G.history).length" class="rv-qat" role="group" aria-label="Quick access">
-        <UTooltip v-for="id in ids(G.history)" :key="id" :text="A[id].label" :kbds="A[id].kbd">
-          <button type="button" class="rv-btn" :disabled="isOff(id)" :aria-label="A[id].label" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
+        <UTooltip v-for="id in ids(G.history)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+          <button type="button" class="rv-btn" :disabled="isOff(id)" :aria-label="tl(A[id].label)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
         </UTooltip>
       </div>
       <div v-if="ribbon" class="rv-tabs" role="tablist" aria-label="Ribbon tabs" @keydown="onTabKey">
@@ -253,8 +253,8 @@ onBeforeUnmount(() => { pop.value = null })
               </select>
             </div>
             <div class="rv-rg__row">
-              <UTooltip v-for="id in ids(G.marks)" :key="id" :text="A[id].label" :kbds="A[id].kbd">
-                <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="A[id].label" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
+              <UTooltip v-for="id in ids(G.marks)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+                <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
               </UTooltip>
               <span v-if="vis('colors')" class="rv-pop-wrap">
                 <UTooltip text="Font color">
@@ -291,13 +291,13 @@ onBeforeUnmount(() => { pop.value = null })
         <section v-if="ids(G.lists).length || ids(G.align).length" class="rv-rg" aria-label="Paragraph">
           <div class="rv-rg__body rv-rg__body--rows">
             <div class="rv-rg__row">
-              <UTooltip v-for="id in ids(G.lists)" :key="id" :text="A[id].label" :kbds="A[id].kbd">
-                <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="A[id].label" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
+              <UTooltip v-for="id in ids(G.lists)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+                <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
               </UTooltip>
             </div>
             <div class="rv-rg__row">
-              <UTooltip v-for="id in ids(G.align)" :key="id" :text="A[id].label" :kbds="A[id].kbd">
-                <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="A[id].label" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
+              <UTooltip v-for="id in ids(G.align)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+                <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
               </UTooltip>
             </div>
           </div>
@@ -368,8 +368,8 @@ onBeforeUnmount(() => { pop.value = null })
       <template v-if="isShown('layout') && ribbon">
         <section v-if="ids(G.indent).length" class="rv-rg" aria-label="Indent">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.indent)" :key="id" :text="A[id].label" :kbds="A[id].kbd">
-              <button type="button" class="rv-big" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ A[id].label }}</span></button>
+            <UTooltip v-for="id in ids(G.indent)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
+              <button type="button" class="rv-big" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
           <span class="rv-rg__label">Indent</span>
@@ -401,24 +401,24 @@ onBeforeUnmount(() => { pop.value = null })
       <template v-if="isShown('table') && tableActive">
         <section class="rv-rg" aria-label="Rows and columns">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.rows)" :key="id" :text="A[id].label">
-              <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ A[id].label }}</span></button>
+            <UTooltip v-for="id in ids(G.rows)" :key="id" :text="tl(A[id].label)">
+              <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
           <span class="rv-rg__label">Rows &amp; columns</span>
         </section>
         <section class="rv-rg" aria-label="Merge">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.merge)" :key="id" :text="A[id].label">
-              <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ A[id].label }}</span></button>
+            <UTooltip v-for="id in ids(G.merge)" :key="id" :text="tl(A[id].label)">
+              <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
           <span class="rv-rg__label">Merge</span>
         </section>
         <section class="rv-rg" aria-label="Table">
           <div class="rv-rg__body">
-            <UTooltip v-for="id in ids(G.table)" :key="id" :text="A[id].label">
-              <button type="button" class="rv-big rv-big--sm" :class="{ 'is-active': isOn(id), 'is-danger': id === 'deleteTable' }" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ A[id].label }}</span></button>
+            <UTooltip v-for="id in ids(G.table)" :key="id" :text="tl(A[id].label)">
+              <button type="button" class="rv-big rv-big--sm" :class="{ 'is-active': isOn(id), 'is-danger': id === 'deleteTable' }" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
           <span class="rv-rg__label">Table</span>
