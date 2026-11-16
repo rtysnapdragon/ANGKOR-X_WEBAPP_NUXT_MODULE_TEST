@@ -366,62 +366,62 @@ onBeforeUnmount(() => { pop.value = null })
 
       <!-- LAYOUT -->
       <template v-if="isShown('layout') && ribbon">
-        <section v-if="ids(G.indent).length" class="rv-rg" aria-label="Indent">
+        <section v-if="ids(G.indent).length" class="rv-rg" :aria-label="tr('rve_indent', 'Indent')">
           <div class="rv-rg__body">
             <UTooltip v-for="id in ids(G.indent)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
               <button type="button" class="rv-big" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
-          <span class="rv-rg__label">Indent</span>
+          <span class="rv-rg__label">{{ tr('rve_indent', 'Indent') }}</span>
         </section>
-        <section v-if="vis('spacing')" class="rv-rg" aria-label="Spacing">
+        <section v-if="vis('spacing')" class="rv-rg" :aria-label="tr('rve_spacing', 'Spacing')">
           <div class="rv-rg__body rv-rg__body--rows">
             <div class="rv-rg__row">
-              <label class="rv-field"><span>Line height</span>
-                <select class="rv-select" aria-label="Line height" :value="curLineHeight()" :disabled="!usable('spacing')" @change="onLineHeight">
-                  <option value="">Default</option>
-                  <option v-for="o in LINE_HEIGHTS" :key="o[0]" :value="o[0]">{{ o[1] }}</option>
+              <label class="rv-field"><span>{{ tr('rve_line_height', 'Line height') }}</span>
+                <select class="rv-select" :aria-label="tr('rve_line_height', 'Line height')" :value="curLineHeight()" :disabled="!usable('spacing')" @change="onLineHeight">
+                  <option value="">{{ tr('rve_default', 'Default') }}</option>
+                  <option v-for="o in LINE_HEIGHTS" :key="o[0]" :value="o[0]">{{ tl(o[1]) }}</option>
                 </select>
               </label>
             </div>
             <div class="rv-rg__row">
-              <label class="rv-field"><span>Letter spacing</span>
-                <select class="rv-select" aria-label="Letter spacing" :value="attrs('textStyle').letterSpacing ?? ''" :disabled="!usable('spacing')" @change="onSpacing">
-                  <option value="">Default</option>
-                  <option v-for="o in SPACINGS" :key="o[0]" :value="o[0]">{{ o[1] }}</option>
+              <label class="rv-field"><span>{{ tr('rve_letter_spacing', 'Letter spacing') }}</span>
+                <select class="rv-select" :aria-label="tr('rve_letter_spacing', 'Letter spacing')" :value="attrs('textStyle').letterSpacing ?? ''" :disabled="!usable('spacing')" @change="onSpacing">
+                  <option value="">{{ tr('rve_default', 'Default') }}</option>
+                  <option v-for="o in SPACINGS" :key="o[0]" :value="o[0]">{{ tl(o[1]) }}</option>
                 </select>
               </label>
             </div>
           </div>
-          <span class="rv-rg__label">Spacing</span>
+          <span class="rv-rg__label">{{ tr('rve_spacing', 'Spacing') }}</span>
         </section>
       </template>
 
       <!-- TABLE (contextual) -->
       <template v-if="isShown('table') && tableActive">
-        <section class="rv-rg" aria-label="Rows and columns">
+        <section class="rv-rg" :aria-label="tr('rve_rows_and_columns', 'Rows and columns')">
           <div class="rv-rg__body">
             <UTooltip v-for="id in ids(G.rows)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
-          <span class="rv-rg__label">Rows &amp; columns</span>
+          <span class="rv-rg__label">{{ tr('rve_rows_and_columns', 'Rows & columns') }}</span>
         </section>
-        <section class="rv-rg" aria-label="Merge">
+        <section class="rv-rg" :aria-label="tr('rve_merge', 'Merge')">
           <div class="rv-rg__body">
             <UTooltip v-for="id in ids(G.merge)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big rv-big--sm" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
-          <span class="rv-rg__label">Merge</span>
+          <span class="rv-rg__label">{{ tr('rve_merge', 'Merge') }}</span>
         </section>
-        <section class="rv-rg" aria-label="Table">
+        <section class="rv-rg" :aria-label="tr('rve_table', 'Table')">
           <div class="rv-rg__body">
             <UTooltip v-for="id in ids(G.table)" :key="id" :text="tl(A[id].label)">
               <button type="button" class="rv-big rv-big--sm" :class="{ 'is-active': isOn(id), 'is-danger': id === 'deleteTable' }" :disabled="isOff(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /><span>{{ tl(A[id].label) }}</span></button>
             </UTooltip>
           </div>
-          <span class="rv-rg__label">Table</span>
+          <span class="rv-rg__label">{{ tr('rve_table', 'Table') }}</span>
         </section>
       </template>
     </div>
