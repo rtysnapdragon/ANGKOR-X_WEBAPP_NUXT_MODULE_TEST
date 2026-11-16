@@ -19,7 +19,13 @@ const props = defineProps({
   highlights: { type: Array, default: () => [] },
   applyLink: { type: Function, default: null }, // (url) => boolean
   tick: { type: Number, default: 0 }, // bumped by the parent on every editor transaction
+  t: { type: Function, default: (key, fallback) => fallback ?? key }, // (key, fallback) => string
 })
+
+// ---- i18n helpers (delegate to the parent's safe `t`; fall back to the English label) -----------------
+const tKey = (label) => `rve_${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+const tl = (label) => props.t(tKey(label), label)
+const tr = (key, fallback) => props.t(key, fallback)
 
 // ---- null-safe accessors ------------------------------------------------------------------------------
 const noop = new Proxy(function noopFn() {}, { get: () => noop, apply: () => noop })
@@ -100,11 +106,11 @@ const mediaItems = computed(() => itemsOf((i) => i.group === 'Media'))
 const blockItems = computed(() => itemsOf((i) => ['Callout', 'Warning callout', 'Divider', 'Code', 'Date'].includes(i.title)))
 const hasInsert = () => vis('tables') || vis('links') || mediaItems.value.length > 0 || blockItems.value.length > 0
 const tabs = computed(() => {
-  const t = [{ id: 'home', label: 'Home' }]
-  if (hasInsert()) t.push({ id: 'insert', label: 'Insert' })
-  if (vis('spacing') || vis('indent')) t.push({ id: 'layout', label: 'Layout' })
-  if (tableActive.value) t.push({ id: 'table', label: 'Table', contextual: true })
-  return t
+  const acc = [{ id: 'home', label: 'Home', labelKey: 'rve_home' }]
+  if (hasInsert()) acc.push({ id: 'insert', label: 'Insert', labelKey: 'rve_insert' })
+  if (vis('spacing') || vis('indent')) acc.push({ id: 'layout', label: 'Layout', labelKey: 'rve_layout' })
+  if (tableActive.value) acc.push({ id: 'table', label: 'Table', labelKey: 'rve_table', contextual: true })
+  return acc
 })
 watch(tabs, (t) => { if (!t.some((x) => x.id === activeTab.value)) activeTab.value = 'home' })
 const isShown = (id) => (ribbon.value ? activeTab.value === id : id === 'home' || (id === 'insert' && hasInsert()) || (id === 'table' && tableActive.value))
@@ -121,11 +127,11 @@ function onTabKey(e) {
 const fontList = computed(() => list(props.fonts).filter((f) => f && typeof f.key === 'string'))
 const sizeList = computed(() => list(props.fontSizes).filter((n) => Number.isFinite(n)))
 const BLOCK_OPTS = computed(() => [
-  ['p', 'Normal'],
-  ...(vis('headings') ? [1, 2, 3, 4, 5, 6].map((n) => [String(n), `Heading ${n}`]) : []),
-  ...(vis('lists') ? [['bullet', 'Bulleted list'], ['ordered', 'Numbered list'], ['task', 'To-do list']] : []),
-  ...(vis('blockquote') ? [['quote', 'Quote']] : []),
-  ...(vis('codeBlock') ? [['code', 'Code block']] : []),
+  ['p', 'Normal', 'rve_normal'],
+  ...(vis('headings') ? [1, 2, 3, 4, 5, 6].map((n) => [String(n), `Heading ${n}`, `rve_heading_${n}`]) : []),
+  ...(vis('lists') ? [['bullet', 'Bulleted list', 'rve_bulleted_list'], ['ordered', 'Numbered list', 'rve_numbered_list'], ['task', 'To-do list', 'rve_todo_list']] : []),
+  ...(vis('blockquote') ? [['quote', 'Quote', 'rve_quote']] : []),
+  ...(vis('codeBlock') ? [['code', 'Code block', 'rve_code_block']] : []),
 ])
 const curBlock = () => (act('heading') ? String(attrs('heading').level ?? 'p') : act('bulletList') ? 'bullet' : act('orderedList') ? 'ordered' : act('taskList') ? 'task' : act('blockquote') ? 'quote' : act('codeBlock') ? 'code' : 'p')
 function onBlock(v) {
@@ -168,7 +174,7 @@ function toggleLink(open) {
 }
 function submitLink() {
   const ok = typeof props.applyLink === 'function' ? props.applyLink(linkUrl.value) : false
-  if (!ok) { linkError.value = 'Enter a valid http(s), mailto or tel link.'; return }
+  if (!ok) { linkError.value = tr('rve_enter_valid_link', 'Enter a valid http(s), mailto or tel link.'); return }
   pop.value = null
 }
 function removeLink() { chain().extendMarkRange('link').unsetLink().run(); pop.value = null }
@@ -199,31 +205,31 @@ onBeforeUnmount(() => { pop.value = null })
 </script>
 
 <template>
-  <div v-if="ed()" ref="rootEl" class="rv-tb" :data-mode="mode" :data-compact="compact" :data-tick="tick" role="toolbar" aria-label="Formatting toolbar">
+  <div v-if="ed()" ref="rootEl" class="rv-tb" :data-mode="mode" :data-compact="compact" :data-tick="tick" role="toolbar" :aria-label="tr('rve_formatting_toolbar', 'Formatting toolbar')">
     <!-- ===== tab strip + quick access ===== -->
     <div class="rv-tb__strip">
-      <div v-if="ids(G.history).length" class="rv-qat" role="group" aria-label="Quick access">
+      <div v-if="ids(G.history).length" class="rv-qat" role="group" :aria-label="tr('rve_quick_access', 'Quick access')">
         <UTooltip v-for="id in ids(G.history)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
           <button type="button" class="rv-btn" :disabled="isOff(id)" :aria-label="tl(A[id].label)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
         </UTooltip>
       </div>
-      <div v-if="ribbon" class="rv-tabs" role="tablist" aria-label="Ribbon tabs" @keydown="onTabKey">
+      <div v-if="ribbon" class="rv-tabs" role="tablist" :aria-label="tr('rve_ribbon_tabs', 'Ribbon tabs')" @keydown="onTabKey">
         <button
-          v-for="t in tabs"
-          :key="t.id"
+          v-for="tab in tabs"
+          :key="tab.id"
           type="button"
           role="tab"
           class="rv-tab"
-          :class="{ 'is-active': activeTab === t.id, 'is-contextual': t.contextual }"
-          :aria-selected="activeTab === t.id"
-          :tabindex="activeTab === t.id ? 0 : -1"
-          @click="selectTab(t.id)"
+          :class="{ 'is-active': activeTab === tab.id, 'is-contextual': tab.contextual }"
+          :aria-selected="activeTab === tab.id"
+          :tabindex="activeTab === tab.id ? 0 : -1"
+          @click="selectTab(tab.id)"
           @dblclick="collapsed = !collapsed"
-        >{{ t.label }}</button>
+        >{{ tr(tab.labelKey, tab.label) }}</button>
       </div>
       <span class="rv-tb__grow" />
-      <UTooltip v-if="ribbon" :text="collapsed ? 'Expand the ribbon' : 'Collapse the ribbon'">
-        <button type="button" class="rv-btn" :aria-label="collapsed ? 'Expand the ribbon' : 'Collapse the ribbon'" :aria-expanded="!collapsed" @click="collapsed = !collapsed"><UIcon :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" /></button>
+      <UTooltip v-if="ribbon" :text="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')">
+        <button type="button" class="rv-btn" :aria-label="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')" :aria-expanded="!collapsed" @click="collapsed = !collapsed"><UIcon :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" /></button>
       </UTooltip>
     </div>
 
@@ -231,24 +237,24 @@ onBeforeUnmount(() => { pop.value = null })
     <div v-show="!ribbon || !collapsed" class="rv-tb__panel" role="tabpanel">
       <!-- HOME -->
       <template v-if="isShown('home')">
-        <section v-if="vis('headings') || vis('lists') || vis('blockquote') || vis('codeBlock')" class="rv-rg" aria-label="Styles">
+        <section v-if="vis('headings') || vis('lists') || vis('blockquote') || vis('codeBlock')" class="rv-rg" :aria-label="tr('rve_styles', 'Styles')">
           <div class="rv-rg__body">
-            <select class="rv-select rv-select--wide" aria-label="Paragraph style" :value="curBlock()" :disabled="!usable('headings') && !usable('lists')" @change="onBlock(val($event))">
-              <option v-for="o in BLOCK_OPTS" :key="o[0]" :value="o[0]">{{ o[1] }}</option>
+            <select class="rv-select rv-select--wide" :aria-label="tr('rve_paragraph_style', 'Paragraph style')" :value="curBlock()" :disabled="!usable('headings') && !usable('lists')" @change="onBlock(val($event))">
+              <option v-for="o in BLOCK_OPTS" :key="o[0]" :value="o[0]">{{ tr(o[2], o[1]) }}</option>
             </select>
           </div>
-          <span class="rv-rg__label">Styles</span>
+          <span class="rv-rg__label">{{ tr('rve_styles', 'Styles') }}</span>
         </section>
 
-        <section v-if="vis('fonts') || ids(G.marks).length || vis('colors')" class="rv-rg" aria-label="Font">
+        <section v-if="vis('fonts') || ids(G.marks).length || vis('colors')" class="rv-rg" :aria-label="tr('rve_font', 'Font')">
           <div class="rv-rg__body rv-rg__body--rows">
             <div v-if="vis('fonts')" class="rv-rg__row">
-              <select class="rv-select rv-select--font" aria-label="Font family" :value="attrs('textStyle').fontFamily ?? ''" :disabled="!usable('fonts')" @change="onFont">
-                <option value="">Font</option>
+              <select class="rv-select rv-select--font" :aria-label="tr('rve_font_family', 'Font family')" :value="attrs('textStyle').fontFamily ?? ''" :disabled="!usable('fonts')" @change="onFont">
+                <option value="">{{ tr('rve_font', 'Font') }}</option>
                 <option v-for="f in fontList" :key="f.key" :value="f.key">{{ f.key }}</option>
               </select>
-              <select class="rv-select rv-select--size" aria-label="Font size" :value="attrs('textStyle').fontSize ?? ''" :disabled="!usable('fonts')" @change="onSize">
-                <option value="">Size</option>
+              <select class="rv-select rv-select--size" :aria-label="tr('rve_font_size', 'Font size')" :value="attrs('textStyle').fontSize ?? ''" :disabled="!usable('fonts')" @change="onSize">
+                <option value="">{{ tr('rve_size', 'Size') }}</option>
                 <option v-for="n in sizeList" :key="n" :value="`${n}px`">{{ n }}</option>
               </select>
             </div>
@@ -257,38 +263,38 @@ onBeforeUnmount(() => { pop.value = null })
                 <button type="button" class="rv-btn" :class="{ 'is-active': isOn(id) }" :disabled="isOff(id)" :aria-label="tl(A[id].label)" :aria-pressed="isOn(id)" @mousedown.prevent @click="run(id)"><UIcon :name="A[id].icon" /></button>
               </UTooltip>
               <span v-if="vis('colors')" class="rv-pop-wrap">
-                <UTooltip text="Font color">
-                  <button type="button" class="rv-btn rv-btn--split" :class="{ 'is-active': pop === 'color' }" :disabled="!usable('colors')" aria-label="Font color" aria-haspopup="true" :aria-expanded="pop === 'color'"  @mousedown.prevent @click="togglePop('color')"><UIcon name="i-lucide-baseline" /><i v-if="curColor()" class="rv-btn__bar" :style="{ background: curColor() }" /></button>
+                <UTooltip :text="tr('rve_font_color', 'Font color')">
+                  <button type="button" class="rv-btn rv-btn--split" :class="{ 'is-active': pop === 'color' }" :disabled="!usable('colors')" :aria-label="tr('rve_font_color', 'Font color')" aria-haspopup="true" :aria-expanded="pop === 'color'"  @mousedown.prevent @click="togglePop('color')"><UIcon name="i-lucide-baseline" /><i v-if="curColor()" class="rv-btn__bar" :style="{ background: curColor() }" /></button>
                 </UTooltip>
-                <div v-if="pop === 'color'" class="rv-pop" role="dialog" aria-label="Font color">
-                  <div class="rv-pop__label">Font color</div>
+                <div v-if="pop === 'color'" class="rv-pop" role="dialog" :aria-label="tr('rve_font_color', 'Font color')">
+                  <div class="rv-pop__label">{{ tr('rve_font_color', 'Font color') }}</div>
                   <div class="rv-swatches">
-                    <button type="button" class="rv-swatch rv-swatch--none" aria-label="Automatic" @mousedown.prevent @click="setColor(null)">A</button>
-                    <button v-for="c in list(textColors)" :key="c.value" type="button" class="rv-swatch" :style="{ color: c.value }" :aria-label="`${c.name} text`" @mousedown.prevent @click="setColor(c.value)">A</button>
+                    <button type="button" class="rv-swatch rv-swatch--none" :aria-label="tr('rve_automatic', 'Automatic')" @mousedown.prevent @click="setColor(null)">A</button>
+                    <button v-for="c in list(textColors)" :key="c.value" type="button" class="rv-swatch" :style="{ color: c.value }" :aria-label="`${tl(c.name)} ${tr('rve_text_color', 'Text color')}`" @mousedown.prevent @click="setColor(c.value)">A</button>
                   </div>
                 </div>
               </span>
               <span v-if="vis('colors')" class="rv-pop-wrap">
-                <UTooltip text="Highlight color">
-                  <button type="button" class="rv-btn rv-btn--split" :class="{ 'is-active': pop === 'highlight' || act('highlight') }" :disabled="!usable('colors')" aria-label="Highlight color" aria-haspopup="true" :aria-expanded="pop === 'highlight'"  @mousedown.prevent @click="togglePop('highlight')"><UIcon name="i-lucide-highlighter" /><i v-if="curHighlight()" class="rv-btn__bar" :style="{ background: curHighlight() }" /></button>
+                <UTooltip :text="tr('rve_highlight_color', 'Highlight color')">
+                  <button type="button" class="rv-btn rv-btn--split" :class="{ 'is-active': pop === 'highlight' || act('highlight') }" :disabled="!usable('colors')" :aria-label="tr('rve_highlight_color', 'Highlight color')" aria-haspopup="true" :aria-expanded="pop === 'highlight'"  @mousedown.prevent @click="togglePop('highlight')"><UIcon name="i-lucide-highlighter" /><i v-if="curHighlight()" class="rv-btn__bar" :style="{ background: curHighlight() }" /></button>
                 </UTooltip>
-                <div v-if="pop === 'highlight'" class="rv-pop" role="dialog" aria-label="Highlight color">
-                  <div class="rv-pop__label">Highlight</div>
+                <div v-if="pop === 'highlight'" class="rv-pop" role="dialog" :aria-label="tr('rve_highlight_color', 'Highlight color')">
+                  <div class="rv-pop__label">{{ tr('rve_highlight', 'Highlight') }}</div>
                   <div class="rv-swatches">
-                    <button type="button" class="rv-swatch rv-swatch--none" aria-label="No highlight" @mousedown.prevent @click="setHighlight(null)"><UIcon name="i-lucide-ban" /></button>
-                    <button v-for="c in list(highlights)" :key="c.value" type="button" class="rv-swatch rv-swatch--bg" :style="{ background: c.value }" :aria-label="`${c.name} highlight`" @mousedown.prevent @click="setHighlight(c.value)" />
+                    <button type="button" class="rv-swatch rv-swatch--none" :aria-label="tr('rve_no_highlight', 'No highlight')" @mousedown.prevent @click="setHighlight(null)"><UIcon name="i-lucide-ban" /></button>
+                    <button v-for="c in list(highlights)" :key="c.value" type="button" class="rv-swatch rv-swatch--bg" :style="{ background: c.value }" :aria-label="`${tl(c.name)} ${tr('rve_highlight', 'Highlight')}`" @mousedown.prevent @click="setHighlight(c.value)" />
                   </div>
                 </div>
               </span>
-              <UTooltip v-if="vis('textFormatting')" text="Clear formatting">
-                <button type="button" class="rv-btn" :disabled="isOff('clear')" aria-label="Clear formatting" @mousedown.prevent @click="run('clear')"><UIcon :name="A.clear.icon" /></button>
+              <UTooltip v-if="vis('textFormatting')" :text="tr('rve_clear_formatting', 'Clear formatting')">
+                <button type="button" class="rv-btn" :disabled="isOff('clear')" :aria-label="tr('rve_clear_formatting', 'Clear formatting')" @mousedown.prevent @click="run('clear')"><UIcon :name="A.clear.icon" /></button>
               </UTooltip>
             </div>
           </div>
-          <span class="rv-rg__label">Font</span>
+          <span class="rv-rg__label">{{ tr('rve_font', 'Font') }}</span>
         </section>
 
-        <section v-if="ids(G.lists).length || ids(G.align).length" class="rv-rg" aria-label="Paragraph">
+        <section v-if="ids(G.lists).length || ids(G.align).length" class="rv-rg" :aria-label="tr('rve_paragraph', 'Paragraph')">
           <div class="rv-rg__body rv-rg__body--rows">
             <div class="rv-rg__row">
               <UTooltip v-for="id in ids(G.lists)" :key="id" :text="tl(A[id].label)" :kbds="A[id].kbd">
@@ -301,66 +307,66 @@ onBeforeUnmount(() => { pop.value = null })
               </UTooltip>
             </div>
           </div>
-          <span class="rv-rg__label">Paragraph</span>
+          <span class="rv-rg__label">{{ tr('rve_paragraph', 'Paragraph') }}</span>
         </section>
       </template>
 
       <!-- INSERT -->
       <template v-if="isShown('insert')">
-        <section v-if="vis('tables')" class="rv-rg" aria-label="Tables">
+        <section v-if="vis('tables')" class="rv-rg" :aria-label="tr('rve_tables', 'Tables')">
           <div class="rv-rg__body">
             <span class="rv-pop-wrap">
-              <UTooltip text="Insert a table">
-                <button type="button" class="rv-big" :class="{ 'is-active': pop === 'table' }" :disabled="!usable('tables')" aria-haspopup="true" :aria-expanded="pop === 'table'" @mousedown.prevent @click="togglePop('table')"><UIcon name="i-lucide-table" /><span>Table</span></button>
+              <UTooltip :text="tr('rve_insert_table', 'Insert a table')">
+                <button type="button" class="rv-big" :class="{ 'is-active': pop === 'table' }" :disabled="!usable('tables')" aria-haspopup="true" :aria-expanded="pop === 'table'" @mousedown.prevent @click="togglePop('table')"><UIcon name="i-lucide-table" /><span>{{ tr('rve_table', 'Table') }}</span></button>
               </UTooltip>
-              <div v-if="pop === 'table'" class="rv-pop rv-pop--grid" role="dialog" aria-label="Insert table">
-                <div class="rv-pop__label">{{ grid.r > 0 ? `${grid.r} × ${grid.c} table` : 'Insert table' }}</div>
+              <div v-if="pop === 'table'" class="rv-pop rv-pop--grid" role="dialog" :aria-label="tr('rve_insert_table', 'Insert a table')">
+                <div class="rv-pop__label">{{ grid.r > 0 ? `${grid.r} × ${grid.c} ${tr('rve_table', 'Table')}` : tr('rve_insert_table', 'Insert a table') }}</div>
                 <div class="rv-grid" :style="{ gridTemplateColumns: `repeat(${GRID_COLS}, 20px)` }" @mouseleave="grid.r = grid.c = 0">
                   <template v-for="r in GRID_ROWS" :key="r">
-                    <button v-for="c in GRID_COLS" :key="`${r}-${c}`" type="button" class="rv-grid__cell" :class="{ 'is-on': r <= grid.r && c <= grid.c }" :aria-label="`${r} rows by ${c} columns`" @mousedown.prevent @mouseenter="(grid.r = r), (grid.c = c)" @focus="(grid.r = r), (grid.c = c)" @click="insertTable(r, c)" />
+                    <button v-for="c in GRID_COLS" :key="`${r}-${c}`" type="button" class="rv-grid__cell" :class="{ 'is-on': r <= grid.r && c <= grid.c }" :aria-label="`${r} ${tr('rve_rows_by', 'rows by')} ${c} ${tr('rve_columns', 'columns')}`" @mousedown.prevent @mouseenter="(grid.r = r), (grid.c = c)" @focus="(grid.r = r), (grid.c = c)" @click="insertTable(r, c)" />
                   </template>
                 </div>
               </div>
             </span>
           </div>
-          <span class="rv-rg__label">Tables</span>
+          <span class="rv-rg__label">{{ tr('rve_tables', 'Tables') }}</span>
         </section>
 
-        <section v-if="mediaItems.length" class="rv-rg" aria-label="Media">
+        <section v-if="mediaItems.length" class="rv-rg" :aria-label="tr('rve_media', 'Media')">
           <div class="rv-rg__body">
-            <UTooltip v-for="item in mediaItems" :key="item.title" :text="item.hint || item.title">
-              <button type="button" class="rv-big" :disabled="!editable" @mousedown.prevent @click="runItem(item)"><UIcon :name="item.icon" /><span>{{ item.title }}</span></button>
+            <UTooltip v-for="item in mediaItems" :key="item.id || item.title" :text="tr(item.hintKey, item.hint) || tr(item.titleKey, item.title)">
+              <button type="button" class="rv-big" :disabled="!editable" @mousedown.prevent @click="runItem(item)"><UIcon :name="item.icon" /><span>{{ tr(item.titleKey, item.title) }}</span></button>
             </UTooltip>
           </div>
-          <span class="rv-rg__label">Media</span>
+          <span class="rv-rg__label">{{ tr('rve_media', 'Media') }}</span>
         </section>
 
-        <section v-if="vis('links')" class="rv-rg" aria-label="Links">
+        <section v-if="vis('links')" class="rv-rg" :aria-label="tr('rve_links', 'Links')">
           <div class="rv-rg__body">
             <span class="rv-pop-wrap">
-              <UTooltip text="Link" :kbds="['meta', 'K']">
-                <button type="button" class="rv-big" :class="{ 'is-active': act('link') || pop === 'link' }" :disabled="!usable('links')" aria-haspopup="true" :aria-expanded="pop === 'link'" @mousedown.prevent @click="toggleLink()"><UIcon name="i-lucide-link" /><span>Link</span></button>
+              <UTooltip :text="tr('rve_link', 'Link')" :kbds="['meta', 'K']">
+                <button type="button" class="rv-big" :class="{ 'is-active': act('link') || pop === 'link' }" :disabled="!usable('links')" aria-haspopup="true" :aria-expanded="pop === 'link'" @mousedown.prevent @click="toggleLink()"><UIcon name="i-lucide-link" /><span>{{ tr('rve_link', 'Link') }}</span></button>
               </UTooltip>
-              <div v-if="pop === 'link'" class="rv-pop rv-pop--link" role="dialog" aria-label="Link">
-                <input ref="linkInput" v-model="linkUrl" class="rv-input" type="text" placeholder="Paste a link…" aria-label="Link URL" @keydown.enter.prevent="submitLink" @keydown.esc.prevent="pop = null">
+              <div v-if="pop === 'link'" class="rv-pop rv-pop--link" role="dialog" :aria-label="tr('rve_link', 'Link')">
+                <input ref="linkInput" v-model="linkUrl" class="rv-input" type="text" :placeholder="tr('rve_paste_link', 'Paste a link…')" :aria-label="tr('rve_link_url', 'Link URL')" @keydown.enter.prevent="submitLink" @keydown.esc.prevent="pop = null">
                 <p v-if="linkError" class="rv-pop__error" role="alert">{{ linkError }}</p>
                 <div class="rv-pop__actions">
-                  <button type="button" class="rv-pill rv-pill--primary" @click="submitLink">{{ $t('apply') }}</button>
-                  <button type="button" class="rv-pill" :disabled="!act('link')" @click="removeLink">Remove</button>
+                  <button type="button" class="rv-pill rv-pill--primary" @click="submitLink">{{ tr('rve_apply', 'Apply') }}</button>
+                  <button type="button" class="rv-pill" :disabled="!act('link')" @click="removeLink">{{ tr('rve_remove', 'Remove') }}</button>
                 </div>
               </div>
             </span>
           </div>
-          <span class="rv-rg__label">{{$t('links')}}</span>
+          <span class="rv-rg__label">{{ tr('rve_links', 'Links') }}</span>
         </section>
 
-        <section v-if="blockItems.length" class="rv-rg" aria-label="Blocks">
+        <section v-if="blockItems.length" class="rv-rg" :aria-label="tr('rve_blocks', 'Blocks')">
           <div class="rv-rg__body">
-            <UTooltip v-for="item in blockItems" :key="item.title" :text="item.hint || item.title">
-              <button type="button" class="rv-big" :disabled="!editable" @mousedown.prevent @click="runItem(item)"><UIcon :name="item.icon" /><span>{{ item.title }}</span></button>
+            <UTooltip v-for="item in blockItems" :key="item.id || item.title" :text="tr(item.hintKey, item.hint) || tr(item.titleKey, item.title)">
+              <button type="button" class="rv-big" :disabled="!editable" @mousedown.prevent @click="runItem(item)"><UIcon :name="item.icon" /><span>{{ tr(item.titleKey, item.title) }}</span></button>
             </UTooltip>
           </div>
-          <span class="rv-rg__label">Blocks</span>
+          <span class="rv-rg__label">{{ tr('rve_blocks', 'Blocks') }}</span>
         </section>
       </template>
 
