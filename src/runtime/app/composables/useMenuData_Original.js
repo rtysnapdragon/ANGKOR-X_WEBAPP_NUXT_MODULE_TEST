@@ -1,10 +1,9 @@
-import json from "~/assets/json/menu_data.json";
+import json from "../assets/json/menu_data.json";
 import { useCookie } from "nuxt/app";
-import devPermission from "../../../../../../RITHTHY_CMS_MANAGEMENT_NUXT/app/assets/json/dev_permission.json";
-import techPermission from "../../../../../../RITHTHY_CMS_MANAGEMENT_NUXT/app/assets/json/tech_permission.json";
-import api from '../../../../../../RITHTHY_CMS_MANAGEMENT_NUXT/app/helpers/apis'
+import devPermission from "../assets/json/dev_permission.json";
+import techPermission from "../assets/json/tech_permission.json";
 
-const { str, config } = helper();
+const { str, config,api } = helper();
 
 export default async () => {
   let result = [];
@@ -14,7 +13,7 @@ export default async () => {
     let customerMenu = await getCustomMenu();
     allMenu = [...(json ?? []), ...(customerMenu ?? [])];
 
-    const { data, error } = await useRHttp(api.permissions, { method: "post" });
+    const { data, error } = await useHttp(api.permissions, { method: "post" });
     // console.log("data of userpermission in useMenuData.js =====> ", isNotEmpty(data.value))
     // console.log("error.value =============>> ", error.value)
 

@@ -240,7 +240,7 @@ describe('API mode', () => {
     expect(paddle.rows.value).toHaveLength(4)
   })
 
-  it('treats the silent 401 from useRHttp as an unauthorized error', async () => {
+  it('treats the silent 401 from useHttp as an unauthorized error', async () => {
     const { paddle } = setup({ http: vi.fn<PaddleHttp>(async () => ({ data: { value: null }, error: { value: null }, status: 401 })), api: { url: '/u' } })
     paddle.start()
     await flush()

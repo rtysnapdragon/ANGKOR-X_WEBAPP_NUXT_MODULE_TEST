@@ -203,7 +203,7 @@ export function mapResponse<T>(raw: unknown, api: Pick<SplendorApi<T>, 'transfor
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Failures — shaped after what `useRHttp` actually returns
+// Failures — shaped after what `useHttp` actually returns
 //   success : { data: ref(body), error: ref(null), status }
 //   failure : { data: ref(null), error: ref(err.response?.data), status }   (aborted / no response → error undefined)
 //   401     : { data: ref(null), error: ref(null), status: 401 }            (silent, after a failed token refresh)

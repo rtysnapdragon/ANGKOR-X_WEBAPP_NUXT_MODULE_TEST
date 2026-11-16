@@ -1,5 +1,4 @@
 import { defineStore, acceptHMRUpdate } from '#imports'
-
 export const useConfirmStore = defineStore( 'ConfirmStore', {
     state: () => ({
       confirm: null,
@@ -59,11 +58,4 @@ export const useConfirmStore = defineStore( 'ConfirmStore', {
   }
 )
 
-if (import.meta.hot) {
-  import.meta.hot.accept(
-    acceptHMRUpdate(
-      useConfirmStore,
-      import.meta.hot
-    )
-  )
-}
+if (import.meta.hot) { import.meta.hot.accept( acceptHMRUpdate( useConfirmStore, import.meta.hot ) ) }

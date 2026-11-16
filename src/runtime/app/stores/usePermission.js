@@ -76,7 +76,7 @@ export const usePermissionStore = defineStore("PermissionStore", {
 
       try {
         this.loading = true;
-        const { error, data } = await useRHttp(api.permissions, {
+        const { error, data } = await useHttp(api.permissions, {
           method: "post",
         });
 

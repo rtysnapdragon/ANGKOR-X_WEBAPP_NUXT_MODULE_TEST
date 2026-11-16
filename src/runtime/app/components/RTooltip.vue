@@ -1,7 +1,6 @@
 <template>
   <div>
     <div v-if="isPopper" ref="trigger" :class="ui.wrapper" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
-      {{ console.log("props.isPopper ==========--------------",isPopper) }}
       <slot :open="open"> Hover </slot>
       <Teleport to="body">
         <div v-if="open && !prevent && isVisible && !isGlobal" ref="container" :class="[ui.container, ui.width, 'z-10']">

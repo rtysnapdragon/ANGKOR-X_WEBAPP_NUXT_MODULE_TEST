@@ -13,8 +13,6 @@ export default defineEventHandler(async (event) => {
   if (!prompt) {
     throw createError({ statusCode: 400, message: 'Prompt is required' })
   }
-  const config = useRuntimeConfig()
-  console.log("Config ------------------> ", config)
   
   if (!config.googleApiKey) {
     throw createError({ 

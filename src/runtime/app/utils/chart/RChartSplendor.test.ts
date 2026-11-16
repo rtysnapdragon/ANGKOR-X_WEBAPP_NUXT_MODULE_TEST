@@ -5,9 +5,9 @@ import { mount } from '@vue/test-utils'
 
 import RChartSplendor from '../app/components/RChartSplendor.vue'
 
-// `useRHttp` stand-in with the same return shape as composables/http.ts
-const useRHttp = vi.hoisted(() => vi.fn())
-vi.mock('~/composables/http', () => ({ useRHttp }))
+// `useHttp` stand-in with the same return shape as composables/http.ts
+const useHttp = vi.hoisted(() => vi.fn())
+vi.mock('~/composables/http', () => ({ useHttp }))
 const downloads = vi.hoisted(() => ({ blobs: [] as Array<{ blob: Blob; name: string }> }))
 vi.mock('~/utils/chart/export', async (orig) => ({
   ...(await orig<typeof import('~/utils/chart/export')>()),
@@ -44,14 +44,14 @@ const ok = (body: unknown) => ({ data: { value: body }, error: { value: null }, 
 const flush = async () => { for (let i = 0; i < 6; i++) { await nextTick(); await Promise.resolve() } }
 const rows = (w: ReturnType<typeof mount>) => w.findAll('tbody tr').map((tr) => tr.findAll('td').map((td) => td.text()))
 
-beforeEach(() => { vi.useFakeTimers(); useRHttp.mockReset(); downloads.blobs.length = 0 })
+beforeEach(() => { vi.useFakeTimers(); useHttp.mockReset(); downloads.blobs.length = 0 })
 afterEach(() => vi.useRealTimers())
 
 const mountIt = (props: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   mount(RChartSplendor as any, { props: { columns, ...props }, global: { stubs, components: stubs }, ...extra })
 
 describe('local mode', () => {
-  it('renders the parent data and never touches useRHttp', async () => {
+  it('renders the parent data and never touches useHttp', async () => {
     const w = mountIt({ mode: 'local', data: people, api: { url: '/should-not-be-called' } })
     await flush()
     expect(rows(w)).toHaveLength(10)
@@ -61,7 +61,7 @@ describe('local mode', () => {
     await vi.advanceTimersByTimeAsync(400)
     await flush()
     expect(rows(w).length).toBe(6) // 'person 2' matches Person 20–25 (not 'Person 02')
-    expect(useRHttp).not.toHaveBeenCalled()
+    expect(useHttp).not.toHaveBeenCalled()
     w.unmount()
   })
 
@@ -168,52 +168,52 @@ describe('API mode', () => {
   const page1 = ok({ Items: people.slice(0, 10), Total: 25 })
 
   it('fetches on mount with page / size and renders exactly what the server sent', async () => {
-    useRHttp.mockResolvedValue(page1)
+    useHttp.mockResolvedValue(page1)
     const w = mountIt({ api: { url: '/users', filter: { tenant: 1 } } })
     expect(w.find('.r-splendor__skeleton').exists()).toBe(true) // skeleton until the first response
     await flush()
-    expect(useRHttp).toHaveBeenCalledTimes(1)
-    expect(useRHttp.mock.calls[0]![0]).toBe('/users')
-    expect(useRHttp.mock.calls[0]![1]).toMatchObject({ method: 'GET', params: { page: 1, page_size: 10, filter: '{"tenant":1}' } })
+    expect(useHttp).toHaveBeenCalledTimes(1)
+    expect(useHttp.mock.calls[0]![0]).toBe('/users')
+    expect(useHttp.mock.calls[0]![1]).toMatchObject({ method: 'GET', params: { page: 1, page_size: 10, filter: '{"tenant":1}' } })
     expect(rows(w)).toHaveLength(10)
     expect(w.text()).toContain('Showing 1–10 of 25')
     w.unmount()
   })
 
   it('sends search / sort / filter to the server (no client-side processing) and resets the page', async () => {
-    useRHttp.mockResolvedValue(page1)
+    useHttp.mockResolvedValue(page1)
     const w = mountIt({ api: { url: '/users' }, filterDefs })
     await flush()
     ;(w.vm as any).setPage(2)
     await flush()
-    useRHttp.mockClear()
+    useHttp.mockClear()
 
     await w.find('.u-input').setValue('sok')
     await vi.advanceTimersByTimeAsync(400)
     await flush()
-    expect(useRHttp).toHaveBeenCalledTimes(1)
-    expect(useRHttp.mock.calls[0]![1].params).toMatchObject({ page: 1, search: 'sok' })
+    expect(useHttp).toHaveBeenCalledTimes(1)
+    expect(useHttp.mock.calls[0]![1].params).toMatchObject({ page: 1, search: 'sok' })
 
     await w.findAll('thead button.r-splendor__sort')[1]!.trigger('click')
     await flush()
-    expect(useRHttp.mock.calls.at(-1)![1].params).toMatchObject({ sort: 'name:asc', search: 'sok', page: 1 })
+    expect(useHttp.mock.calls.at(-1)![1].params).toMatchObject({ sort: 'name:asc', search: 'sok', page: 1 })
     expect(rows(w)[0]![1]).toBe('Person 01') // order untouched: server order is authoritative
     w.unmount()
   })
 
   it('immediate=false defers the first request until refresh()', async () => {
-    useRHttp.mockResolvedValue(page1)
+    useHttp.mockResolvedValue(page1)
     const w = mountIt({ api: { url: '/users' }, immediate: false })
     await flush()
-    expect(useRHttp).not.toHaveBeenCalled()
+    expect(useHttp).not.toHaveBeenCalled()
     await (w.vm as any).refresh()
-    expect(useRHttp).toHaveBeenCalledTimes(1)
+    expect(useHttp).toHaveBeenCalledTimes(1)
     expect(w.emitted('refresh')).toHaveLength(1)
     w.unmount()
   })
 
   it('shows the error state, emits @error, and Try again re-requests', async () => {
-    useRHttp.mockResolvedValueOnce({ data: { value: null }, error: { value: { Message: 'Database offline' } }, status: 500 }).mockResolvedValue(page1)
+    useHttp.mockResolvedValueOnce({ data: { value: null }, error: { value: { Message: 'Database offline' } }, status: 500 }).mockResolvedValue(page1)
     const w = mountIt({ api: { url: '/users' } })
     await flush()
     expect(w.text()).toContain('Could not load the data')
@@ -226,7 +226,7 @@ describe('API mode', () => {
   })
 
   it('emits data:change / data:filterChange / data:pageChange / data:sortChange', async () => {
-    useRHttp.mockResolvedValue(page1)
+    useHttp.mockResolvedValue(page1)
     const w = mountIt({ api: { url: '/users' } })
     await flush()
     expect(w.emitted('data:change')!.at(-1)![0]).toMatchObject({ total: 25, totalPages: 3, source: 'api', page: 1 })
@@ -242,10 +242,10 @@ describe('API mode', () => {
 
   it('aborts the in-flight request on unmount and ignores it afterwards', async () => {
     let resolve!: (v: unknown) => void
-    useRHttp.mockImplementation(() => new Promise((r) => (resolve = r)))
+    useHttp.mockImplementation(() => new Promise((r) => (resolve = r)))
     const w = mountIt({ api: { url: '/users' } })
     await flush()
-    const signal = useRHttp.mock.calls[0]![1].signal as AbortSignal
+    const signal = useHttp.mock.calls[0]![1].signal as AbortSignal
     w.unmount()
     expect(signal.aborted).toBe(true)
     resolve(page1) // late response must not throw or update anything
@@ -253,7 +253,7 @@ describe('API mode', () => {
   })
 
   it('renders the chart view from the current rows (RChart reuse)', async () => {
-    useRHttp.mockResolvedValue(page1)
+    useHttp.mockResolvedValue(page1)
     const w = mountIt({ api: { url: '/users' }, view: 'chart', options: { chart: { type: 'bar', categoryKey: 'name', series: [{ key: 'age' }] } } })
     await flush()
     expect(w.find('.rchart-stub').attributes('data-type')).toBe('bar')
@@ -263,7 +263,7 @@ describe('API mode', () => {
 
 describe('template listeners (event names from the spec)', () => {
   it('@data:filterChange, @data:filter-change and @data:change reach a parent template', async () => {
-    useRHttp.mockResolvedValue(ok({ Items: people.slice(0, 3), Total: 3 }))
+    useHttp.mockResolvedValue(ok({ Items: people.slice(0, 3), Total: 3 }))
     const camel = vi.fn(); const kebab = vi.fn(); const change = vi.fn(); const onErr = vi.fn()
     const Parent = defineComponent({
       components: { RChartSplendor },

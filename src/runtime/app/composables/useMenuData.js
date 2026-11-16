@@ -1,7 +1,6 @@
-import json from "~/assets/json/menu_data.json";
-import api from '../../../../../../RITHTHY_CMS_MANAGEMENT_NUXT/app/helpers/apis'
+import json from "../assets/json/menu_data.json";
 
-const { str } = helper();
+const { str,api } = helper();
 
 export default async () => {
   let allMenu = []
@@ -10,7 +9,7 @@ export default async () => {
     let customerMenu = await getCustomMenu();
     allMenu = [...(json ?? []), ...(customerMenu ?? [])];
 
-    const { error } = await useRHttp(api.permissions, { method: "post" });
+    const { error } = await useHttp(api.permissions, { method: "post" });
     if (error.value) throw error.value;
   } catch {}
   

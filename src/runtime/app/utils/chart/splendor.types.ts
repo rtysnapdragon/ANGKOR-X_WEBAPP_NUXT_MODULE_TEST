@@ -130,7 +130,7 @@ export interface SplendorApi<T = Record<string, any>> {
   buildParams?: (state: SplendorRequestState, defaults: Record<string, unknown>) => Record<string, unknown>
   /** Full control over response mapping. */
   transform?: (raw: any) => { items: T[]; total?: number; totalPages?: number; page?: number; pageSize?: number }
-  /** Extra `useRHttp` options (responseType, alertError, …). `method`, `signal`, `params`, `body` are set by the component. */
+  /** Extra `useHttp` options (responseType, alertError, …). `method`, `signal`, `params`, `body` are set by the component. */
   options?: Record<string, unknown>
   /** Retries for network errors / 5xx / 408 / 429 (default `options.retry`). */
   retry?: number
@@ -141,7 +141,7 @@ export interface SplendorError {
   kind: SplendorErrorKind
   message: string
   status?: number
-  /** Raw `error` value returned by `useRHttp`. */
+  /** Raw `error` value returned by `useHttp`. */
   detail?: unknown
   retryable: boolean
 }

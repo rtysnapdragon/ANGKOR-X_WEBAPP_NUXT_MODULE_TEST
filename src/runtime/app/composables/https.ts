@@ -10,7 +10,7 @@ import { useToast, useOnline, useRefreshToken ,useUserData} from "#imports";
  * controller.abort();
  */
 
-export const useRHttp = async (
+export const useHttp = async (
   url: string,
   options: HttpOptions = {}
 ): Promise<Resp> => {

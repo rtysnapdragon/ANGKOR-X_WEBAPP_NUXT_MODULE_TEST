@@ -160,9 +160,9 @@ describe('mapResponse', () => {
   })
 })
 
-describe('classifyFailure (shapes returned by useRHttp)', () => {
+describe('classifyFailure (shapes returned by useHttp)', () => {
   const res = (error: unknown, status?: number) => ({ data: { value: null }, error: { value: error }, status })
-  it('maps every useRHttp outcome', () => {
+  it('maps every useHttp outcome', () => {
     expect(classifyFailure({ data: { value: [] }, error: { value: null }, status: 200 })).toBeNull()
     expect(classifyFailure(res(null, 401))).toMatchObject({ kind: 'unauthorized', retryable: false })
     expect(classifyFailure(res(true))).toMatchObject({ kind: 'config', retryable: false })
