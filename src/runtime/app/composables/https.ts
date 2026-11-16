@@ -10,7 +10,7 @@ import { useToast, useOnline, useRefreshToken } from "#imports";
  * controller.abort();
  */
 
-export const useHttp = async (
+export const useRHttp = async (
   url: string,
   options: HttpOptions = {}
 ): Promise<Resp> => {
@@ -28,8 +28,21 @@ export const useHttp = async (
       };
     }
 
-    if (!options?.isGlobal) {
+    const userCatch = useUserData().value
+    // if (!options?.isGlobal) {
+    //   await useRefreshToken();
+    // }
+    // if (!options?.isGlobal) {
+    //   await useRefreshToken();
+    //   toast.add({title:"Refresh Token start -"})
+    // }
+    // if (!options?.isLogin) {
+    //   await useRefreshToken();
+    // }
+
+    if (!userCatch && !options?.isLogin) {
       await useRefreshToken();
+      userCatch = useUserData().value;
     }
     const httpConfig = useOptions(url, options);
 

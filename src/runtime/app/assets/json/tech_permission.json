@@ -1,0 +1,51 @@
+{
+  "Id": 0,
+  "Level": 1,
+  "Name": "MODULE_TEACHER",
+  "Display": "ModuleTeacher",
+  "Module": null,
+  "Type": "M",
+  "InDevelopment": false,
+  "Actions": [
+    {
+      "Name": "View",
+      "Value": 1
+    },
+    {
+      "Name": "Create",
+      "Value": 1
+    },
+    {
+      "Name": "Edit",
+      "Value": 1
+    },
+    {
+      "Name": "Delete",
+      "Value": 1
+    },
+    {
+      "Name": "Print",
+      "Value": 1
+    },
+    {
+      "Name": "Release",
+      "Value": 1
+    },
+    {
+      "Name": "Hold",
+      "Value": 1
+    },
+    {
+      "Name": "Approve",
+      "Value": 1
+    },
+    {
+      "Name": "Reject",
+      "Value": 1
+    },
+    {
+      "Name": "Post",
+      "Value": 1
+    }
+  ]
+}

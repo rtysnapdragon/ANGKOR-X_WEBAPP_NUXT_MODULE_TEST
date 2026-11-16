@@ -126,47 +126,44 @@
     </UEditor>
 
     <!-- ── Media insert / replace picker ───────────────────────────────── -->
-    <RModal v-model="pickerOpen" :title="pickerTitle">
-      <div class="r-editor__picker">
-        <RFileUpload
-          :key="pickerKey"
-          v-model="pickerFiles"
-          :multiple="false"
-          :accept="pickerCfg.accept"
-          :crop="uploadCrop"
-          :crop-shape="uploadCropShape"
-          :crop-output-px="uploadCropOutputPx"
-          :compress="uploadCompress"
-          :compress-quality="uploadCompressQuality"
-          :compress-max-px="uploadCompressMaxPx"
-          :max-size="pickerCfg.maxSize"
-          :max-width="uploadMaxWidth"
-          :max-height="uploadMaxHeight"
-          :min-width="uploadMinWidth"
-          :min-height="uploadMinHeight"
-          :upload-fn="handlePickerFile"
-          :label="pickerLabel"
-          :description="pickerDescription"
-          @error="(payload) => emit('upload-error', payload)"
-        />
-
-        <!-- Insert an existing HTTPS URL without uploading anything -->
-        <div v-if="opts.urlInsert" class="r-editor__url">
-          <div class="r-editor__url-row">
-            <UInput
-              v-model="urlValue"
-              class="r-editor__url-input"
-              size="sm"
-              icon="i-lucide-link"
-              placeholder="https://example.com/file"
-              @keydown.enter.prevent="submitUrl"
-            />
-            <UButton size="sm" :disabled="!urlValue.trim()" @click="submitUrl">
-              {{ tBy({ en: 'Insert URL', km: 'បញ្ចូល URL' }) }}
-            </UButton>
-          </div>
-          <p v-if="urlError" class="r-editor__url-error">{{ urlError }}</p>
+    <RModal v-model="pickerOpen" :title="pickerTitle" class="h-full">
+      <RFileUpload
+        :key="pickerKey"
+        v-model="pickerFiles"
+        :multiple="false"
+        :accept="pickerCfg.accept"
+        :crop="uploadCrop"
+        :crop-shape="uploadCropShape"
+        :crop-output-px="uploadCropOutputPx"
+        :compress="uploadCompress"
+        :compress-quality="uploadCompressQuality"
+        :compress-max-px="uploadCompressMaxPx"
+        :max-size="pickerCfg.maxSize"
+        :max-width="uploadMaxWidth"
+        :max-height="uploadMaxHeight"
+        :min-width="uploadMinWidth"
+        :min-height="uploadMinHeight"
+        :upload-fn="handlePickerFile"
+        :label="pickerLabel"
+        :description="pickerDescription"
+        @error="(payload) => emit('upload-error', payload)"
+      />
+      <!-- Insert an existing HTTPS URL without uploading anything -->
+      <div v-if="opts.urlInsert" class="r-editor__url">
+        <div class="r-editor__url-row">
+          <UInput
+            v-model="urlValue"
+            class="r-editor__url-input"
+            size="sm"
+            icon="i-lucide-link"
+            placeholder="https://example.com/file"
+            @keydown.enter.prevent="submitUrl"
+          />
+          <UButton size="sm" :disabled="!urlValue.trim()" @click="submitUrl">
+            {{ tBy({ en: 'Insert URL', km: 'បញ្ចូល URL' }) }}
+          </UButton>
         </div>
+        <p v-if="urlError" class="r-editor__url-error">{{ urlError }}</p>
       </div>
     </RModal>
 
@@ -1418,14 +1415,71 @@ function buildAiGroup() {
 // ─── Word-style text tools ──────────────────────────────────────────────────
 const run = fn => fn(ed().chain().focus()).run()
 const FONT_FAMILIES = [
+  // Default
   ['Default', null],
-  ['Sans (Inter)', 'Inter, system-ui, sans-serif'],
-  ['Serif (Georgia)', 'Georgia, "Times New Roman", serif'],
-  ['Mono', 'ui-monospace, "SF Mono", Menlo, monospace'],
-  ['Khmer (Noto Sans Khmer)', '"Noto Sans Khmer", "Khmer OS", sans-serif'],
-  ['Khmer (Battambang)', 'Battambang, "Noto Sans Khmer", sans-serif'],
+
+  // Sans-serif
+  ['Inter', 'Inter, system-ui, sans-serif'],
+  ['Roboto', 'Roboto, Arial, sans-serif'],
+  ['Open Sans', '"Open Sans", sans-serif'],
+  ['Lato', 'Lato, sans-serif'],
+  ['Montserrat', 'Montserrat, sans-serif'],
+  ['Poppins', 'Poppins, sans-serif'],
+  ['Nunito', 'Nunito, sans-serif'],
+  ['Nunito Sans', '"Nunito Sans", sans-serif'],
+  ['Source Sans 3', '"Source Sans 3", sans-serif'],
+  ['Ubuntu', 'Ubuntu, sans-serif'],
+  ['Arial', 'Arial, Helvetica, sans-serif'],
+  ['Verdana', 'Verdana, sans-serif'],
+  ['Tahoma', 'Tahoma, sans-serif'],
+  ['Trebuchet MS', '"Trebuchet MS", sans-serif'],
+
+  // Serif
+  ['Georgia', 'Georgia, serif'],
+  ['Times New Roman', '"Times New Roman", serif'],
+  ['Merriweather', 'Merriweather, Georgia, serif'],
+  ['Playfair Display', '"Playfair Display", Georgia, serif'],
+  ['Lora', 'Lora, Georgia, serif'],
+  ['PT Serif', '"PT Serif", Georgia, serif'],
+  ['Libre Baskerville', '"Libre Baskerville", Georgia, serif'],
+  ['Cormorant Garamond', '"Cormorant Garamond", Georgia, serif'],
+
+  // Monospace
+  ['Monospace', 'ui-monospace, SFMono-Regular, Menlo, monospace'],
+  ['Consolas', 'Consolas, monospace'],
+  ['Courier New', '"Courier New", monospace'],
+  ['Roboto Mono', '"Roboto Mono", monospace'],
+  ['Fira Code', '"Fira Code", monospace'],
+  ['Source Code Pro', '"Source Code Pro", monospace'],
+  ['JetBrains Mono', '"JetBrains Mono", monospace'],
+
+  // Khmer
+  ['Khmer - Noto Sans Khmer', '"Noto Sans Khmer", "Khmer OS", sans-serif'],
+  ['Khmer - Battambang', 'Battambang, "Noto Sans Khmer", sans-serif'],
+  ['Khmer - Siemreap', 'Siemreap, "Noto Sans Khmer", sans-serif'],
+  ['Khmer - Kantumruy Pro', '"Kantumruy Pro", "Noto Sans Khmer", sans-serif'],
+  ['Khmer - Koulen', 'Koulen, "Noto Sans Khmer", sans-serif'],
+  ['Khmer - Moul', 'Moul, "Noto Sans Khmer", sans-serif'],
+  ['Khmer - Hanuman', 'Hanuman, "Noto Sans Khmer", serif'],
+  ['Khmer - Chenla', 'Chenla, "Noto Sans Khmer", serif'],
+  ['Khmer - Dangrek', 'Dangrek, "Noto Sans Khmer", sans-serif'],
+  ['Khmer - Content', 'Content, "Noto Sans Khmer", serif'],
+
+  // Display / Decorative
+  ['Oswald', 'Oswald, sans-serif'],
+  ['Raleway', 'Raleway, sans-serif'],
+  ['Bebas Neue', '"Bebas Neue", sans-serif'],
+  ['Dancing Script', '"Dancing Script", cursive'],
+  ['Pacifico', 'Pacifico, cursive'],
+  ['Caveat', 'Caveat, cursive'],
+  ['Great Vibes', '"Great Vibes", cursive'],
 ]
-const FONT_SIZES = [12, 14, 16, 18, 20, 24, 30, 36, 48, 64]
+
+const FONT_SIZES = [
+  8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20,
+  22, 24, 26, 28, 30, 32, 36, 40, 44, 48, 56,
+  64, 72, 80, 96,
+]
 const textStyleGroup = () => ([
   {
     icon: 'i-lucide-a-large-small',
@@ -1835,7 +1889,7 @@ defineExpose({
 /* ─── Design canvas — in place over the image, or expanded full screen ─────── */
 .r-design {
   --d-accent: var(--c-accent, #8c52ff);
-  --d-bg: var(--c-surface, #ffffff);
+  --d-bg: var(--c-bg, #ffffff);
   --d-soft: var(--bg-tertiary, #f3f4f6);
   --d-border: var(--c-border, #e5e7eb);
   --d-text: var(--c-text, #1f2937);
@@ -1844,6 +1898,7 @@ defineExpose({
   font-size: 13px;
   outline: none;
 }
+
 .r-design *, .r-design *::before, .r-design *::after { box-sizing: border-box; }
 .r-design.is-inplace { position: fixed; z-index: 1500; }
 .r-design.is-full { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; background: var(--d-bg); }
@@ -1937,7 +1992,6 @@ defineExpose({
 .r-editor__skeleton-line--short { width: 60%; }
 
 /* ─── Picker + URL insert ─────────────────────────────────────────────────── */
-.r-editor__picker,
 .r-editor__library {
   width: min(480px, 90vw);
 }

@@ -137,6 +137,55 @@ npm install @tiptap/extension-image
 npm install @tiptap/extension-text-align
 npm install @tiptap/extension-emoji
 
+npm install @tiptap/extension-text-style
+
+npm install `
+  @tiptap/core@^3 `
+  @tiptap/pm@^3 `
+  @tiptap/vue-3@^3 `
+  @tiptap/extension-emoji@^3 `
+  @tiptap/extension-text-align@^3 `
+  @tiptap/extension-text-style@^3 `
+  @tiptap/extension-highlight@^3 `
+  @tiptap/extension-table@^3
+
+
+
+
+RVisaulEditor.vue library
+# npm install @tiptap/core @tiptap/pm @tiptap/vue-3 @tiptap/starter-kit @tiptap/extension-text-style @tiptap/extension-text-align @tiptap/extension-highlight @tiptap/extension-subscript @tiptap/extension-superscript @tiptap/extension-list @tiptap/extension-table @tiptap/extension-image @tiptap/extension-placeholder @tiptap/extension-character-count @tiptap/extension-file-handler @tiptap/extension-mathematics katex @floating-ui/dom
+
+npm install `
+  @tiptap/core `
+  @tiptap/pm `
+  @tiptap/vue-3 `
+  @tiptap/starter-kit `
+  @tiptap/extension-text-style `
+  @tiptap/extension-text-align `
+  @tiptap/extension-highlight `
+  @tiptap/extension-subscript `
+  @tiptap/extension-superscript `
+  @tiptap/extension-list `
+  @tiptap/extension-table `
+  @tiptap/extension-image `
+  @tiptap/extension-placeholder `
+  @tiptap/extension-character-count `
+  @tiptap/extension-file-handler `
+  @tiptap/extension-mathematics `
+  katex `
+  @floating-ui/dom
+
+npm install @tiptap/extension-typography
+
+npm install fabric@^7.4.0 cropperjs dompurify zod
+
+npm install -D sass-embedded
+
+
+
+
+
+
 
 //For RAi
 npm install ai @ai-sdk/gateway @ai-sdk/vue

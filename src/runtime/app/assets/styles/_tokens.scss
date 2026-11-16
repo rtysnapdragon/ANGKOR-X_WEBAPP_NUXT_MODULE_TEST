@@ -1,0 +1,102 @@
+// Theme tokens are CSS custom properties only (no Sass variables or maps), so themes switch at runtime.
+// Names are prefixed `--rv-` to avoid collisions with Tailwind v4 / Nuxt UI theme variables.
+
+@mixin rv-light {
+  --rv-color-canvas: #e9ebef;
+  --rv-color-paper: #ffffff;
+  --rv-color-surface: #ffffff;
+  --rv-color-surface-2: #f4f5f7;
+  --rv-color-hover: #eceef2;
+  --rv-color-border: #dcdfe5;
+  --rv-color-border-strong: #b9bec9;
+  --rv-color-text: #1b1f27;
+  --rv-color-text-muted: #5b6372;
+  --rv-color-text-faint: #8a92a3;
+  --rv-color-accent: #3151d3;
+  --rv-color-accent-contrast: #ffffff;
+  --rv-color-accent-soft: rgba(49, 81, 211, 0.14);
+  --rv-color-danger: #c62f3a;
+  --rv-color-selection: rgba(49, 81, 211, 0.22);
+  --rv-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+  --rv-shadow-2: 0 10px 30px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.08);
+  --rv-shadow-page: 0 1px 3px rgba(16, 24, 40, 0.08), 0 12px 32px rgba(16, 24, 40, 0.08);
+}
+
+@mixin rv-dark {
+  --rv-color-canvas: #101216;
+  --rv-color-paper: #191c22;
+  --rv-color-surface: #1d2027;
+  --rv-color-surface-2: #242831;
+  --rv-color-hover: #2b303a;
+  --rv-color-border: #2f3541;
+  --rv-color-border-strong: #454c5b;
+  --rv-color-text: #e7e9ee;
+  --rv-color-text-muted: #a2a9b8;
+  --rv-color-text-faint: #7b8293;
+  --rv-color-accent: #8ea2ff;
+  --rv-color-accent-contrast: #0e1330;
+  --rv-color-accent-soft: rgba(142, 162, 255, 0.18);
+  --rv-color-danger: #ff7a85;
+  --rv-color-selection: rgba(142, 162, 255, 0.28);
+  --rv-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5);
+  --rv-shadow-2: 0 10px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --rv-shadow-page: 0 1px 3px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.rv-editor {
+  // scale + shape
+  --rv-radius-sm: 6px;
+  --rv-radius-md: 8px;
+  --rv-radius-lg: 12px;
+  --rv-space-1: 4px;
+  --rv-space-2: 8px;
+  --rv-space-3: 12px;
+  --rv-space-4: 16px;
+  --rv-space-5: 24px;
+  --rv-space-6: 32px;
+  --rv-font-100: 0.75rem;
+  --rv-font-200: 0.8125rem;
+  --rv-font-300: 0.875rem;
+  --rv-font-400: 1rem;
+  --rv-font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --rv-font-doc: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --rv-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --rv-transition: 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  // overridden inline from the minHeight / maxWidth props
+  --rv-doc-min-height: 360px;
+  --rv-doc-max-width: 820px;
+
+  color-scheme: light;
+  @include rv-light;
+
+  // Bridge: Nuxt UI components rendered inside the editor (incl. portaled popovers) follow our tokens.
+  --ui-bg: var(--rv-color-surface);
+  --ui-bg-muted: var(--rv-color-surface-2);
+  --ui-bg-elevated: var(--rv-color-hover);
+  --ui-bg-accented: var(--rv-color-border);
+  --ui-border: var(--rv-color-border);
+  --ui-border-muted: var(--rv-color-border);
+  --ui-border-accented: var(--rv-color-border-strong);
+  --ui-text: var(--rv-color-text);
+  --ui-text-muted: var(--rv-color-text-muted);
+  --ui-text-toned: var(--rv-color-text-muted);
+  --ui-text-dimmed: var(--rv-color-text-faint);
+  --ui-text-highlighted: var(--rv-color-text);
+  --ui-primary: var(--rv-color-accent);
+}
+
+// theme="dark" | theme="system" (follows host app color mode, else OS preference)
+.rv-editor[data-rv-theme='dark'] {
+  color-scheme: dark;
+  @include rv-dark;
+}
+:root.dark .rv-editor[data-rv-theme='system'] {
+  color-scheme: dark;
+  @include rv-dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) .rv-editor[data-rv-theme='system'] {
+    color-scheme: dark;
+    @include rv-dark;
+  }
+}

@@ -1,4 +1,3 @@
-
 import {
   differenceInMilliseconds,
   differenceInSeconds,
@@ -18,9 +17,7 @@ import {
   differenceInMonths,
   differenceInQuarters,
   differenceInYears,
-  format as formatDate,
-  isValid,
-  parseISO,
+  format,
   addMilliseconds,
   addSeconds,
   addMinutes,
@@ -66,248 +63,147 @@ import {
   getQuarter,
   getTime,
   getUnixTime,
-  startOfMonth as startOfMonthDate,
-  endOfMonth as endOfMonthDate,
+  startOfMonth,
+  endOfMonth,
 } from "date-fns";
 
 import helper from "./helper";
 
-function toValidDate(value) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  let date;
-
-  if (value instanceof Date) {
-    date = new Date(value.getTime());
-  } else if (typeof value === "string") {
-    const input = value.trim();
-
-    if (!input) return null;
-
-    // Parse ISO strings consistently.
-    date = parseISO(input);
-
-    // Support other formats accepted by JavaScript Date.
-    if (!isValid(date)) {
-      date = new Date(input);
-    }
-  } else if (typeof value === "number") {
-    // Reject NaN and infinities.
-    if (!Number.isFinite(value)) return null;
-    date = new Date(value);
-  } else {
-    return null;
-  }
-
-  return isValid(date) ? date : null;
-}
-
-function safeNumber(value) {
-  return Number.isFinite(value) ? value : null;
-}
-
-function safeDateOperation(callback, fallback = null) {
-  try {
-    const result = callback();
-
-    if (result instanceof Date) {
-      return isValid(result) ? result : fallback;
-    }
-
-    return result ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 class RDate {
-  constructor(date, endDate) {
-    this._date = toValidDate(date);
-    this._endData = toValidDate(endDate);
-  }
-
-  get isValid() {
-    return this._date !== null;
+  constructor(date, end) {
+    this._date = date;
+    this._endData = end;
   }
 
   get(options) {
-    const date = this._currentDate;
-
-    if (!date) return null;
-
-    return safeDateOperation(() => ({
-      milliseconds: getMilliseconds(date),
-      seconds: getSeconds(date),
-      minutes: getMinutes(date),
-      hours: getHours(date),
-      day: getDay(date),
-      daysInMonth: getDaysInMonth(date),
-      daysInYear: getDaysInYear(date),
-      dayOfYear: getDayOfYear(date),
-      week: getWeek(date, options),
-      weekOfMonth: getWeekOfMonth(date, options),
-      weeksInMonth: getWeeksInMonth(date, options),
-      weekYear: getWeekYear(date, options),
-      year: getYear(date),
-      date: getDate(date),
-      decade: getDecade(date),
-      iSODay: getISODay(date),
-      iSOWeek: getISOWeek(date),
-      iSOWeekYear: getISOWeekYear(date),
-      iSOWeeksInYear: getISOWeeksInYear(date),
-      month: getMonth(date),
-      quarter: getQuarter(date),
-      time: getTime(date),
-      unixTime: getUnixTime(date),
-    }));
+    return {
+      milliseconds: getMilliseconds(this._currentDate),
+      seconds: getSeconds(this._currentDate),
+      minutes: getMinutes(this._currentDate),
+      hours: getHours(this._currentDate),
+      day: getDay(this._currentDate),
+      daysInMonth: getDaysInMonth(this._currentDate),
+      daysInYear: getDaysInYear(this._currentDate),
+      dayOfYear: getDayOfYear(this._currentDate),
+      week: getWeek(this._currentDate, options),
+      weekOfMonth: getWeekOfMonth(this._currentDate, options),
+      weeksInMonth: getWeeksInMonth(this._currentDate, options),
+      weekYear: getWeekYear(this._currentDate, options),
+      year: getYear(this._currentDate),
+      date: getDate(this._currentDate),
+      decade: getDecade(this._currentDate),
+      iSODay: getISODay(this._currentDate),
+      iSOWeek: getISOWeek(this._currentDate),
+      iSOWeekYear: getISOWeekYear(this._currentDate),
+      iSOWeeksInYear: getISOWeeksInYear(this._currentDate),
+      month: getMonth(this._currentDate),
+      quarter: getQuarter(this._currentDate),
+      time: getTime(this._currentDate),
+      unixTime: getUnixTime(this._currentDate),
+    };
   }
 
   sub(amount) {
-    const date = this._currentDate;
-
-    if (!date || !Number.isFinite(amount)) return null;
-
-    return safeDateOperation(() => ({
-      milliseconds: subMilliseconds(date, amount),
-      seconds: subSeconds(date, amount),
-      minutes: subMinutes(date, amount),
-      hours: subHours(date, amount),
-      days: subDays(date, amount),
-      businessDays: subBusinessDays(date, amount),
-      iSOWeekYears: subISOWeekYears(date, amount),
-      quarters: subQuarters(date, amount),
-      weeks: subWeeks(date, amount),
-      months: subMonths(date, amount),
-      years: subYears(date, amount),
-    }));
+    return {
+      milliseconds: subMilliseconds(this._currentDate, amount),
+      seconds: subSeconds(this._currentDate, amount),
+      minutes: subMinutes(this._currentDate, amount),
+      hours: subHours(this._currentDate, amount),
+      days: subDays(this._currentDate, amount),
+      businessDays: subBusinessDays(this._currentDate, amount),
+      iSOWeekYears: subISOWeekYears(this._currentDate, amount),
+      quarters: subQuarters(this._currentDate, amount),
+      weeks: subWeeks(this._currentDate, amount),
+      months: subMonths(this._currentDate, amount),
+      years: subYears(this._currentDate, amount),
+    };
   }
 
   add(amount) {
-    const date = this._currentDate;
-
-    if (!date || !Number.isFinite(amount)) return null;
-
-    return safeDateOperation(() => ({
-      milliseconds: addMilliseconds(date, amount),
-      seconds: addSeconds(date, amount),
-      minutes: addMinutes(date, amount),
-      hours: addHours(date, amount),
-      days: addDays(date, amount),
-      businessDays: addBusinessDays(date, amount),
-      iSOWeekYears: addISOWeekYears(date, amount),
-      quarters: addQuarters(date, amount),
-      weeks: addWeeks(date, amount),
-      months: addMonths(date, amount),
-      years: addYears(date, amount),
-    }));
+    return {
+      milliseconds: addMilliseconds(this._currentDate, amount),
+      seconds: addSeconds(this._currentDate, amount),
+      minutes: addMinutes(this._currentDate, amount),
+      hours: addHours(this._currentDate, amount),
+      days: addDays(this._currentDate, amount),
+      businessDays: addBusinessDays(this._currentDate, amount),
+      iSOWeekYears: addISOWeekYears(this._currentDate, amount),
+      quarters: addQuarters(this._currentDate, amount),
+      weeks: addWeeks(this._currentDate, amount),
+      months: addMonths(this._currentDate, amount),
+      years: addYears(this._currentDate, amount),
+    };
   }
 
-  startOfMonth(pattern) {
-    const date = this._currentDate;
-
-    if (!date) return null;
-
-    const result = safeDateOperation(() => startOfMonthDate(date));
-
-    if (!result) return null;
-
-    return pattern
-      ? this._safeFormat(result, pattern)
-      : result;
+  startOfMonth(format) {
+    const date = startOfMonth(this._currentDate);
+    return isEmpty(format) ? date : format(date, format);
   }
 
-  endOfMonth(pattern) {
-    const date = this._currentDate;
-
-    if (!date) return null;
-
-    const result = safeDateOperation(() => endOfMonthDate(date));
-
-    if (!result) return null;
-
-    return pattern
-      ? this._safeFormat(result, pattern)
-      : result;
+  endOfMonth(format) {
+    const date = endOfMonth(this._currentDate);
+    return isEmpty(format) ? date : format(date, format);
   }
+
 
   diff(to, options) {
-    const date = this._currentDate;
-    const target = toValidDate(to);
-
-    if (!date || !target) return null;
-
-    return safeDateOperation(() => ({
-      milliseconds: differenceInMilliseconds(date, target),
-      seconds: differenceInSeconds(date, target, options),
-      minutes: differenceInMinutes(date, target, options),
-      hours: differenceInHours(date, target, options),
-      days: differenceInDays(date, target),
-      businessDays: differenceInBusinessDays(date, target),
-      calendarDays: differenceInCalendarDays(date, target),
-      weeks: differenceInWeeks(date, target, options),
-      iSOWeekYears: differenceInISOWeekYears(date, target),
-      calendarISOWeekYears: differenceInCalendarISOWeekYears(date, target),
-      calendarISOWeeks: differenceInCalendarISOWeeks(date, target),
-      calendarMonths: differenceInCalendarMonths(date, target),
-      calendarQuarters: differenceInCalendarQuarters(date, target),
-      calendarWeeks: differenceInCalendarWeeks(date, target, options),
-      calendarYears: differenceInCalendarYears(date, target),
-      months: differenceInMonths(date, target),
-      quarters: differenceInQuarters(date, target, options),
-      years: differenceInYears(date, target),
-    }));
-  }
-
-  _safeFormat(date, pattern, options) {
-    if (!date || !isValid(date)) return "";
-
-    try {
-      const { config } = helper();
-      const dateFormat = pattern ?? config?.dateFormat ?? "yyyy-MM-dd";
-
-      return formatDate(date, dateFormat, options);
-    } catch {
-      return "";
+    const target = new Date(to);
+    if (isNaN(target.getTime())) {
+      throw new Error(`Invalid date passed to diff(): ${to}`);
     }
+    
+    return {
+      milliseconds: differenceInMilliseconds(this._currentDate, target),
+      seconds: differenceInSeconds(this._currentDate, target, options),
+      minutes: differenceInMinutes(this._currentDate, target, options),
+      hours: differenceInHours(this._currentDate, target, options),
+      days: differenceInDays(this._currentDate, target),
+      businessDays: differenceInBusinessDays(this._currentDate, target),
+      calendarDays: differenceInCalendarDays(this._currentDate, target),
+      weeks: differenceInWeeks(this._currentDate, target, options),
+      iSOWeekYears: differenceInISOWeekYears(this._currentDate, target),
+      calendarISOWeekYears: differenceInCalendarISOWeekYears(
+        this._currentDate,
+        target
+      ),
+      calendarISOWeeks: differenceInCalendarISOWeeks(this._currentDate, target),
+      calendarMonths: differenceInCalendarMonths(this._currentDate, target),
+      calendarQuarters: differenceInCalendarQuarters(this._currentDate, target),
+      calendarWeeks: differenceInCalendarWeeks(this._currentDate, target, options),
+      calendarYears: differenceInCalendarYears(this._currentDate, target),
+      months: differenceInMonths(this._currentDate, target),
+      quarters: differenceInQuarters(this._currentDate, target, options),
+      years: differenceInYears(this._currentDate, target),
+    };
   }
 
-  format(pattern, options) {
-    const date = this._currentDate;
+  format(str, options) {
+    let dateDivider = "-";
+    const { config } = helper();
 
-    if (!date) return "";
+    if (config.dateFormat) str ??= config.dateFormat;
 
-    const start = this._safeFormat(date, pattern, options);
-
-    if (!start) return "";
+    if (config.dateDivider) dateDivider = config.dateDivider;
 
     if (this._endData) {
-      const end = this._safeFormat(this._endData, pattern, options);
+      const start = format(this._currentDate, str, options);
+      const end = format(this._endData, str, options);
 
-      if (!end) return start;
-
-      let divider = "-";
-
-      try {
-        divider = helper()?.config?.dateDivider || "-";
-      } catch {
-        // Keep the default divider.
-      }
-
-      return `${start} ${divider} ${end}`;
+      return `${start} ${dateDivider} ${end}`;
     }
 
-    return start;
+    return format(this._currentDate, str, options);
   }
 
-  toString(pattern, options) {
-    return this.format(pattern, options);
+  toString(str, options) {
+    return this.format(str, options);
   }
 
   get _currentDate() {
-    return this._date;
+    return this._date ?? new Date();
   }
 }
 
-export default (date, endDate) => new RDate(date, endDate);
+export default (date, endDate) => {
+  return new RDate(date, endDate);
+};

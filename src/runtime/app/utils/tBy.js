@@ -8,7 +8,9 @@ export default function (arrg) {
       return isNotEmpty(arrg.km) ? arrg?.km : isNotEmpty(arrg.en) ? arrg?.en : "";
     case "en":
       return isNotEmpty(arrg.en) ? arrg?.en : isNotEmpty(arrg.km) ? arrg?.km : "";
+    case "zh":
+      return isNotEmpty(arrg.zh) ? arrg?.zh : isNotEmpty(arrg.zh) ? arrg?.zh : "";
     default:
-      return isNotEmpty(arrg.km) ? arrg?.km : isNotEmpty(arrg.en) ? arrg?.en : "";
+      return isNotEmpty(arrg.km) ? arrg?.km : isNotEmpty(arrg.en) ? arrg?.en : isNotEmpty(arrg.zh) ? arrg?.zh : "";
   }
 }

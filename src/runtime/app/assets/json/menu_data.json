@@ -1,0 +1,328 @@
+[
+  {
+    "title": "dashboard",
+    "icon": "<i class='ri-line-chart-line'></i>",
+    "noMenu": true,
+    "menu": [
+      {
+        "color": "#38A7D2",
+        "id": "dashboard",
+        "title": "dashboard",
+        "icon": "<i class='ri-line-chart-line'></i>",
+        "href": "/dashboard"
+      },
+      {
+        "id": "apps",
+        "key": "apps",
+        "color":"#0b3558",
+        "title": "apps",
+        "isGroup": true
+      }
+    ]
+  },
+  {
+    "title":"file_explorer_management",
+    "icon":"<i class='ri-file-ai-2-line'></i>",
+    "menu":[
+      {
+        "color":"#FF8C00",
+        "id":"nav_system",
+        "title":"file_system",
+        "icon":"<i class='ri-file-list-3-line'></i>",
+        "href":"/file_system",
+        "children": [
+          { "key": "explorer", "title": "explorer", "color":"#0b3558", "to": "/file_system/explorer" },
+          { "key": "overview", "title": "overview", "color":"#0b3558", "to": "/file_system/overview" }
+        ]
+      },
+      {
+        "color":"#FF8C00",
+        "id":"nav_cloud_storage",
+        "title":"cloud_storage",
+        "icon":"<i class='ri-file-cloud-line'></i>",
+        "href":"/cloud_storage"
+      },
+      {
+        "id":"nav_media",
+        "title":"media",
+        "icon":"<i class='ri-file-shield-2-line'></i>",
+        "href":"/media"
+      }
+    ]
+  },
+  {
+    "title":"content",
+    "icon":"<i class='ri-file-list-3-line'></i>",
+    "menu":[
+      {
+        "id": "forum",
+        "key": "forum",
+        "title": "forum",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-article-line'></i>",
+        "href": "/forum",
+        "permission": "cms.pages.list"
+      },
+      {
+        "id": "content_pages",
+        "key": "content_pages",
+        "title": "pages",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-pages-line'></i>",
+        "href": "/pages",
+        "permission": "cms.pages.list"
+      },
+      {
+        "id": "content_menus",
+        "key": "content_menus",
+        "title": "menus",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-dropdown-list'></i>",
+        "href": "/menus",
+        "permission": "cms.menus.list"
+      },
+      {
+        "id": "content_menu_items",
+        "key": "content_menu_items",
+        "title": "menuItems",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-menu-add-fill'></i>",
+        "href": "/menus/items",
+        "permission": "cms.menu_items.list"
+      },
+      {
+        "id": "content_banners",
+        "key": "content_banners",
+        "title": "banners",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-signpost-line'></i>",
+        "href": "/banners",
+        "permission": "cms.banners.list"
+      },
+      {
+        "id": "content_announcements",
+        "key": "content_announcements",
+        "title": "announcements",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-alert-line'></i>",
+        "href": "/announcements",
+        "permission": "cms.announcements.list"
+      },
+      {
+        "id": "content_revisions",
+        "key": "content_revisions",
+        "title": "revisions",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-file-history-line'></i>",
+        "href": "/revisions",
+        "permission": "cms.revisions.list"
+      },
+      {
+        "id": "content_translations",
+        "key": "content_translations",
+        "title": "translations",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-translate-ai'></i>",
+        "href": "/translations",
+        "permission": "cms.translations.list"
+      }
+    ]
+  },
+  {
+    "title": "user_and_privilege",
+    "icon": "<i class='ri-user-3-line'></i>",
+    "menu": [
+      {
+        "permission": "admin.users.list",
+        "color": "#F15BB5",
+        "id": "nav_user_management",
+        "title": "user_management",
+        "icon": "<i class='ri-user-3-line'></i>",
+        "href": "/user_management"
+      },
+      {
+        "permission": ["admin.roles.list", "admin.permissions.list"],
+        "id": "nav_group_management",
+        "title": "group_management",
+        "icon": "<i class='ri-team-line'></i>",
+        "href": "/group_management"
+      }
+    ]
+  },
+  {
+    "title": "analytics",
+    "icon": "<i class='ri-line-chart-line'></i>",
+    "noTitle": true,
+    "menu": [
+      {
+        "permission": "ANALYTICS",
+        "color": "#F15BB5",
+        "id": "nav_analytics",
+        "title": "analytic",
+        "icon": "<i class='ri-line-chart-line'></i>",
+        "href": "/analytics"
+      }
+    ]
+  },
+  {
+    "title": "settings",
+    "icon": "<i class='ri-user-settings-line'></i>",
+    "noTitle": true,
+    "menu": [
+      {
+        "color": "#3F99FF",
+        "title": "profile",
+        "icon": "<i class='ri-admin-line'></i>",
+        "href": "/profile"
+      },
+      {
+        "color": "#3F99FF",
+        "title": "profile_information",
+        "icon": "<i class='ri-user-location-line'></i>",
+        "href": "/profile_info"
+      },
+      {
+        "permission": "admin.databases.list",
+        "color": "#3F99FF",
+        "title": "databases",
+        "icon": "<i class='ri-database-2-line'></i>",
+        "href": "/databases"
+      },
+      {
+        "color": "#3F99FF",
+        "title": "localization",
+        "icon": "<i class='ri-map-pin-5-line'></i>",
+        "href": "/localization"
+      },
+      {
+        "permission": "admin.permissions.list",
+        "color": "#3F99FF",
+        "title": "permissions",
+        "icon": "<i class='ri-shield-line'></i>",
+        "href": "/permissions"
+      },
+      {
+        "permission": "admin.roles.list",
+        "color": "#3F99FF",
+        "title": "role",
+        "icon": "<i class='ri-door-lock-line'></i>",
+        "href": "/roles"
+      },
+      {
+        "permission": "admin.audit_logs.list",
+        "color": "#3F99FF",
+        "title": "audit_logs",
+        "icon": "<i class='ri-safe-line'></i>",
+        "href": "/audit_logs"
+      }
+    ]
+  },
+  {
+    "title": "chat",
+    "icon": "<i class='ri-message-2-line'></i>",
+    "noTitle": true,
+    "menu": [
+      {
+        "permission": "CHAT_MONITOR",
+        "id": "nav_chat_monitor",
+        "title": "chat_monitor",
+        "icon": "<i class='ri-discuss-line'></i>",
+        "href": "/chat_monitor"
+      },
+      {
+        "permission": "CHAT_STORAGE",
+        "title": "chat_storage",
+        "icon": "<i class='ri-cloud-line'></i>",
+        "href": "/chat_storage"
+      },
+      {
+        "permission": "CHAT_TELEGRAM",
+        "title": "chat_telegram",
+        "icon": "<i class='ri-telegram-line'></i>",
+        "href": "/telegram_chat"
+      },
+      {
+        "permission": "CONVERSATIONS",
+        "title": "conversations",
+        "icon": "<i class='ri-message-2-line'></i>",
+        "href": "/conversations"
+      },
+      {
+        "permission": "CHAT_STREAM",
+        "title": "chat_stream",
+        "icon": "<i class='ri-message-2-line'></i>",
+        "href": "/chat_stream"
+      }
+    ]
+  },
+  {
+    "title": "plans_and_subscriptions",
+    "icon": "<i class='ri-bank-card-line'></i>",
+    "menu": [
+      {
+        "id": "nav_plans",
+        "key": "plans",
+        "title": "plans",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-price-tag-3-line'></i>",
+        "href": "/plans"
+      },
+      {
+        "id": "nav_subscriptions",
+        "key": "subscriptions",
+        "title": "subscriptions",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-repeat-line'></i>",
+        "href": "/subscriptions"
+      },
+      {
+        "id": "nav_subscription_orders",
+        "key": "subscription_orders",
+        "title": "subscription_orders",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-shopping-cart-line'></i>",
+        "href": "/subscription_orders"
+      },
+      {
+        "id": "nav_billing",
+        "key": "billing",
+        "title": "billing",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-bill-line'></i>",
+        "href": "/billing"
+      },
+      {
+        "id": "nav_payments",
+        "key": "payments",
+        "title": "payments",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-wallet-3-line'></i>",
+        "href": "/payments"
+      },
+      {
+        "id": "nav_invoices",
+        "key": "invoices",
+        "title": "invoices",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-file-list-3-line'></i>",
+        "href": "/invoices"
+      },
+      {
+        "id": "nav_discounts",
+        "key": "discounts",
+        "title": "discounts",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-coupon-3-line'></i>",
+        "href": "/discounts"
+      },
+      {
+        "id": "nav_transactions",
+        "key": "transactions",
+        "title": "transactions",
+        "color": "#3F99FF",
+        "icon": "<i class='ri-exchange-dollar-line'></i>",
+        "href": "/transactions"
+      }
+    ]
+  }
+]

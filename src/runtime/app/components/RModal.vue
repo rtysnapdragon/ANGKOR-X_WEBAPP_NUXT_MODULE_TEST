@@ -234,13 +234,13 @@ function onCloseModal() {
   max-height: calc(100dvh - 4rem);
 
   // SARIKA glass surface
-  background: var(--bg-content) !important;
-  backdrop-filter: var(--glass-blur) !important;
+  background: var(--c-bg) !important;
+  // backdrop-filter: var(--glass-blur) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important;
   color: var(--c-text) !important;
-  border: 1px solid var(--c-border);
+  // border: 1px solid var(--c-border);
   border-radius: var(--r-xl) !important;
-  box-shadow: var(--glass-shadow) !important;
+  // box-shadow: var(--glass-shadow) !important;
   overflow: hidden;
 
   // Zero out NuxtUI's slot default paddings — we control each slot
@@ -454,16 +454,16 @@ function onCloseModal() {
   width: 100% !important
 }
 
-/* ── Dark mode ── */
-.dark .rm-content {
-  box-shadow:
-    0 0 0 1px var(--c-border),
-    var(--glass-shadow) !important;
-}
+// /* ── Dark mode ── */
+// .dark .rm-content {
+//   box-shadow:
+//     0 0 0 1px var(--c-border),
+//     var(--glass-shadow) !important;
+// }
 
-.dark .rm-overlay {
-  background: color-mix(in srgb, var(--c-bg) 70%, transparent) !important;
-}
+// .dark .rm-overlay {
+//   background: color-mix(in srgb, var(--c-bg) 70%, transparent) !important;
+// }
 
 /* ── Mobile ── */
 @media (max-width: 480px) {

@@ -2,8 +2,6 @@ import { ref } from "vue";
 import axios from "axios";
 
 export const useAuth = async (args = {}) => {
-  console.log("Arg ----------------> ", args.isNew)
-  console.log("Arg ----------------> ", args)
   const {
     remember = true,
     isNew = false,
@@ -55,14 +53,6 @@ export const useAuth = async (args = {}) => {
         rty_database:dbCode
       },
       method: "post",
-      // data: isNew
-      //   ? { ...toPascalCase(credentials), RememberMe: remember }   // register: send exactly what the page built
-      //   : {                                                        // login / refresh: unchanged behaviour
-      //       Username: credentials.username ?? "username",
-      //       Password: credentials.password ?? "password",
-      //       RememberMe: remember,
-      //       RefreshToken: isActionLogin ? null : userCatch?.refresh_token,
-      //     },
       data: {
         ...toPascalCase(args),
         Username: args.username ?? "username",
@@ -91,11 +81,11 @@ export const useAuth = async (args = {}) => {
       action: "set_authorize_cookie",
       data: {
         cookie: {
-          lang: locale ?? "en",
-          database: dbCode || "",
-          device_id: deviceId,
-          access_token: result.access_token,
-          expire: result.expires,
+          rty_lang: locale ?? "en",
+          rty_database: dbCode || "",
+          rty_device_id: deviceId,
+          rty_access_token: result.access_token,
+          rty_expire: result.expires,
         },
         sameSite: config.sameSite,
       },

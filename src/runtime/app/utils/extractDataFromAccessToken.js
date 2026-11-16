@@ -1,5 +1,4 @@
 import extractJwtToken from "./extractJwtToken";
-import { useUserData } from "~/composables/userData";
 
 export default (token) => {
   if (!token) {

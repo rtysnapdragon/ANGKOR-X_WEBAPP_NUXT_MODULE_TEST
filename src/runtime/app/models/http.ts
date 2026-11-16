@@ -11,6 +11,7 @@ export interface HttpOptions {
   alertSuccess?: any;
   signal?: AbortSignal;
   cancelToken?: any;
+  isLogin?: boolean
 }
 
 

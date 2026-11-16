@@ -1138,10 +1138,10 @@ defineExpose({
   padding: var(--space-8, 32px) var(--space-6, 24px) !important;
   border: 2px dashed var(--c-border, rgba(255,140,66,0.16)) !important;
   border-radius: var(--radius-xl, 24px) !important;
-  background: var(--glass-bg, rgba(255,255,255,0.72)) !important;
-  backdrop-filter: var(--glass-blur-sm, blur(12px) saturate(150%)) !important;
+  background: var(--c-bg, rgba(255,255,255,0.72)) !important;
+  // backdrop-filter: var(--glass-blur-sm, blur(12px) saturate(150%)) !important;
   -webkit-backdrop-filter: var(--glass-blur-sm, blur(12px) saturate(150%)) !important;
-  box-shadow: var(--glass-shadow, 0 8px 32px rgba(0,0,0,0.08)) !important;
+  // box-shadow: var(--glass-shadow, 0 8px 32px rgba(0,0,0,0.08)) !important;
   gap: var(--space-3, 12px) !important;
   text-align: center !important;
   // @include transition;

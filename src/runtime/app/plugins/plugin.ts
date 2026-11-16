@@ -6,7 +6,7 @@ import isNotEmpty from "../utils/isNotEmpty.js";
 import rdate from "../utils/rdate.js";
 import tBy from "../utils/tBy.js";
 import getDeviceId from "../utils/getDeviceId.js";
-import queryParams from "../utils/queryParams.js";
+import queryParams from "../utils/queryParams2.js";
 import copyWith from "../utils/copyWith.js";
 
 import { useScreenStore } from "../stores/screen.js";

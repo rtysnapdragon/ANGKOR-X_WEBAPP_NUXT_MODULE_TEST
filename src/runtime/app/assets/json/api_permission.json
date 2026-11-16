@@ -1,0 +1,1475 @@
+{
+    "UserId": 2,
+    "Code": "UR2614644E71",
+    "Username": "riththydragon",
+    "IsSuperuser": false,
+    "Roles": [
+        "ADMIN"
+    ],
+    "Databases": [
+        "RAMAGALLERY_DB","event_managment","ANGKORX_CMD"
+    ],
+    "Permissions": [
+        "admin.audit_logs.export",
+        "admin.audit_logs.list",
+        "admin.audit_logs.read",
+        "admin.permissions.list",
+        "admin.permissions.read",
+        "admin.roles.list",
+        "admin.roles.read",
+        "admin.users.assign",
+        "admin.users.create",
+        "admin.users.delete",
+        "admin.users.export",
+        "admin.users.list",
+        "admin.users.read",
+        "admin.users.update",
+        "cms.announcements.create",
+        "cms.announcements.delete",
+        "cms.announcements.list",
+        "cms.announcements.publish",
+        "cms.announcements.read",
+        "cms.announcements.update",
+        "cms.banners.create",
+        "cms.banners.delete",
+        "cms.banners.list",
+        "cms.banners.publish",
+        "cms.banners.read",
+        "cms.banners.reorder",
+        "cms.banners.update",
+        "cms.menu_items.create",
+        "cms.menu_items.delete",
+        "cms.menu_items.list",
+        "cms.menu_items.read",
+        "cms.menu_items.reorder",
+        "cms.menu_items.update",
+        "cms.menus.create",
+        "cms.menus.delete",
+        "cms.menus.list",
+        "cms.menus.read",
+        "cms.menus.reorder",
+        "cms.menus.update",
+        "cms.pages.create",
+        "cms.pages.delete",
+        "cms.pages.export",
+        "cms.pages.list",
+        "cms.pages.publish",
+        "cms.pages.read",
+        "cms.pages.reorder",
+        "cms.pages.update",
+        "cms.revisions.delete",
+        "cms.revisions.list",
+        "cms.revisions.read",
+        "cms.translations.create",
+        "cms.translations.delete",
+        "cms.translations.export",
+        "cms.translations.import",
+        "cms.translations.list",
+        "cms.translations.read",
+        "cms.translations.update",
+        "system.google_drive.connect",
+        "system.google_drive.delete",
+        "system.google_drive.list",
+        "system.google_drive.read",
+        "system.media.connect",
+        "system.media.create",
+        "system.media.delete",
+        "system.media.import",
+        "system.media.list",
+        "system.media.read",
+        "system.media.update",
+        "system.settings.create",
+        "system.settings.delete",
+        "system.settings.list",
+        "system.settings.read",
+        "system.settings.update",
+        "system.themes.create",
+        "system.themes.delete",
+        "system.themes.list",
+        "system.themes.publish",
+        "system.themes.read",
+        "system.themes.update"
+    ],
+    "Items": [
+        {
+            "Id": null,
+            "Level": 1,
+            "Name": "ADMIN",
+            "Display": "Administration",
+            "Module": "admin",
+            "Type": "M",
+            "InDevelopment": false,
+            "Actions": [],
+            "Children": [
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.audit_logs.export",
+                    "Display": "Audit Logs - Export",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Export",
+                            "Label": "Export",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.audit_logs.list",
+                    "Display": "Audit Logs - List",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.audit_logs.read",
+                    "Display": "Audit Logs - Read",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.permissions.list",
+                    "Display": "Permissions - List",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.permissions.read",
+                    "Display": "Permissions - Read",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.roles.list",
+                    "Display": "Roles - List",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.roles.read",
+                    "Display": "Roles - Read",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.assign",
+                    "Display": "Users - Assign",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Assign",
+                            "Label": "Assign",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.create",
+                    "Display": "Users - Create",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.delete",
+                    "Display": "Users - Delete",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.export",
+                    "Display": "Users - Export",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Export",
+                            "Label": "Export",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.list",
+                    "Display": "Users - List",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.read",
+                    "Display": "Users - Read",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "admin.users.update",
+                    "Display": "Users - Update",
+                    "Module": "admin",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                }
+            ]
+        },
+        {
+            "Id": null,
+            "Level": 1,
+            "Name": "CMS",
+            "Display": "CMS",
+            "Module": "cms",
+            "Type": "M",
+            "InDevelopment": false,
+            "Actions": [],
+            "Children": [
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.announcements.create",
+                    "Display": "Announcements - Create",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.announcements.delete",
+                    "Display": "Announcements - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.announcements.list",
+                    "Display": "Announcements - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.announcements.publish",
+                    "Display": "Announcements - Publish",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Publish",
+                            "Label": "Publish",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.announcements.read",
+                    "Display": "Announcements - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.announcements.update",
+                    "Display": "Announcements - Update",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.create",
+                    "Display": "Banners - Create",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.delete",
+                    "Display": "Banners - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.list",
+                    "Display": "Banners - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.publish",
+                    "Display": "Banners - Publish",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Publish",
+                            "Label": "Publish",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.read",
+                    "Display": "Banners - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.reorder",
+                    "Display": "Banners - Reorder",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Reorder",
+                            "Label": "Reorder",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.banners.update",
+                    "Display": "Banners - Update",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menu_items.create",
+                    "Display": "Menu Items - Create",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menu_items.delete",
+                    "Display": "Menu Items - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menu_items.list",
+                    "Display": "Menu Items - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menu_items.read",
+                    "Display": "Menu Items - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menu_items.reorder",
+                    "Display": "Menu Items - Reorder",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Reorder",
+                            "Label": "Reorder",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menu_items.update",
+                    "Display": "Menu Items - Update",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menus.create",
+                    "Display": "Menus - Create",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menus.delete",
+                    "Display": "Menus - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menus.list",
+                    "Display": "Menus - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menus.read",
+                    "Display": "Menus - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menus.reorder",
+                    "Display": "Menus - Reorder",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Reorder",
+                            "Label": "Reorder",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.menus.update",
+                    "Display": "Menus - Update",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.create",
+                    "Display": "Pages - Create",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.delete",
+                    "Display": "Pages - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.export",
+                    "Display": "Pages - Export",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Export",
+                            "Label": "Export",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.list",
+                    "Display": "Pages - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.publish",
+                    "Display": "Pages - Publish",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Publish",
+                            "Label": "Publish",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.read",
+                    "Display": "Pages - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.reorder",
+                    "Display": "Pages - Reorder",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Reorder",
+                            "Label": "Reorder",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.pages.update",
+                    "Display": "Pages - Update",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.revisions.delete",
+                    "Display": "Content Revisions - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.revisions.list",
+                    "Display": "Content Revisions - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.revisions.read",
+                    "Display": "Content Revisions - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.create",
+                    "Display": "Translations - Create",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.delete",
+                    "Display": "Translations - Delete",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.export",
+                    "Display": "Translations - Export",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Export",
+                            "Label": "Export",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.import",
+                    "Display": "Translations - Import",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Import",
+                            "Label": "Import",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.list",
+                    "Display": "Translations - List",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.read",
+                    "Display": "Translations - Read",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "cms.translations.update",
+                    "Display": "Translations - Update",
+                    "Module": "cms",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                }
+            ]
+        },
+        {
+            "Id": null,
+            "Level": 1,
+            "Name": "SYSTEM",
+            "Display": "System",
+            "Module": "system",
+            "Type": "M",
+            "InDevelopment": false,
+            "Actions": [],
+            "Children": [
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.google_drive.connect",
+                    "Display": "Google Drive - Connect",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Connect",
+                            "Label": "Connect",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.google_drive.delete",
+                    "Display": "Google Drive - Delete",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.google_drive.list",
+                    "Display": "Google Drive - List",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.google_drive.read",
+                    "Display": "Google Drive - Read",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.connect",
+                    "Display": "Media - Connect",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Connect",
+                            "Label": "Connect",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.create",
+                    "Display": "Media - Create",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.delete",
+                    "Display": "Media - Delete",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.import",
+                    "Display": "Media - Import",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Import",
+                            "Label": "Import",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.list",
+                    "Display": "Media - List",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.read",
+                    "Display": "Media - Read",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.media.update",
+                    "Display": "Media - Update",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.settings.create",
+                    "Display": "Settings - Create",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.settings.delete",
+                    "Display": "Settings - Delete",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.settings.list",
+                    "Display": "Settings - List",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.settings.read",
+                    "Display": "Settings - Read",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.settings.update",
+                    "Display": "Settings - Update",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.themes.create",
+                    "Display": "Themes - Create",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Create",
+                            "Label": "Create",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.themes.delete",
+                    "Display": "Themes - Delete",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Delete",
+                            "Label": "Delete",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.themes.list",
+                    "Display": "Themes - List",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "List",
+                            "Label": "List",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.themes.publish",
+                    "Display": "Themes - Publish",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Publish",
+                            "Label": "Publish",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.themes.read",
+                    "Display": "Themes - Read",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Read",
+                            "Label": "Read",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                },
+                {
+                    "Id": null,
+                    "Level": 2,
+                    "Name": "system.themes.update",
+                    "Display": "Themes - Update",
+                    "Module": "system",
+                    "Type": "P",
+                    "InDevelopment": false,
+                    "Actions": [
+                        {
+                            "Name": "Update",
+                            "Label": "Update",
+                            "Value": 1
+                        }
+                    ],
+                    "Children": []
+                }
+            ]
+        }
+    ],
+    "Total": 79
+}

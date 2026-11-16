@@ -1,0 +1,51 @@
+{
+  "Id": 0,
+  "Level": 1,
+  "Name": "DEV",
+  "Display": "Development",
+  "Module": null,
+  "Type": "D",
+  "InDevelopment": true,
+  "Actions": [
+    {
+      "Name": "View",
+      "Value": 1
+    },
+    {
+      "Name": "Create",
+      "Value": 1
+    },
+    {
+      "Name": "Edit",
+      "Value": 1
+    },
+    {
+      "Name": "Delete",
+      "Value": 1
+    },
+    {
+      "Name": "Print",
+      "Value": 1
+    },
+    {
+      "Name": "Release",
+      "Value": 1
+    },
+    {
+      "Name": "Hold",
+      "Value": 1
+    },
+    {
+      "Name": "Approve",
+      "Value": 1
+    },
+    {
+      "Name": "Reject",
+      "Value": 1
+    },
+    {
+      "Name": "Post",
+      "Value": 1
+    }
+  ]
+}

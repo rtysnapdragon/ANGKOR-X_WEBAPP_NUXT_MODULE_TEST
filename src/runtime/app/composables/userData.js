@@ -1,134 +1,117 @@
-// import { ref } from "vue";
+
+// import { watch } from "vue";
+
 // const secretKey = "rtuserdata";
-// const key = "rty_user_data";
+
+// const USER_KEY = "rty_user_data";
+// const ACCESS_KEY = "rty_access_token";
+// const REFRESH_KEY = "rty_refresh_token";
 
 // export const useUserData = (val) => {
-//   console.log("Val in useUserDAta in Module --------------- ", val)
-//   try {
-//     if (isNotEmpty(val) && typeof val == "object") {
-//       const data = encryptAES(JSON.stringify(val), secretKey);
+//   // Shared reactive state
+//   const user = useState("rty_user_data_state", () => null);
 
-//       useCookie(key, {
-//         // maxAge: val.expires_in,
-//       }).value = data;
+//   // Cookies
+//   const userCookie = useCookie(USER_KEY, {
+//     path: "/",
+//     sameSite: "lax",
+//     default: () => null,
+//   });
 
-//       return ref(val);
+//   const accessCookie = useCookie(ACCESS_KEY, {
+//     path: "/",
+//     sameSite: "lax",
+//     default: () => null,
+//   });
+
+//   const refreshCookie = useCookie(REFRESH_KEY, {
+//     path: "/",
+//     sameSite: "lax",
+//     default: () => null,
+//   });
+
+//   // Save user data
+//   const save = (data) => {
+//     if (!data || typeof data !== "object") return;
+
+//     user.value = data;
+
+//     userCookie.value = encryptAES(
+//       JSON.stringify(data),
+//       secretKey
+//     );
+
+//     accessCookie.value = data.access_token ?? null;
+//     refreshCookie.value = data.refresh_token ?? null;
+//   };
+
+//   // Clear all authentication data
+//   const clear = () => {
+//     user.value = null;
+
+//     userCookie.value = null;
+//     accessCookie.value = null;
+//     refreshCookie.value = null;
+//   };
+
+//   // Initialize from cookies
+//   if (val !== undefined) {
+//     if (val && typeof val === "object") {
+//       save(val);
 //     } else {
-//       const data = useCookie(key).value;
-
-//       if (isNotEmpty(data)) {
-//         return ref(JSON.parse(decryptAES(data, secretKey)));
-//       } else {
-//         throw "Error";
-//       }
+//       clear();
 //     }
-//   } catch (e) {
-//     return ref(null);
+//   } else if (user.value === null && userCookie.value) {
+//     try {
+//       user.value = JSON.parse(
+//         decryptAES(userCookie.value, secretKey)
+//       );
+//     } catch (error) {
+//       console.error("Failed to decrypt user cookie:", error);
+//       clear();
+//     }
 //   }
+
+//   return user;
 // };
 
 
-import { ref } from 'vue'
 
-const SECRET_KEY = 'rtuserdata'
-
-const COOKIE_NAMES = {
-  user: 'rty_user_data',
-  access: 'rty_access_token',
-  refresh: 'rty_refresh_token',
-}
-
-const getCookieOptions = (maxAge) => ({
-  path: '/',
-  sameSite: 'lax',
-  secure: import.meta.client
-    ? window.location.protocol === 'https:'
-    : process.env.NODE_ENV === 'production',
-  ...(maxAge > 0 ? { maxAge } : {}),
-})
+import { ref } from "vue";
+const secretKey = "rtuserdata";
+const key = "rty_user_data";
 
 export const useUserData = (val) => {
-  // const userCookie = useCookie(COOKIE_NAMES.user)
-  // const accessCookie = useCookie(COOKIE_NAMES.access)
-  // const refreshCookie = useCookie(COOKIE_NAMES.refresh)
-  const userCookie = useCookie(COOKIE_NAMES.user, {
-    path: '/',
-    sameSite: 'lax',
-    secure: import.meta.client
-      ? window.location.protocol === 'https:'
-      : process.env.NODE_ENV === 'production',
-  })
-
-  const accessCookie = useCookie(COOKIE_NAMES.access, {
-    path: '/',
-    sameSite: 'lax',
-    secure: import.meta.client
-      ? window.location.protocol === 'https:'
-      : process.env.NODE_ENV === 'production',
-    maxAge: Number(val?.expires_in) || 3600,
-  })
-
-  const refreshCookie = useCookie(COOKIE_NAMES.refresh, {
-    path: '/',
-    sameSite: 'lax',
-    secure: import.meta.client
-      ? window.location.protocol === 'https:'
-      : process.env.NODE_ENV === 'production',
-    maxAge: Number(val?.refresh_lifetime) || 604800,
-  })
-
   try {
-    // SET authentication data
-    if (val && typeof val === 'object') {
-      const accessLifetime = Number(val.expires_in) || 3600
-      const refreshLifetime = Number(val.refresh_lifetime) || 604800
+    if (isNotEmpty(val) && typeof val == "object") {
+      const data = encryptAES(JSON.stringify(val), secretKey);
 
-      const userData = {
-        ...val,
-        created_at: val.created_at || new Date().toISOString(),
+      useCookie(key, {
+        maxAge: val.expires_in,
+      }).value = data;
+      useCookie('rty_access_token').value = val.access_token
+      useCookie('rty_refresh_token').value = val.refresh_token;
+      return ref(val);
+    } else {
+      const data = useCookie(key).value;
+
+      if (isNotEmpty(data)) {
+        return ref(JSON.parse(decryptAES(data, secretKey)));
+      } else {
+        throw "Error";
       }
-
-      // 1. Store encrypted complete user data
-      userCookie.value = encryptAES(
-        JSON.stringify(userData),
-        SECRET_KEY
-      )
-
-      // 2. Store access token separately
-      accessCookie.value = userData.access_token || null
-
-      // 3. Store refresh token separately
-      refreshCookie.value = userData.refresh_token || null
-
-      return ref(userData)
     }
-
-    // GET authentication data
-    if (userCookie.value) {
-      const decrypted = decryptAES(userCookie.value, SECRET_KEY)
-      return ref(JSON.parse(decrypted))
-    }
-
-    return ref(null)
-  } catch (error) {
-    console.error('[useUserData] Cookie operation failed:', error)
-    return ref(null)
+  } catch (e) {
+    return ref(null);
   }
-}
+};
 
-/**
- * Get individual authentication tokens.
- */
-export const getAuthTokens = () => ({
-  accessToken: useCookie(COOKIE_NAMES.access).value,
-  refreshToken: useCookie(COOKIE_NAMES.refresh).value,
-})
 
-/**
- * Clear authentication cookies.
- */
-export const clearUserData = () => {
-  useCookie(COOKIE_NAMES.user).value = null
-  useCookie(COOKIE_NAMES.access).value = null
-  useCookie(COOKIE_NAMES.refresh).value = null
-}
+// The most important issue is that Nuxt's useCookie() is designed to work with Nuxt's reactive state and SSR context. You should also make sure the encrypted value is serializable and that the cookie is not too large.
+
+// Issue 2: Cookie size limitation
+// Browsers generally limit individual cookies to approximately 4 KB.
+// If val contains a large user profile, permissions, menus, or other data, the cookie may be rejected or truncated.
+
+
+// The main limitation is approximately 4 KB per cookie (4,096 bytes), including the cookie name and attributes depending on browser implementation.
