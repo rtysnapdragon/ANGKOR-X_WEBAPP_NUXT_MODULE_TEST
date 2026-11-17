@@ -24,6 +24,7 @@ import { useI18n } from 'vue-i18n'
 import RIcon from '../RIcon.vue'
 import RModal from '../RModal.vue'
 import RTooltip from '../RTooltip.vue'
+import { useHttp } from '../../composables/https'
 
 defineOptions({ name: 'RVisualEditor' })
 
@@ -32,7 +33,7 @@ defineOptions({ name: 'RVisualEditor' })
 // =====================================================================================================
 const props = defineProps({
   modelValue: { type: [Object, String], default: null },
-  api: { type: Object, default: null }, // reserved: document persistence arrives in M6 (inert today)
+  api: { type: [Object, String], default: null },
   uploadApi: { type: Object, default: null }, // { url, method, headers, fieldName, body, mapResponse, withCredentials }
   uploader: { type: Function, default: null }, // async (file, { onProgress(0..1), signal }) => ({ url })
   options: { type: Object, default: () => ({}) },
@@ -1170,7 +1171,7 @@ function patchMedia(uploadId, attrsPatch) {
 
 async function runUploader(file, ctx) {
   if (typeof props.uploader === 'function') return props.uploader(file, ctx)
-  if (isObj(props.uploadApi) && asStr(props.uploadApi.url).trim()) return xhrUpload(file, props.uploadApi, ctx)
+  if (isObj(props.uploadApi) && asStr(props.uploadApi.url).trim()) return xhrUpload1(file, props.uploadApi, ctx)
   throw new Error(t('rve_no_upload_endpoint', 'No upload endpoint configured (set the upload-api or uploader prop).'))
 }
 
@@ -1189,7 +1190,7 @@ async function startUpload({ file, kind, uploadId }) {
     if (!url) throw new Error(t('rve_upload_no_url', 'The uploader did not return a persistent http(s) URL.'))
     pending.delete(uploadId)
     patchMedia(uploadId, { src: url, status: 'ready', uploadId: null, error: '' })
-    emit('upload', { phase: 'success', file, uploadId, url })
+    emit('upload', { phase: 'success', file, uploadId, url, result })
   } catch (err) {
     if (controller.signal.aborted) return // the block was removed
     pending.set(uploadId, { file, kind, controller: null }) // keep the file so Retry works
@@ -2199,6 +2200,173 @@ function buildEnvelope(ed) {
     meta: { pendingUploads },
   }
 }
+
+const apiState = reactive({ loading: false, saving: false, loaded: false, error: null })
+let apiSaveTimer = null
+let apiLoaded = false
+let suppressApiSave = false
+const asApiEntry = (entry, method = 'POST') => {
+  if (typeof entry === 'string') return { url: entry, method }
+  if (!isObj(entry)) return null
+  return { ...entry, method: entry.method || method }
+}
+const apiConfig = computed(() => {
+  const raw = props.api
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    return { load: null, save: { url: raw, method: 'POST' }, autoLoad: false, autoSave: false, saveDebounce: 1000, where: null, data: null, mapPayload: null, mapResponse: null }
+  }
+  if (!isObj(raw)) return null
+  const load = asApiEntry(raw.load || raw.get || raw.read || raw.fetch)
+  const save = asApiEntry(raw.save || raw.update || raw.create || raw.submit || (!load && raw.url ? raw : null))
+  const debounce = Number(raw.saveDebounce)
+  return {
+    load,
+    save,
+    autoLoad: raw.autoLoad ?? raw.loadOnMount ?? !!load,
+    autoSave: raw.autoSave ?? false,
+    saveDebounce: Number.isFinite(debounce) ? Math.max(0, debounce) : 1000,
+    where: raw.where ?? null,
+    data: raw.data ?? null,
+    mapPayload: raw.mapPayload ?? null,
+    mapResponse: raw.mapResponse ?? null,
+  }
+})
+const hasApiLoad = computed(() => !!apiConfig.value?.load?.url)
+const hasApiSave = computed(() => !!apiConfig.value?.save?.url)
+const apiSignatureValue = (value, seen = new WeakSet()) => {
+  if (typeof value === 'function') return `[fn ${value.name || ''}]`
+  if (value === null || typeof value !== 'object') return value
+  if (seen.has(value)) return '[circular]'
+  seen.add(value)
+  if (Array.isArray(value)) return value.map((v) => apiSignatureValue(v, seen))
+  const out = {}
+  Object.keys(value).sort().forEach((key) => { out[key] = apiSignatureValue(value[key], seen) })
+  return out
+}
+const apiSignature = computed(() => {
+  const cfg = apiConfig.value
+  if (!cfg) return ''
+  try {
+    return JSON.stringify({
+      load: { url: cfg.load?.url, method: cfg.load?.method, data: apiSignatureValue(cfg.load?.data ?? cfg.data) },
+      save: { url: cfg.save?.url, method: cfg.save?.method, data: apiSignatureValue(cfg.save?.data ?? cfg.data) },
+      where: cfg.where,
+      autoLoad: cfg.autoLoad,
+      autoSave: cfg.autoSave,
+    })
+  } catch {
+    return String(cfg.load?.url ?? '') + String(cfg.save?.url ?? '')
+  }
+})
+const apiPathValue = (value, path) => {
+  if (!path) return value
+  return String(path).split('.').reduce((current, key) => (current == null ? undefined : current[key]), value)
+}
+const resolveApiData = (data, context) => (typeof data === 'function' ? data(context) : data ?? {})
+const extractLoadedContent = (raw, entry, cfg) => {
+  let value = apiPathValue(raw, entry?.where ?? cfg.where)
+  if (typeof entry?.mapResponse === 'function') return entry.mapResponse(value, raw)
+  if (typeof cfg.mapResponse === 'function') return cfg.mapResponse(value, raw)
+  if (!isObj(value)) return value
+  for (const key of ['EditorJson', 'editorJson', 'json', 'Html', 'html', 'Content', 'content', 'Data', 'data']) {
+    const candidate = value[key]
+    if (candidate === undefined || candidate === null) continue
+    if (isObj(candidate) && !Object.keys(candidate).length) continue
+    if (typeof candidate === 'string' && !candidate.trim()) continue
+    return candidate
+  }
+  if (Array.isArray(value.Items) && value.Items.length) return value.Items[0]
+  if (Array.isArray(value.Data) && value.Data.length) return value.Data[0]
+  return value
+}
+function setApiContent(value) {
+  clearTimeout(timer)
+  timer = null
+  dirty = false
+  const content = toEditorContent(value)
+  const ed = live()
+  if (ed) ed.commands.setContent(content, { emitUpdate: false })
+  else any()?.commands.setContent(content, { emitUpdate: false })
+  lastEmitted = value
+  emit('update:modelValue', value)
+  emit('change', value)
+}
+function queueApiSave() {
+  const cfg = apiConfig.value
+  if (!cfg?.save?.url || !cfg.autoSave || apiState.saving || suppressApiSave) return
+  clearTimeout(apiSaveTimer)
+  apiSaveTimer = setTimeout(() => { void saveToApi() }, cfg.saveDebounce)
+}
+async function loadFromApi() {
+  const cfg = apiConfig.value
+  if (!cfg?.load?.url) return null
+  apiState.loading = true
+  apiState.error = null
+  try {
+    const entry = cfg.load
+    const context = { phase: 'load', editor: any(), modelValue: props.modelValue }
+    const data = resolveApiData(entry.data ?? cfg.data, context)
+    const requestOptions = { method: entry.method || 'POST', data: data ?? {} }
+    if (entry.headers) requestOptions.headers = entry.headers
+    const { data: responseRef, error } = await useHttp(entry.url, requestOptions)
+    const err = error?.value ?? error
+    if (err) throw err
+    const response = responseRef?.value ?? responseRef ?? null
+    const value = extractLoadedContent(response, entry, cfg)
+    setApiContent(value)
+    apiState.loaded = true
+    return value
+  } catch (err) {
+    apiState.error = err
+    emit('error', { source: 'api', phase: 'load', error: err })
+    return null
+  } finally {
+    apiState.loading = false
+  }
+}
+async function saveToApi() {
+  const cfg = apiConfig.value
+  if (!cfg?.save?.url) return null
+  clearTimeout(apiSaveTimer)
+  suppressApiSave = true
+  commit()
+  suppressApiSave = false
+  const ed = any()
+  if (!ed) return null
+  apiState.saving = true
+  apiState.error = null
+  try {
+    const entry = cfg.save
+    const envelope = buildEnvelope(ed)
+    const html = sanitizeHTML(ed.getHTML())
+    const value = props.output === 'html' ? html : props.output === 'both' ? { json: envelope, html } : envelope
+    const context = { phase: 'save', editor: ed, value, envelope, html }
+    const extra = resolveApiData(entry.data ?? cfg.data, context)
+    let payload = { Content: ed.getText(), Html: html, EditorJson: envelope }
+    if (isObj(extra)) payload = { ...payload, ...extra }
+    if (typeof entry.mapPayload === 'function') payload = entry.mapPayload(payload, context)
+    else if (typeof cfg.mapPayload === 'function') payload = cfg.mapPayload(payload, context)
+    const requestOptions = { method: entry.method || 'POST', data: payload ?? {} }
+    if (entry.headers) requestOptions.headers = entry.headers
+    const { data: responseRef, error } = await useHttp(entry.url, requestOptions)
+    const err = error?.value ?? error
+    if (err) throw err
+    let response = responseRef?.value ?? responseRef ?? null
+    if (typeof entry.mapResponse === 'function') response = entry.mapResponse(response, payload)
+    else if (typeof cfg.mapResponse === 'function') response = cfg.mapResponse(response, payload)
+    apiState.loaded = true
+    emit('save', { payload, response, value })
+    return { payload, response, value }
+  } catch (err) {
+    apiState.error = err
+    emit('error', { source: 'api', phase: 'save', error: err })
+    return null
+  } finally {
+    apiState.saving = false
+  }
+}
+
 let timer = null
 let dirty = false
 let lastEmitted = props.modelValue
@@ -2218,6 +2386,7 @@ function commit() {
   lastEmitted = value
   emit('update:modelValue', value)
   emit('change', value)
+  queueApiSave()
 }
 const schedule = () => { dirty = true; clearTimeout(timer); timer = setTimeout(commit, opts.value.emitDebounce) }
 
@@ -2225,6 +2394,7 @@ const schedule = () => { dirty = true; clearTimeout(timer); timer = setTimeout(c
 onBeforeUnmount(() => {
   commit()
   clearTimeout(timer)
+  clearTimeout(apiSaveTimer)
   clearTimeout(noticeTimer)
   cancelAnimationFrame(bumpRaf)
   pending.forEach((p) => p.controller?.abort())
@@ -2306,7 +2476,23 @@ watch(() => props.modelValue, (value) => {
 })
 watch(isEditable, (v) => any()?.setEditable(v, false))
 // once the editor exists, refresh after the view mounts (toolbar/footer/ready) even if no transaction occurs
-watch(editor, (e) => { if (e) { bump(); setTimeout(bump, 60) } })
+watch(editor, (e) => {
+  if (!e) return
+  bump()
+  setTimeout(bump, 60)
+  if (!apiLoaded && hasApiLoad.value && apiConfig.value?.autoLoad) {
+    apiLoaded = true
+    void loadFromApi()
+  }
+})
+watch(apiSignature, () => {
+  apiLoaded = false
+  clearTimeout(apiSaveTimer)
+  if (editor.value && hasApiLoad.value && apiConfig.value?.autoLoad) {
+    apiLoaded = true
+    void loadFromApi()
+  }
+})
 
 // =====================================================================================================
 // Block handle (+ / drag grip) and block menu — Notion style
@@ -2550,6 +2736,7 @@ function onBodyMouseDown(event) {
 }
 function onRootKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openLink() }
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's' && hasApiSave.value) { e.preventDefault(); void saveToApi() }
   if (e.key === 'Escape') blockMenu.open = false
 }
 
@@ -2607,6 +2794,10 @@ defineExpose({
   insertMediaUrl,
   openMediaUrl,
   pickFiles,
+  loadFromApi: () => loadFromApi(),
+  saveToApi: () => saveToApi(),
+  reloadApi: () => loadFromApi(),
+  apiState: () => ({ ...apiState }),
   isUploading: () => Array.from(pending.values()).some((p) => p.controller),
 })
 </script>
@@ -2889,9 +3080,12 @@ defineExpose({
     <footer v-if="editor && feat.footer.visible" class="rv-footer" role="contentinfo">
       <div class="rv-footer__group">
         <span v-if="!isEditable" class="rv-badge">{{ t('rve_read_only', 'Read-only') }}</span>
+        <span v-if="apiState.loading" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_loading', 'Loading') }}…</span>
+        <span v-if="apiState.saving" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_saving', 'Saving') }}…</span>
         <span v-if="uploading > 0" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_uploading', 'Uploading') }} {{ uploading }} {{ uploading === 1 ? t('rve_file_singular', 'file') : t('rve_file_plural', 'files') }}…</span>
       </div>
       <div class="rv-footer__group">
+        <button v-if="hasApiSave" type="button" class="rv-pill rv-pill--primary" :disabled="apiState.saving || uploading > 0 || !isEditable" @click="saveToApi()"><UIcon name="i-lucide-save" />{{ t('rve_save', 'Save') }}</button>
         <template v-if="feat.wordCount.visible && counts">
           <span>{{ counts.words }} {{ counts.words === 1 ? t('rve_word', 'word') : t('rve_words', 'words') }}</span>
           <span>{{ counts.characters }} {{ counts.characters === 1 ? t('rve_character', 'character') : t('rve_characters', 'characters') }}</span>
