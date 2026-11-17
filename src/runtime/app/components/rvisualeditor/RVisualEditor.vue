@@ -1,5 +1,7 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { createVNode,computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch,render,resolveComponent,getCurrentInstance } from 'vue'
+
+const appContext = getCurrentInstance()?.appContext
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { Extension, Node } from '@tiptap/core'
 import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state'
@@ -578,6 +580,7 @@ function openBarMenu(anchor, items) {
   setTimeout(() => document.addEventListener('pointerdown', onBarMenuOutside, true), 0)
   window.addEventListener('scroll', closeBarMenu, true)
 }
+
 const h = (tag, cls, attrsObj = {}) => {
   const n = document.createElement(tag)
   if (cls) n.className = cls
@@ -617,6 +620,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick() })
     return b
   }
+  
   const setProgress = (p) => {
     if (progressEl) progressEl.style.width = `${Math.round(p * 100)}%`
     if (progressLabel) progressLabel.textContent = `${Math.round(p * 100)}%`
@@ -2754,7 +2758,7 @@ defineExpose({
         <div class="r-design__dock" :style="designDockStyle">
           <!-- Header -->
           <div class="r-design__bar">
-            <strong class="r-design__title">{{ designPlaceholder ? 'New design' : 'Edit design' }}</strong>
+            <strong class="r-design__title">{{ designPlaceholder ? $t('new_design') : $t('edit_design') }}</strong>
             <RTooltip text="Undo (Ctrl+Z)" side="bottom">
               <button type="button" class="r-design__btn" :disabled="!designUi.canUndo" @click="undo"><i class="i-lucide-undo-2" /></button>
             </RTooltip>
@@ -2762,7 +2766,7 @@ defineExpose({
               <button type="button" class="r-design__btn" :disabled="!designUi.canRedo" @click="redo"><i class="i-lucide-redo-2" /></button>
             </RTooltip>
             <select class="r-design__field" :value="designPage.preset" aria-label="Page size" @change="onPreset($event.target.value)">
-              <option v-for="p in DESIGN_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
+              <option v-for="p in DESIGN_PRESETS" :key="p.id" :value="p.id">{{ $t(p.label) }}</option>
               <option value="custom" disabled>Custom</option>
             </select>
             <input class="r-design__field r-design__num" type="number" min="100" max="4000" :value="designPage.w" aria-label="Page width" @change="setPageSize($event.target.value, designPage.h)">
@@ -2774,7 +2778,7 @@ defineExpose({
             <span class="r-design__grow" />
             <RTooltip text="Also insert the documents / videos you added as file blocks under the image" side="bottom">
               <label class="r-design__check">
-                <input v-model="designUi.attach" type="checkbox"> Attach files
+                <input v-model="designUi.attach" type="checkbox"> {{ $t('attach_files') }}
               </label>
             </RTooltip>
             <RTooltip :text="designUi.expanded ? 'Back to in-place' : 'Expand to full screen'" side="bottom">
@@ -2849,7 +2853,8 @@ defineExpose({
               <input type="range" min="5" max="100" :value="designSel.opacity" @input="setOpacity(Number($event.target.value))" @change="designCommit()">
             </label>
           </div>
-          <p v-else class="r-design__hint">Drop or paste any file onto the canvas · drag corners to resize · Shift-click to select several, then align / distribute</p>
+          <p v-else class="r-design__hint">{{ tBy({en:'Drop or paste any file onto the canvas · drag corners to resize · Shift-click to select several, then align / distribute',
+          km:'អូស ឬបិទភ្ជាប់ឯកសារណាមួយទៅលើផ្ទៃការងារ · អូសជ្រុងដើម្បីប្ដូរទំហំ · ចុចដោយសង្កត់គ្រាប់ចុច Shift ដើម្បីជ្រើសរើសធាតុច្រើន រួចតម្រឹម ឬចែកគម្លាតឱ្យស្មើគ្នា។'}) }}</p>
           <p v-if="designUi.msg" class="r-design__error" role="alert">{{ designUi.msg }}</p>
         </div>
 
@@ -2967,7 +2972,7 @@ defineExpose({
 
 // ---- appearances: paper (Word/Canva sheet on a canvas) and notion (seamless page) ----------------------
 .rv-editor[data-rv-appearance='paper'] {
-  background: var(--c-bg);
+  background: var(--bg-wrapper);
   border: 1px solid var(--border-card);
   border-radius: 12px;
   .rv-body { padding: 28px 16px 40px; cursor: text; }
@@ -3189,7 +3194,7 @@ defineExpose({
 .rv-slash__empty { padding: 12px; font-size: 0.875rem; color: var(--c-muted); }
 
 // ---- page ------------------------------------------------------------------------------------------------
-.rv-body { flex: 1 1 auto; }
+.rv-body { flex: 1 1 auto; background: var(--bg-wrapper);}
 .rv-page {
   position: relative;
   display: flex;

@@ -1,170 +1,137 @@
 <script setup>
 // RInput — SARIKA
-// Full UInput / UPinInput wrapper with AI auto-fill
-// No lang="ts" — plain <script setup>
-// AI: useAiGenerate composable → claude-haiku-4-5 (fast, free-tier)
-// All props from provided RInput, plus AI extras
-
-import { ref, computed, watch } from 'vue'
+// UInput / UPinInput wrapper (Nuxt UI 4) with AI auto-fill. Plain <script setup>, no TS.
+import { ref, computed, watch, useSlots, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAiGenerate } from '../../composables/useAiGenerate'
 
-// ── Props ─────────────────────────────────────────────────────────────────
-const props = defineProps([
+// Object props (not an array): array-syntax props can't Boolean-cast, so `<RInput ai />`,
+// `<RInput disabled />` etc. arrived as '' (falsy) and silently did nothing.
+const props = defineProps({
   // UInput core
-  'size',           // xs sm md lg xl
-  'name',
-  'type',           // text|email|password|number|textarea|file|date|tel|url|search
-  'ui',
-  'icon',
-  'highlight',
-  'error',
-  'variant',        // outline|soft|subtle|ghost|link|none
-  'placeholder',
-  'autofocus',
-  'autofocusDelay',
-  'loading',
-  'leading',
-  'trailing',
-  'loadingIcon',
-  'leadingIcon',
-  'trailingIcon',
-  'autocomplete',
-  'disabled',
-  'readonly',
-  'min',
-  'max',
-  'maxlength',
-  'color',
+  size:           { type: String, default: 'md' },          // xs sm md lg xl
+  name:           String,
+  type:           { type: String, default: 'text' },
+  ui:             { type: Object, default: () => ({}) },
+  icon:           String,
+  highlight:      Boolean,
+  error:          [Boolean, String],
+  variant:        String,                                   // outline | soft | subtle | ghost | none
+  placeholder:    String,
+  autofocus:      Boolean,
+  autofocusDelay: Number,
+  loading:        Boolean,
+  leading:        Boolean,
+  trailing:       Boolean,
+  loadingIcon:    String,
+  leadingIcon:    String,
+  trailingIcon:   String,
+  autocomplete:   { type: String, default: 'off' },
+  disabled:       Boolean,
+  readonly:       Boolean,
+  min:            [Number, String],
+  max:            [Number, String],
+  maxlength:      [Number, String],
+  color:          String,
   // Layout helpers
-  'score',
-  'isRight',
-  'isLeft',
-  'floatingLabel',
-  'padded',
+  label:          String,                                   // AI context only
+  floatingLabel:  String,                                   // label text; enables floating mode
+  score:          Boolean,                                  // right-align text
+  isLeft:         Boolean,                                  // legacy no-op
+  isRight:        Boolean,                                  // legacy no-op
+  padded:         Boolean,                                  // legacy (v2) no-op
   // UPinInput
-  'pininput',
-  'mask',
-  'totp',
-  'placeholderPinInput',
-  'length',
-  'separator',
-  'pinInputUI',
-  'typePinInput',
+  pininput:       Boolean,
+  mask:           Boolean,
+  totp:           Boolean,                                  // → UPinInput `otp`
+  placeholderPinInput: String,
+  length:         { type: [Number, String], default: 6 },
+  separator:      [Number, Array],                          // 4.9+: group inputs
+  pinInputUI:     { type: Object, default: () => ({}) },
+  typePinInput:   { type: String, default: 'number' },
   // AI generate
-  'ai',              // boolean — show AI button
-  'aiLabel',         // string — button label override
-  'aiInstruction',   // string — custom prompt override
-  'aiLang',          // 'en'|'km'|'auto'
-  'formContext',     // Record<string,unknown> — sibling fields for context
-])
+  ai:             Boolean,
+  aiLabel:        String,
+  aiInstruction:  String,
+  aiLang:         String,                                   // en | km | auto
+  formContext:    Object,
+})
 
-const emit = defineEmits([
-  'update:modelValue',
-  'onFocus', 'onBlur', 'onInput',
-  'ai-filled',    // { value, model }
-  'ai-error',     // { error }
-])
+const emit = defineEmits(['onFocus', 'onBlur', 'onInput', 'complete', 'ai-filled', 'ai-error'])
 
-const value   = defineModel()
+const value    = defineModel()
 const refInput = ref(null)
-const { t, locale } = useI18n()
-const { generate, regenerate, loading: aiLoading, error: aiError, last } = useAiGenerate()
+const slots    = useSlots()
+const { locale } = useI18n()
+const { generate, regenerate, loading: aiLoading, error: aiError } = useAiGenerate()
 
-// ── AI state ───────────────────────────────────────────────────────────────
-const aiAnimating = ref(false)   // typewriter effect active
-const aiSuccess   = ref(false)   // brief green flash after fill
-const aiPopover   = ref(false)   // suggestion popover
-const focused = ref(false)
+// ── AI ─────────────────────────────────────────────────────────────────────
+const aiAnimating = ref(false)   // typewriter running
+const aiSuccess   = ref(false)   // brief success flash
 
-// Animate value typewriter style
-async function typewrite(text, target) {
+let alive = true
+onBeforeUnmount(() => { alive = false })
+
+async function typewrite(text) {
+  const str = String(text ?? '')
   aiAnimating.value = true
-  value.value       = ''
-  const delay       = Math.max(18, Math.min(60, 900 / text.length))
-  for (const ch of text) {
-    await new Promise(r => setTimeout(r, delay))
+  value.value = ''
+  const delay = Math.max(18, Math.min(60, 900 / (str.length || 1)))
+  for (const ch of str) {
+    await new Promise((r) => setTimeout(r, delay))
+    if (!alive) return
     value.value += ch
   }
   aiAnimating.value = false
-  aiSuccess.value   = true
+  aiSuccess.value = true
   setTimeout(() => { aiSuccess.value = false }, 1800)
-  emit('ai-filled', { value: text, model: 'claude-haiku-4-5' })
+  emit('ai-filled', { value: str, model: 'claude-haiku-4-5' })
 }
 
 async function triggerAiGenerate(regen) {
-  if (props.disabled) return
+  if (props.disabled || aiLoading.value || aiAnimating.value) return // no overlapping runs
   const opts = {
     label:       props.floatingLabel || props.label,
     name:        props.name,
     placeholder: props.placeholder,
-    type:        props.type || 'text',
+    type:        props.type,
     formContext: props.formContext,
     lang:        props.aiLang || (locale.value === 'km' ? 'km' : 'en'),
     maxLength:   props.maxlength,
     instruction: props.aiInstruction,
   }
   try {
-    const fn     = regen ? regenerate : generate
-    const result = await fn(opts)
-    await typewrite(result.value, value)
+    const result = await (regen ? regenerate : generate)(opts)
+    await typewrite(result.value)
   } catch (e) {
     emit('ai-error', { error: e?.message || 'AI error' })
   }
 }
 
-// ── Computed labels ────────────────────────────────────────────────────────
-const resolvedAiLabel = computed(() =>
-  props.aiLabel
-    ? props.aiLabel
-    : (locale.value === 'km' ? 'បង្កើតដោយ AI' : 'AI Generate')
+const resolvedAiLabel = computed(
+  () => props.aiLabel || (locale.value === 'km' ? 'បង្កើតដោយ AI' : 'AI Generate'),
 )
 
-// ── Derived flags ──────────────────────────────────────────────────────────
-const isLeft    = computed(() => props.isLeft  ?? false)
-const isRight   = computed(() => props.isRight ?? false)
-const showAi    = computed(() => !!props.ai)
-const isPinInput = computed(() => !!props.pininput)
-const floatingLabel = computed(() => props.floatingLabel ?? false)
-const aiIconName = computed(() =>
-  aiLoading.value ? 'i-lucide-loader-2' : aiSuccess.value ? 'i-lucide-check' : 'i-lucide-sparkles'
-)
+// ── Derived ────────────────────────────────────────────────────────────────
+const isPinInput = computed(() => props.pininput)
+const hasValue   = computed(() => value.value !== undefined && value.value !== null && value.value !== '')
 
-const slots = useSlots() //Even better (automatic slot detection) behave exactly like Nuxt UI <RInput trailing />
+// Mirrors UInput's own rule: icon/loading sit on the leading side unless `trailing` is set.
+const hasLeading = computed(() => !!(
+  slots.leading || props.leadingIcon ||
+  ((props.icon || props.loading) && !props.trailing)
+))
+const hasTrailing = computed(() => !!(
+  slots.trailing || props.trailingIcon ||
+  ((props.icon || props.loading) && props.trailing)
+))
+// Passed as CSS vars (not v-bind() in CSS) so the global stylesheet can read them.
+const fieldStyle = computed(() => ({
+  '--rinp-pl': hasLeading.value ? '35px' : '12px',
+  '--rinp-pr': hasTrailing.value ? '35px' : '12px',
+}))
 
-const hasLeading = computed(() => {
-  return !!(
-    props.leading ||
-    props.leadingIcon ||
-    props.icon ||
-    props.ai ||
-    slots.leading
-  )
-})
-
-const hasTrailing = computed(() => {
-  return !!(
-    props.trailing ||
-    props.trailingIcon ||
-    props.loading ||
-    slots.trailing
-  )
-})
-const leftPadding = computed(() => hasLeading.value ? '35px' : '12px' )
-
-const rightPadding = computed(() => hasTrailing.value ? '35px' : '12px' )
-
-// Now all of these automatically add padding:
-
-// ✅ <RInput leading />
-// ✅ <RInput leading-icon="ri-search-line" />
-// ✅ <RInput icon="ri-user-line" />
-// ✅ <RInput ai />
-// ✅ <template #leading>
-// ✅ <RInput trailing />
-// ✅ <RInput trailing-icon="ri-close-line" />
-// ✅ <template #trailing>
-// ── Number watcher (keep only valid numeric chars) ────────────────────────
+// ── Number sanitizer (digits + one dot, max 2 decimals) ────────────────────
 watch(value, (v) => {
   if (props.type === 'number' && typeof v === 'string') {
     let clean = v.replace(/[^0-9.]/g, '')
@@ -175,99 +142,76 @@ watch(value, (v) => {
   }
 })
 
-// ── UPinInput UI ──────────────────────────────────────────────────────────
-const pinUi = computed(() => ({
-  root:      'relative inline-flex items-center gap-1.5',
-  base:      'pin-input-base !w-8 !h-8 rounded-md border-0 p-0 placeholder:text-dimmed text-center disabled:cursor-not-allowed disabled:opacity-75 transition-colors text-[12px]',
-  separator: 'text-dimmed flex items-center justify-center',
-  ...props.pinInputUI,
-}))
+// ── ui: hook classes per slot; caller's ui is appended, not replacing ──────
+function mergeSlots(base, user = {}) {
+  return Object.fromEntries(
+    [...new Set([...Object.keys(base), ...Object.keys(user)])].map((k) => [
+      k,
+      [base[k], user[k]].flat().filter(Boolean).join(' '),
+    ]),
+  )
+}
 
-// ── UInput UI (merged) ────────────────────────────────────────────────────
-const inputUi = computed(() => {
-  const def = {
-    root:    'w-full relative inline-flex items-center',
-    base: [
-      'r-inp',
-      props.error ? 'r-inp--error' : '',
-      props.score ? 'r-inp--score' : '',
-      'peer transition-all duration-200 text-[12px]',
-      !props.floatingLabel
-        ? 'rounded-md border appearance-none placeholder:text-dimmed disabled:cursor-not-allowed disabled:opacity-75'
-        : '',
-    ].filter(Boolean).join(' '),
-    wrapper:     'relative r-input-wrapper',
-    leadingIcon: 'leadingIcon text-[12px] text-gray-400',
-    trailingIcon:'trailingIcon text-[12px] text-gray-400',
-    icon: {
-      base:    'flex justify-center items-center',
-      leading: { wrapper: 'absolute inset-y-0 start-0 flex items-center ps-3' },
-      trailing:{ wrapper: `absolute inset-y-0 end-0 flex items-center pe-3` },
-    },
-    file: { base: 'file:hidden' },
-  }
+const inputUi = computed(() => mergeSlots({
+  root:         'w-full',
+  base:         ['r-inp', !!props.error && 'r-inp--error', props.score && 'r-inp--score'],
+  leadingIcon:  'rinp-icon',
+  trailingIcon: 'rinp-icon',
+}, props.ui))
 
-  // Deep merge with consumer :ui
-  return {
-    ...def,
-    ...props.ui,
-    icon: { ...def.icon, ...(props.ui?.icon ?? {}) },
-    file: { ...def.file, ...(props.ui?.file ?? {}) },
-  }
-})
+const pinUi = computed(() => mergeSlots({
+  root:      'rinp-pin',
+  base:      ['rinp-pin__cell', !!props.error && 'rinp-pin__cell--error'],
+  separator: 'rinp-pin__sep',
+}, props.pinInputUI))
 
-// ── Expose ref ────────────────────────────────────────────────────────────
 defineExpose({
-  ocInput:       () => refInput.value,
-  aiGenerate:    () => triggerAiGenerate(false),
-  aiRegenerate:  () => triggerAiGenerate(true),
-  inputRef:      refInput,
+  ocInput:      () => refInput.value,
+  aiGenerate:   () => triggerAiGenerate(false),
+  aiRegenerate: () => triggerAiGenerate(true),
+  inputRef:     refInput,
 })
 </script>
 
 <template>
-  <!-- ══ PinInput mode ════════════════════════════════════ -->
+  <!-- ══ PinInput mode ══ -->
   <div v-if="isPinInput">
     <UPinInput
       v-model="value"
-      :length="length ?? 6"
-      :type="typePinInput ?? 'number'"
-      :mask="mask ?? false"
-      :size="size ?? 'md'"
+      :length="length"
+      :type="typePinInput"
+      :mask="mask"
+      :otp="totp"
+      :size="size"
       :disabled="disabled"
-      :otp="totp ?? false"
       :placeholder="placeholderPinInput"
-      :separator="separator ?? ' '"
-      :color="color"
-      :highlight="highlight ?? false"
-      :error="error ?? false"
+      :separator="separator"
+      :color="error ? 'error' : color"
+      :highlight="highlight"
       :variant="variant"
       :ui="pinUi"
-      @focus="focused = true"
-      @blur="focused = false"
+      @complete="emit('complete', $event)"
     >
-      <template v-if="$slots.separator" #separator>
-        <UIcon name="i-lucide-minus" class="size-4" />
+      <template v-if="$slots.separator" #separator="{ index }">
+        <slot name="separator" :index="index" />
       </template>
     </UPinInput>
   </div>
 
-  <!-- ══ Regular Input ════════════════════════════════════ -->
+  <!-- ══ Regular input ══ -->
   <div v-else class="rinp-wrap">
-
-    <!-- Floating label wrapper -->
-    <div class="rinp-field" :class="{ 'rinp-field--floating': floatingLabel }">
+    <div class="rinp-field" :class="{ 'rinp-field--floating': floatingLabel }" :style="fieldStyle">
       <UInput
         ref="refInput"
         v-model="value"
-        :size="size ?? 'md'"
+        :size="size"
         :name="name"
         :ui="inputUi"
-        :type="type ?? 'text'"
-        :color="color"
-        :highlight="highlight ?? false"
-        :error="error ?? false"
+        :type="type"
+        :color="error ? 'error' : color"
+        :highlight="highlight"
         :placeholder="floatingLabel ? ' ' : placeholder"
+        :icon="icon"
         :loading="loading"
         :leading="leading"
         :trailing="trailing"
@@ -276,51 +220,36 @@ defineExpose({
         :trailing-icon="trailingIcon"
         :disabled="disabled"
         :readonly="readonly"
-        :autocomplete="autocomplete ?? 'off'"
+        :autocomplete="autocomplete"
         :autofocus="autofocus"
         :autofocus-delay="autofocusDelay"
         :min="min"
         :max="max"
         :maxlength="maxlength"
-        :padded="padded"
         :variant="variant"
-        :class="[
-          'rinp-input w-full',
-          aiAnimating && 'rinp-input--ai-typing',
-          aiSuccess   && 'rinp-input--ai-done',
-        ]"
-        @focus="$emit('onFocus', $event)"
-        @blur="$emit('onBlur', $event)"
-        @input="$emit('onInput', $event)"
+        :class="['rinp-input w-full', aiAnimating && 'rinp-input--ai-typing', aiSuccess && 'rinp-input--ai-done']"
+        @focus="emit('onFocus', $event)"
+        @blur="emit('onBlur', $event)"
+        @input="emit('onInput', $event)"
       >
-        <!-- Leading slot passthrough -->
-        <template v-if="$slots.leading" #leading>
-          <slot name="leading" />
-        </template>
-
-        <!-- Trailing slot: custom OR floating label -->
-        <template v-if="$slots.trailing" #trailing>
-          <slot name="trailing" />
-          <!-- Float label is rendered outside, not here -->
-        </template>
+        <template v-if="$slots.leading" #leading><slot name="leading" /></template>
+        <template v-if="$slots.trailing" #trailing><slot name="trailing" /></template>
       </UInput>
 
-      <!-- Floating label -->
       <label
         v-if="floatingLabel"
         class="rinp-float-label"
-        :class="{ 'rinp-float-label--up': value || placeholder }"
+        :class="{ 'rinp-float-label--up': hasValue }"
       >
         <span class="rinp-float-label__text">{{ floatingLabel }}</span>
       </label>
     </div>
 
-    <!-- ── AI Generate button ─────────────────────────── -->
-    <div v-if="showAi" class="rinp-ai">
-      <!-- Main button -->
+    <!-- ── AI generate ── -->
+    <div v-if="ai" class="rinp-ai">
       <button
         type="button"
-        :disabled="!!disabled || aiLoading"
+        :disabled="disabled || aiLoading || aiAnimating"
         :class="[
           'rinp-ai__btn',
           aiLoading   && 'rinp-ai__btn--loading',
@@ -330,29 +259,25 @@ defineExpose({
         :title="resolvedAiLabel"
         @click="triggerAiGenerate(false)"
       >
-        <!-- Animated sparkle icon -->
         <span class="rinp-ai__icon-wrap">
           <i
-            :class="[
-              aiLoading   ? 'ri-loader-4-line rinp-ai__spin'      :
-              aiSuccess   ? 'ri-checkbox-circle-fill'             :
-              aiAnimating ? 'ri-quill-pen-ai-line'                :
-                            'ri-sparkling-line',
-            ]"
+            :class="
+              aiLoading   ? 'ri-loader-4-line rinp-ai__spin' :
+              aiSuccess   ? 'ri-checkbox-circle-fill' :
+              aiAnimating ? 'ri-quill-pen-ai-line' :
+                            'ri-sparkling-line'
+            "
             aria-hidden="true"
           />
         </span>
         <span class="rinp-ai__label">{{ resolvedAiLabel }}</span>
-
-        <!-- Shimmer overlay while loading -->
         <span v-if="aiLoading || aiAnimating" class="rinp-ai__shimmer" aria-hidden="true" />
       </button>
 
-      <!-- Regenerate icon (once we have a value) -->
       <button
         v-if="value && !aiLoading && !aiAnimating"
         type="button"
-        :disabled="!!disabled"
+        :disabled="disabled"
         class="rinp-ai__regen"
         :title="locale === 'km' ? 'បង្កើតឡើងវិញ' : 'Regenerate'"
         @click="triggerAiGenerate(true)"
@@ -361,7 +286,6 @@ defineExpose({
       </button>
     </div>
 
-    <!-- AI error inline -->
     <Transition name="rinp-err">
       <div v-if="aiError" class="rinp-ai-error">
         <i class="ri-error-warning-line" aria-hidden="true" />
@@ -371,272 +295,264 @@ defineExpose({
   </div>
 </template>
 
-<style lang="scss" scoped>
-
-// ─────────────────────────────────────────────────────────
-// WRAPPER
-// ─────────────────────────────────────────────────────────
+<!--
+  GLOBAL (non-scoped), namespaced .rinp-* / .r-inp*.
+  WHY: the real <input> is rendered inside UInput. Scoped CSS only stamps this
+  component's own elements (and child roots), so the old scoped `.r-inp` / `.pin-input-base`
+  rules never matched the <input> — error + score styles were dead code. The hook classes
+  are injected through the `ui` prop instead and styled here.
+  No !important: Tailwind 4 utilities live in @layer; unlayered SFC CSS always wins.
+-->
+<style lang="scss">
+// ── Layout ──
 .rinp-wrap {
-  display:        flex;
-  align-items:    center;
-  gap:            var(--space-2, 8px);
-  width:          100%;
-  flex-wrap:      wrap;
-  font-family:    var(--font-fallback, 'Inter', system-ui, sans-serif);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  width: 100%;
+  font-family: var(--font-400, var(--font-fallback));
 }
 
-// ─────────────────────────────────────────────────────────
-// FIELD (input + floating label)
-// ─────────────────────────────────────────────────────────
 .rinp-field {
   position: relative;
-  flex:     1;
+  flex: 1;
   min-width: 0;
 
-  &--floating { padding-top: 10px; } // room for float label
+  &--floating { padding-top: 10px; } // room for the raised label
 }
 
-.rinp-input {
-  // @include transition(fast);
-  &--ai-typing :deep(input) {
-    border-color: var(--c-accent, #ff8c42) !important;
-    box-shadow:   0 0 0 3px rgba(255,140,66,0.12) !important;
-    color:        var(--c-accent, #ff8c42) !important;
+// ── Input ──
+.r-inp {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  padding-block: 0;
+  padding-inline: var(--rinp-pl, 12px) var(--rinp-pr, 12px);
+  font-family: var(--font-400, var(--font-fallback));
+  font-size: 13px;
+  color: var(--c-text);
+  background: transparent;
+  border: 1px solid var(--color-w-b-4);
+  border-radius: var(--r-md);
+  box-shadow: none; // also kills Nuxt UI's ring-based variants
+  outline: none;
+  transition: border-color var(--t-fast) var(--ease-in-out), box-shadow var(--t-fast) var(--ease-in-out);
+
+  &:focus,
+  &:focus-visible {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 12%, transparent);
   }
 
-  &--ai-done :deep(input) {
-    border-color: var(--c-success, #4ade80) !important;
-    box-shadow:   0 0 0 3px rgba(74,222,128,0.12) !important;
+  &::placeholder { font-size: 12px; color: var(--c-muted); }
+
+  &:disabled {
+    background: var(--bg-tertiary);
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 
-  :deep(input),
-  :deep(textarea) {
-    min-height: 38px;
-    padding: 1px 0;
-    font-family: var(--font-400,'NotoSansKhmer', 'Inter', system-ui, sans-serif) !important;
-    font-size: 13px !important;
-    padding-left: v-bind(leftPadding);
-    padding-right: v-bind(rightPadding);
-    color: var(--c-text, #1a1510) !important;
-    border-radius: var(--rounded);
-    outline: none !important;
-    border: 0.5px solid var(--c-border);
-    background: transparent !important;
-    background-color: transparent !important;
+  // keep transparent background + theme text colour on browser autofill
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--c-text);
+    caret-color: var(--c-text);
+    transition: background-color 99999s ease-in-out 0s;
   }
 
-  :deep(input:not(:placeholder-shown)){ // has value will effect here
-    // border-color: var(--c-accent, #ff8c42) !important;
-    // box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
-    background: transparent !important;
-  }
+  // number spinners / Edge reveal
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  &[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+  &::-ms-reveal { display: none; }
 
-    // Normal focus
-  :deep(input:focus),
-  :deep(textarea:focus) {
-    background: transparent !important;
-    background-color: transparent !important;
-    border-color: var(--c-accent, #ff8c42) !important;
-    outline: none !important;
-    // box-shadow: 0 0 0 0.5px var(--color-w-b-4,rgba(255, 140, 66, 0.12)) !important;
-    background-color: transparent !important;
-    // box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
-  }
+  &--score { text-align: end; }
 
-  // Autofill (Chrome / Edge)
-  :deep(input:-webkit-autofill),
-  :deep(input:-webkit-autofill:hover),
-  :deep(input:-webkit-autofill:focus),
-  :deep(input:-webkit-autofill:active) {
-    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
-    box-shadow: 0 0 0 1000px transparent inset !important;
-    -webkit-text-fill-color: var(--c-text, #1a1510) !important;
-    background-color: transparent !important;
-    transition: background-color 999999s ease-in-out 0s;
-  }
+  &--error {
+    border-color: var(--c-danger);
 
-  :deep(input:focus-visible),
-  :deep(textarea:focus-visible) {
-    border-color: var(--c-accent, #ff8c42) !important;
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
-    background:transparent !important;
-  }
-
-  :deep(input::placeholder),
-  :deep(textarea::placeholder) {
-    font-family: var(--font-400, 'Inter', system-ui, sans-serif) !important;
-  }
-
-  :deep(input:focus) + .rinp-float-label,
-  .rinp-input:deep(input:not(:placeholder-shown)) + .rinp-float-label {
-    top: 0;
-    transform: translateY(-50%);
-    font-size: .72rem;
-    color: var(--c-accent);
-  }
-
-  // Error focus
-  &.r-inp--error {
-    :deep(input),
-    :deep(textarea) {
-      border-color: #ef4444 !important;
+    &:focus,
+    &:focus-visible {
+      border-color: var(--c-danger);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-danger) 12%, transparent);
     }
 
-    :deep(input:focus),
-    :deep(textarea:focus) {
-      border-color: #ef4444 !important;
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
-      background: transparent !important;
-      background-color: transparent !important;
-    }
-
-    // Autofill error
-    :deep(input:-webkit-autofill) {
-      -webkit-box-shadow: 0 0 0 1000px #fff3f3 inset !important;
-      box-shadow: 0 0 0 1000px #fff3f3 inset !important;
-      -webkit-text-fill-color: #ef4444 !important;
-    }
+    &:-webkit-autofill { -webkit-text-fill-color: var(--c-danger); }
   }
 }
-// ─────────────────────────────────────────────────────────
-// FLOATING LABEL
-// ─────────────────────────────────────────────────────────
+
+.rinp-icon {
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+// AI states (declared after .r-inp so they win on equal specificity)
+.rinp-input--ai-typing .r-inp {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 12%, transparent);
+  color: var(--c-accent);
+}
+
+.rinp-input--ai-done .r-inp {
+  border-color: var(--c-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-success) 12%, transparent);
+}
+
+// ── Floating label ──
+// The label is a sibling of UInput's root, so `input:focus ~ label` can never match;
+// :focus-within on the field is what drives the raise-on-focus.
 .rinp-float-label {
-  position:       absolute;
-  top:            50%;
-  left:           12px;
-  transform:      translateY(-50%);
+  position: absolute;
+  top: 50%;
+  left: var(--rinp-pl, 12px);
+  transform: translateY(-50%);
   pointer-events: none;
-  transition: .2s ease;
-  //  background: var(--c-surface);
-  // padding: 0 4px;
-  // @include transition(fast);
+  transition: top var(--t-fast) var(--ease-in-out), left var(--t-fast) var(--ease-in-out);
 
   &__text {
-    font-size:   0.875rem;
-    color:       var(--c-muted, #8a7f72);
-    background:  var(--c-surface, #fff);
-    padding:     0 4px;
-    display:     inline-block;
+    display: inline-block;
+    padding: 0 4px;
+    font-size: 0.875rem;
+    color: var(--c-muted);
+    background: var(--c-surface);
     border-radius: 2px;
-    // @include transition(fast);
+    transition: font-size var(--t-fast) var(--ease-in-out), color var(--t-fast) var(--ease-in-out);
   }
 
   &--up,
-  :deep(input:focus) ~ &,
-  :deep(input:not(:placeholder-shown)) ~ & {
-    top:       0;
-    transform: translateY(-50%);
+  .rinp-field:focus-within > & {
+    top: 0;
+    left: 12px;
 
     .rinp-float-label__text {
-      font-size:   0.72rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      color:       var(--c-accent, #ff8c42);
+      color: var(--c-accent);
     }
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// AI GENERATE BUTTON
-// ─────────────────────────────────────────────────────────
+// ── PinInput ──
+.rinp-pin__cell {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--c-text);
+  background: transparent;
+  border: 1px solid var(--color-w-b-4);
+  border-radius: var(--r-sm);
+  box-shadow: none;
+  outline: none;
+  transition: border-color var(--t-fast) var(--ease-in-out), box-shadow var(--t-fast) var(--ease-in-out);
+
+  &:focus,
+  &:focus-visible {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 12%, transparent);
+  }
+
+  &:disabled { opacity: 0.65; cursor: not-allowed; }
+
+  &--error { border-color: var(--c-danger); }
+}
+
+.rinp-pin__sep { color: var(--c-muted); }
+
+// ── AI button ──
 .rinp-ai {
-  display:     flex;
+  display: flex;
   align-items: center;
-  gap:         6px;
+  gap: 6px;
   flex-shrink: 0;
 
   &__btn {
-    position:      relative;
-    display:       inline-flex;
-    align-items:   center;
-    gap:           6px;
-    padding:       6px 14px;
-    border:        1px solid var(--c-border, rgba(255,140,66,0.16));
-    border-radius: var(--radius-md, 10px);
-    background:    var(--c-surface, #fff);
-    color:         var(--c-text, #1a1510);
-    font-size:     0.78rem;
-    font-weight:   600;
-    font-family:   inherit;
-    cursor:        pointer;
-    overflow:      hidden;
-    white-space:   nowrap;
-    // @include transition(fast);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--c-text);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color var(--t-fast) var(--ease-in-out), color var(--t-fast) var(--ease-in-out), background var(--t-fast) var(--ease-in-out);
 
     &:hover:not(:disabled) {
-      border-color: var(--c-accent, #ff8c42);
-      color:        var(--c-accent, #ff8c42);
-      background:   rgba(255,140,66,0.06);
+      border-color: var(--c-accent);
+      color: var(--c-accent);
+      background: color-mix(in srgb, var(--c-accent) 6%, transparent);
     }
 
-    &--loading {
-      border-color: var(--c-accent, #ff8c42);
-      color:        var(--c-accent, #ff8c42);
-      cursor:       wait;
+    &--loading,
+    &--typing {
+      border-color: var(--c-accent);
+      color: var(--c-accent);
     }
+    &--loading { cursor: wait; }
+    &--typing { background: color-mix(in srgb, var(--c-accent) 6%, transparent); }
 
     &--success {
-      border-color: var(--c-success, #4ade80);
-      color:        var(--c-success, #4ade80);
-      background:   rgba(74,222,128,0.08);
-    }
-
-    &--typing {
-      border-color: var(--c-accent, #ff8c42);
-      color:        var(--c-accent, #ff8c42);
-      background:   rgba(255,140,66,0.06);
+      border-color: var(--c-success);
+      color: var(--c-success);
+      background: color-mix(in srgb, var(--c-success) 8%, transparent);
     }
 
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
   &__icon-wrap {
-    display:    flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size:  0.95rem;
+    font-size: 0.95rem;
   }
 
   &__label { line-height: 1; }
 
-  // Shimmer sweep animation
   &__shimmer {
-    position:   absolute;
-    inset:      0;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255,140,66,0.18) 40%,
-      rgba(255,179,71,0.25) 50%,
-      rgba(255,140,66,0.18) 60%,
+      color-mix(in srgb, var(--c-accent) 18%, transparent) 40%,
+      color-mix(in srgb, var(--c-accent-2) 25%, transparent) 50%,
+      color-mix(in srgb, var(--c-accent) 18%, transparent) 60%,
       transparent 100%
     );
     background-size: 200% 100%;
-    animation:  rinp-shimmer 1.4s ease-in-out infinite;
-    pointer-events: none;
-    border-radius: inherit;
+    animation: rinp-shimmer 1.4s ease-in-out infinite;
   }
 
-  // Spinning loader
   &__spin { animation: rinp-spin 0.8s linear infinite; }
 
-  // Regen icon button
   &__regen {
-    width:         28px;
-    height:        28px;
-    border:        1px solid var(--c-border, rgba(255,140,66,0.16));
-    border-radius: var(--radius-md, 10px);
-    background:    transparent;
-    color:         var(--c-muted, #8a7f72);
-    cursor:        pointer;
-    display:       flex;
-    align-items:   center;
+    display: flex;
+    align-items: center;
     justify-content: center;
-    font-size:     0.9rem;
-    // @include transition(fast);
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+    color: var(--c-muted);
+    background: transparent;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease-in-out), color var(--t-fast) var(--ease-in-out);
 
-    &:hover { border-color: var(--c-accent, #ff8c42); color: var(--c-accent, #ff8c42); }
+    &:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
     &:disabled { opacity: 0.4; cursor: not-allowed; }
   }
 }
@@ -650,183 +566,21 @@ defineExpose({
   to { transform: rotate(360deg); }
 }
 
-// ─────────────────────────────────────────────────────────
-// AI ERROR
-// ─────────────────────────────────────────────────────────
+// ── AI error ──
 .rinp-ai-error {
-  width:       100%;
-  display:     flex;
+  display: flex;
   align-items: center;
-  gap:         5px;
-  font-size:   0.72rem;
-  color:       var(--c-danger, #f87171);
-  padding:     4px 2px;
+  gap: 5px;
+  width: 100%;
+  padding: 4px 2px;
+  font-size: 0.72rem;
+  color: var(--c-danger);
+
   i { font-size: 0.85rem; }
 }
 
-.rinp-err-enter-active, .rinp-err-leave-active { transition: all 0.18s ease; }
-.rinp-err-enter-from, .rinp-err-leave-to { opacity: 0; transform: translateY(-4px); }
-
-
-
-// scoped
-.r-inp-ai-score {
-  text-align: end;
-}
-
-// ── Base input ─────────────────────────────────────────────
-
-// .r-inp input,
-// .r-inp textarea {
-//   font-family: var(--font-400, 'Inter', system-ui, sans-serif) !important;
-//   font-size: 13px !important;
-// }
-
-// .r-inp input::placeholder,
-// .r-inp textarea::placeholder {
-//   font-family: var(--font-400, 'Inter', system-ui, sans-serif) !important;
-// }
-
-.r-inp {
-  width: 100%;
-  height: 38px;
-  border: 1px solid var(--color-w-b-4, rgba(255, 140, 66, 0.16)) !important;
-  border-radius: var(--radius-md, 10px) !important;
-  background: transparent !important;
-  color: var(--c-text, #1a1510) !important;
-  font-size: 13px !important;
-  font-family: var(--font-fallback, 'Inter', system-ui, sans-serif) !important;
-  box-shadow: none !important;
-  outline: none !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-
-  // Normal focus
-  &:focus,
-  &:focus-visible {
-    border-color: var(--c-accent, #ff8c42) !important;
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.12) !important;
-  }
-
-  // Error state
-  &--error {
-    border-color: #ef4444 !important;
-
-    &:focus,
-    &:focus-visible {
-      border-color: #ef4444 !important;
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
-    }
-  }
-
-  // Placeholder
-  &::placeholder {
-    color: var(--c-muted, #c6c4c4) !important;
-    font-size: 12px;
-  }
-
-  // Disabled
-  &:disabled {
-    background: var(--bg-tertiary, #f1f3f6) !important;
-    opacity: 0.65;
-    cursor: not-allowed;
-  }
-
-  // Remove number spinners
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none !important;
-    margin: 0 !important;
-  }
-
-  &::-ms-reveal {
-    display: none;
-  }
-
-  // Score alignment
-  &--score {
-    text-align: end !important;
-  }
-}
-
-// .r-inp {
-//   box-shadow:      none !important;
-//   border:          1px solid var(--color-w-b-4, rgba(255,140,66,0.16)) !important;
-//   border-radius:   var(--radius-md, 10px) !important;
-//   font-size:       13px !important;
-//   color:           var(--c-text, #1a1510) !important;
-//   height:          38px;
-//   width:           100%;
-//   background:      transparent !important;
-//   font-family:     var(--font-fallback, 'Inter', system-ui, sans-serif) !important;
-//   // @include transition(fast);
-
-//   &:focus {
-//     // border-color: var(--c-accent, rgb(255, 140, 66,0.2)) !important;
-//     // box-shadow:   0 0 0 3px rgba(255,140,66,0.12) !important;
-//     outline:      none !important;
-//   }
-
-//   &:disabled { background: var(--bg-tertiary, #f1f3f6) !important; opacity: 0.65; }
-
-//   &::placeholder { color: var(--c-muted, #c6c4c4) !important; font-size: 12px; }
-
-//   // Remove number spinners
-//   &::-webkit-outer-spin-button,
-//   &::-webkit-inner-spin-button { -webkit-appearance: none !important; margin: 0 !important; }
-
-//   // Hide Edge password reveal
-//   &::-ms-reveal { display: none; }
-
-//   &--error {
-//     border-color: var(--c-danger, #f87171) !important;
-//     &:focus { box-shadow: 0 0 0 3px rgba(248,113,113,0.12) !important; }
-//   }
-
-//   &--score {
-//     text-align: end !important;
-    
-//     // ── Leading / trailing slot spacing ───────────────────────
-//     [data-slot="leading"]  { padding-left:  12px !important; }
-//     [data-slot="trailing"] {
-//       position:  absolute;
-//       top:       50%;
-//       right:     0;
-//       transform: translateY(-50%);
-//       padding-right: 12px !important;
-//     }
-//     [data-slot="base"] {
-//       // padding-left:  12px;
-//       // padding-right: 12px;
-//       // padding-left: v-bind('isLeft ?? ui.leading ?? ui.leadingIcon ? "35px" : "12px"') !important;
-//       // padding-right: v-bind('isRight ?? ui.trailing ?? ui.trailingIcon ? "35px" : "12px"') !important;
-//       // padding-left: v-bind(leftPadding);
-//       // padding-right: v-bind(rightPadding);
-//       // padding-left: v-bind('ui.leading ? "30px" : "12px"') !important;
-//       // padding-right: v-bind('ui.trailingIcon ? "30px" : "12px"') !important;
-//       font-size:     13px;
-//       font-family: var(--font-400);
-//     }
-//   }
-
-//   // ── Icons ─────────────────────────────────────────────────
-//   .trailingIcon, .leadingIcon { font-size: 15px !important; }
-// }
-
-// ── PinInput ──────────────────────────────────────────────
-.pin-input-base {
-  width:  28px !important;
-  height: 28px !important;
-  border: 1px solid var(--color-w-b-4, rgba(255,140,66,0.16)) !important;
-  border-radius: var(--radius-sm, 6px) !important;
-  background: transparent !important;
-
-  &:focus { border-color: var(--c-accent, #ff8c42) !important; }
-}
-
-// ── R input wrapper ──────────────────────────────────────
-.r-input-wrapper {
-  position: relative;
-  width: 100%;
-}
+.rinp-err-enter-active,
+.rinp-err-leave-active { transition: all 0.18s ease; }
+.rinp-err-enter-from,
+.rinp-err-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

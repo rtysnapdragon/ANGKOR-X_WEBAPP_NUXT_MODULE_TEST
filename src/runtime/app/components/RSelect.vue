@@ -372,7 +372,8 @@ function onOpen() {
   emit('onOpen',selected.value)
 }
 function fnSetSelected(data) {
-  refSelctMenu.value?.onUpdate(copyWith(data))
+  selected.value = copyWith(data)
+  // refSelctMenu.value?.onUpdate(copyWith(data))
 }
 
 function fnSelect(s) {
@@ -487,14 +488,34 @@ watch(apiUrl, (n) => {
   }
 });
 
-watch(localData, (n) => {
-  if (isNotEmpty(n)) {
-    listData.value = [...(n?.data ?? [])];
-    if (!multiple.value && !n.defaultSelect) {
-      if (!props.isNotAllowClear) listData.value.unshift({ ...{ [pk.value]: '' }, isDefault: true });
+watch(
+  localData,
+  (n) => {
+    if (!props.api) {
+      listData.value = [...(n?.data ?? [])];
+
+      if (!multiple.value && !n?.defaultSelect) {
+        if (!props.isNotAllowClear) {
+          listData.value.unshift({
+            [pk.value]: '',
+            isDefault: true
+          });
+        }
+      }
+
+      emit('mapData', listData.value);
     }
-  }
-}, { deep: true });
+  },
+  { deep: true, immediate: true }
+);
+// watch(localData, (n) => {
+//   if (isNotEmpty(n)) {
+//     listData.value = [...(n?.data ?? [])];
+//     if (!multiple.value && !n.defaultSelect) {
+//       if (!props.isNotAllowClear) listData.value.unshift({ ...{ [pk.value]: '' }, isDefault: true });
+//     }
+//   }
+// }, { deep: true });
 
 // const items = ref([])
 // watchDebounced(query, async () => {

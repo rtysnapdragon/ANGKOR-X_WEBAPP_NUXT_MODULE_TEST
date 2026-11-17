@@ -3848,5 +3848,7 @@
  "rve_font_group_khmer":"Khmer",
  "rve_design":"Design",
  "rve_design_hint":"Create an image with the design canvas.",
- "rve_edit_design":"Edit design"
+ "rve_edit_design":"Edit design",
+ "edit_design":"Edit Design",
+ "new_design":"New Design"
 }

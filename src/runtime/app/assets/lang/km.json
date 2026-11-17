@@ -4080,5 +4080,7 @@
  "rve_font_group_khmer":"ខ្មែរ",
  "rve_design":"រចនា",
  "rve_design_hint":"បង្កើតរូបភាពដោយប្រើផ្ទាំងរចនា។",
- "rve_edit_design":"កែសម្រួលការរចនា"
+ "rve_edit_design":"កែសម្រួលការរចនា",
+  "edit_design":"កែប្រែការរចនា",
+ "new_design":"រចនាថ្មី"
 }

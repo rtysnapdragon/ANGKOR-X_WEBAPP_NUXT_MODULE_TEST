@@ -1,41 +1,33 @@
 <template>
   <UPopover
-    v-model:open="isOpen"
+    :open="isOpen"
     :arrow="arrow"
-    :content="{
-      side: side,
-      align: align,
-      sideOffset: sideOffset,
-    }"
+    :content="{ side, align, sideOffset }"
     :mode="mode"
-    :disabled="disabled"
+    :modal="modal"
+    :dismissible="dismissible"
     :ui="mergedUI"
-    class="rpp-host"
+    :class="$slots.default ? 'rpp-host' : undefined"
+    @update:open="onUpdateOpen"
   >
-    <!-- Trigger slot — whatever the consumer puts here becomes the clickable anchor -->
-    <template #default>
+    <!-- Trigger — whatever the consumer puts here becomes the clickable anchor -->
+    <template v-if="$slots.default" #default>
       <slot :open="isOpen" />
     </template>
 
-    <template #anchor v-if="$slots.anchor">
+    <template v-if="$slots.anchor" #anchor>
       <slot name="anchor" :open="isOpen" />
     </template>
 
-    <!-- Panel content slot -->
-    <template #content="{ close }">
+    <!-- Panel -->
+    <template #content>
       <div
         class="rpp-panel"
-        :class="[
-          `rpp-panel--${size}`,
-          noPadding && 'rpp-panel--no-pad',
-          panelClass,
-        ]"
+        :class="[`rpp-panel--${size}`, noPadding && 'rpp-panel--no-pad', panelClass]"
         :style="panelStyle"
-        role="dialog"
       >
-        <!-- Optional header -->
         <div v-if="title || $slots.header" class="rpp-panel__header">
-          <slot name="header">
+          <slot name="header" :close="close">
             <span class="rpp-panel__title">{{ title }}</span>
           </slot>
           <button
@@ -43,29 +35,24 @@
             class="rpp-panel__close"
             type="button"
             :aria-label="closeLabel"
-            @click="isOpen = false"
+            @click="close"
           >
             <i class="ri-close-line" />
           </button>
         </div>
 
-        <!-- Body -->
         <div
-          v-if="$slots.body || $slots.default === undefined"
+          v-if="$slots.body || $slots.content"
           class="rpp-panel__body"
           :class="{ 'rpp-panel__body--scroll': scrollable }"
         >
-          <slot name="body">
-            <slot name="content" />
+          <slot name="body" :close="close">
+            <slot name="content" :close="close" />
           </slot>
         </div>
 
-        <!-- If no body/content slot, render default slot directly (no extra wrapper) -->
-        <slot v-if="!$slots.body && !$slots.content" />
-
-        <!-- Optional footer -->
         <div v-if="$slots.footer" class="rpp-panel__footer">
-          <slot name="footer" />
+          <slot name="footer" :close="close" />
         </div>
       </div>
     </template>
@@ -73,194 +60,179 @@
 </template>
 
 <script setup>
+import { computed, watch } from 'vue'
+
 const props = defineProps({
-  // ── UPopover native ─────────────────────────────────────────────────────
-  /** 'hover' fires on mouseenter; 'click' (default) fires on click */
-  mode:        { type: String,  default: 'click'  }, // click/hover
-  /** Popover placement side */
-  side:        { type: String,  default: 'bottom' }, // left/rigth/top/bottom
-  /** Alignment along the side axis */
-  align:       { type: String,  default: 'center' }, // center/end/start
-  /** Gap between trigger and panel in px */
-  sideOffset:  { type: Number,  default: 6        }, // from triger to panel
-  /** Show the small arrow pip */
-  arrow:       { type: Boolean, default: false     },
-  /** Disable opening */
-  modal:       { type: Boolean, default: false     },
-  disabled:    { type: Boolean, default: false     },
-  dismissible: { type: Boolean, default: false     },
-  /** ui slot overrides passed straight to UPopover */
+  // ── UPopover native ──
+  mode:        { type: String,  default: 'click'  }, // click | hover
+  side:        { type: String,  default: 'bottom' }, // top | right | bottom | left
+  align:       { type: String,  default: 'center' }, // start | center | end
+  sideOffset:  { type: Number,  default: 6        }, // px gap trigger → panel
+  arrow:       { type: Boolean, default: false    },
+  modal:       { type: Boolean, default: false    },
+  dismissible: { type: Boolean, default: true     }, // outside click / Esc closes (UPopover default)
+  disabled:    { type: Boolean, default: false    }, // handled here — UPopover has no `disabled` prop
   ui:          { type: Object,  default: () => ({}) },
 
-  // ── Panel appearance ────────────────────────────────────────────────────
-  /** Optional title in the panel header */
+  // ── Panel appearance ──
   title:       { type: String,  default: undefined },
-  /** Show × close button in panel header */
-  showClose:   { type: Boolean, default: false     },
+  showClose:   { type: Boolean, default: false    },
   closeLabel:  { type: String,  default: 'Close'  },
-  /** Panel size preset: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'auto' */
-  size:        { type: String,  default: 'md'     },
-  /** Remove internal body padding */
-  noPadding:   { type: Boolean, default: false     },
-  /** Make body scrollable when content overflows */
-  scrollable:  { type: Boolean, default: false     },
-  /** Extra class on .rpp-panel */
+  size:        { type: String,  default: 'md'     }, // xs | sm | md | lg | xl | auto
+  noPadding:   { type: Boolean, default: false    },
+  scrollable:  { type: Boolean, default: false    },
   panelClass:  { type: [String, Array, Object], default: '' },
-  /** Inline style on .rpp-panel */
   panelStyle:  { type: [String, Object], default: undefined },
 })
 
-const emit = defineEmits(['open', 'close', 'update:open'])
-
+const emit = defineEmits(['open', 'close'])
 const isOpen = defineModel('open', { default: false })
 
 watch(isOpen, (v) => emit(v ? 'open' : 'close'))
 
-// Strip our custom props before forwarding to UPopover so no unknown attrs land on the DOM
-const mergedUI = computed(() => ({
-  content: 'rpp-content ring-0 shadow-none',  // zero-padding wrapper — we control padding in .rpp-panel // no border with ring-0/shadow-none border-0
-  arrow:   'rpp-arrow',
-  ...props.ui,
-}))
+function onUpdateOpen(v) {
+  if (v && props.disabled) return
+  isOpen.value = v
+}
+const open = () => { if (!props.disabled) isOpen.value = true }
+const close = () => { isOpen.value = false }
+const toggle = () => (isOpen.value ? close() : open())
 
-defineExpose({ isOpen })
+// Hook classes per UPopover slot; caller's `ui` is appended per slot, not replacing.
+const mergedUI = computed(() => {
+  const base = { content: 'rpp-content', arrow: 'rpp-arrow' }
+  const user = props.ui || {}
+  return Object.fromEntries(
+    [...new Set([...Object.keys(base), ...Object.keys(user)])].map((k) => [
+      k,
+      [base[k], user[k]].flat().filter(Boolean).join(' '),
+    ]),
+  )
+})
+
+defineExpose({ isOpen, open, close, toggle })
 </script>
 
-<style lang="scss" scoped>
-// ── Host: inline so it never breaks flex/grid layouts ────────────────────
-.rpp-host {
-  display: inline-flex !important;
+<!--
+  GLOBAL (non-scoped): UPopover portals its content to <body> by default, so
+  scoped / :deep() never reaches .rpp-content or .rpp-arrow. All selectors are
+  namespaced .rpp-*. No !important: Tailwind 4 utilities live in @layer and
+  unlayered SFC CSS always wins over layered CSS.
+-->
+<style lang="scss">
+// Class lands on the trigger element (UPopover forwards `class` to its Trigger)
+.rpp-host { display: inline-flex; }
+
+// UPopover's own content shell — neutralised, .rpp-panel carries the surface
+.rpp-content {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
-// ── UPopover content wrapper (teleported — scoped can reach via :deep) ───
-// We zero out UPopover's own padding/bg here; .rpp-panel carries the real surface.
-// This works via :deep because UPopover's content slot IS NOT teleported to
-// document.body in NuxtUI v4 by default — it uses a floating element that
-// stays in the DOM tree.  If your version teleports, switch to global SCSS.
-:deep(.rpp-content) {
-  padding:          0 !important;
-  background:       transparent !important;
-  border:           none !important;
-  box-shadow:       none !important;
-  border-radius:    0 !important;
-  overflow:         visible !important;
+.rpp-arrow {
+  fill: var(--c-surface);
+  stroke: none;
 }
 
-:deep(.rpp-arrow) {
-  fill:   var(--c-surface);
-  color:  var(--c-border);
-}
-
-// ── Panel surface ────────────────────────────────────────────────────────
+// ── Panel surface ──
 .rpp-panel {
-  display:          flex;
-  flex-direction:   column;
-  background:       var(--c-surface);
-  // border:           1px solid var(--c-border);
-  border:           none !important;
-  border-radius:    var(--r-xl, 16px);
-  box-shadow:       var(--glass-shadow);
-  overflow:         hidden;
-  font-family:      var(--font-fallback, 'Inter', system-ui, sans-serif);
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 0;
+  border-radius: var(--r-xl);
+  box-shadow: var(--glass-shadow); // per-theme token, no dark-mode override needed
+  overflow: hidden;
+  font-family: var(--font-400, var(--font-fallback));
 
-  // ── Size presets ──────────────────────────────────────────────────────
-  &--xs   { min-width: 120px; max-width: 180px;  }
-  &--sm   { min-width: 160px; max-width: 240px;  }
-  &--md   { min-width: 200px; max-width: 320px;  }
-  &--lg   { min-width: 280px; max-width: 420px;  }
-  &--xl   { min-width: 320px; max-width: 560px;  }
-  &--auto { min-width: unset; max-width: unset;  }
+  &--xs   { min-width: 120px; max-width: 180px; }
+  &--sm   { min-width: 160px; max-width: 240px; }
+  &--md   { min-width: 200px; max-width: 320px; }
+  &--lg   { min-width: 280px; max-width: 420px; }
+  &--xl   { min-width: 320px; max-width: 560px; }
+  &--auto { min-width: unset; max-width: unset; }
 
-  // no-pad: strip body padding (caller controls it entirely)
-  &--no-pad .rpp-panel__body { padding: 0 !important; }
+  &--no-pad .rpp-panel__body { padding: 0; }
 
-  // ── Header ────────────────────────────────────────────────────────────
   &__header {
-    display:         flex;
-    align-items:     center;
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap:             var(--sp-3, 12px);
-    padding:         var(--sp-3, 12px) var(--sp-4, 16px);
-    border-bottom:   1px solid var(--c-border);
-    flex-shrink:     0;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
   }
 
   &__title {
-    font-size:      0.8125rem;
-    font-weight:    600;
-    color:          var(--c-text);
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
     letter-spacing: -0.01em;
-    line-height:    1.4;
-    flex:           1;
-    min-width:      0;
-    overflow:       hidden;
-    text-overflow:  ellipsis;
-    white-space:    nowrap;
+    color: var(--c-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__close {
-    display:         inline-flex;
-    align-items:     center;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    width:           24px;
-    height:          24px;
-    border:          none;
-    border-radius:   var(--r-full, 9999px);
-    background:      transparent;
-    color:           var(--c-muted);
-    font-size:       1rem;
-    cursor:          pointer;
-    flex-shrink:     0;
-    transition:      background var(--t-fast, 0.15s) ease,
-                     color      var(--t-fast, 0.15s) ease;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    font-size: 1rem;
+    color: var(--c-muted);
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-full);
+    cursor: pointer;
+    transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 
     &:hover {
       background: color-mix(in srgb, var(--c-accent) 10%, transparent);
-      color:      var(--c-accent);
+      color: var(--c-accent);
     }
 
-    i { line-height: 1; display: flex; }
+    i { display: flex; line-height: 1; }
   }
 
-  // ── Body ──────────────────────────────────────────────────────────────
   &__body {
-    padding: var(--sp-4, 16px);
-    flex:    1;
-    color:   var(--c-text);
+    flex: 1;
+    padding: var(--sp-4);
+    color: var(--c-text);
 
     &--scroll {
-      overflow-y:   auto;
-      max-height:   min(60vh, 420px);
-      // SARIKA scrollbar
+      max-height: min(60vh, 420px);
+      overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: var(--color-w-b-3, #9ca3af) transparent;
+      scrollbar-color: var(--color-w-b-3) transparent;
 
-      &::-webkit-scrollbar        { width: 4px; }
-      &::-webkit-scrollbar-track  { background: transparent; }
-      &::-webkit-scrollbar-thumb  {
-        background:    var(--color-w-b-3, #9ca3af);
-        border-radius: var(--r-full, 9999px);
-      }
+      &::-webkit-scrollbar { width: 4px; }
+      &::-webkit-scrollbar-track { background: transparent; }
+      &::-webkit-scrollbar-thumb { background: var(--color-w-b-3); border-radius: var(--r-full); }
     }
   }
 
-  // ── Footer ────────────────────────────────────────────────────────────
   &__footer {
-    display:       flex;
-    align-items:   center;
+    display: flex;
+    align-items: center;
     justify-content: flex-end;
-    gap:           var(--sp-2, 8px);
-    padding:       var(--sp-3, 12px) var(--sp-4, 16px);
-    border-top:    1px solid var(--c-border);
-    flex-shrink:   0;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--c-border);
+    flex-shrink: 0;
   }
-}
-
-// ── Dark mode adjustments ────────────────────────────────────────────────
-:global(.dark) .rpp-panel {
-  background: var(--c-surface);
-  box-shadow:
-    0 8px 32px color-mix(in srgb, #000 50%, transparent),
-    0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset;
 }
 </style>

@@ -7,20 +7,20 @@ export default defineNuxtConfig({
   // ── NuxtUI v4 ──
   ui: {
     colorMode: true,
-    // prefix: 'Nuxt',
-    // content: true,
-    // // global: true,  
-    // theme: {
-    //   colors: ['primary', 'error'],
-    //   unstyled: true,
-    //   // prefix: 'tw'
-    // },
-    // // global: false,
-    // experimental: {
-    //   componentDetection: true,
-    //   // componentDetection: ['Modal', 'Dropdown', 'Popover']
+    prefix: 'Nuxt',
+    content: true,
+    // global: true,  
+    theme: {
+      colors: ['primary', 'error'],
+      unstyled: true,
+      // prefix: 'tw'
+    },
+    // global: false,
+    experimental: {
+      componentDetection: true,
+      // componentDetection: ['Modal', 'Dropdown', 'Popover']
 
-    // }
+    }
   },
   // ai: {
   //   gateway: true
@@ -35,7 +35,7 @@ export default defineNuxtConfig({
     }
   },
   // ── Global SCSS ──
-  css: ['./runtime/app/assets/styles/global.scss','./runtime/app/assets/styles/tailwind.css'],
+  // css: ['./runtime/app/assets/styles/global.scss','./runtime/app/assets/styles/tailwind.css'],
 
   vite: {
     server: {

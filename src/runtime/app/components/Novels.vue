@@ -3,12 +3,11 @@
     <RWrapperPage>
       <RContent>
         <RTable
+          ref="tableRef"
           :columns="tableColumns"
-          :data="tableData"
-          :loading="loading"
-          :options="{ searchable: true, pageSize: 10 }"
-          @update:data="onTableData"
-          @reload-by-fixed-data="load"
+          :api="tableApi"
+          :loading="busy"
+          :options="tableOptions"
         >
           <template #headerLeft>
             <RTblFilter @on-click="onApplyFilter">
@@ -26,16 +25,16 @@
 
           <template #Name="scope">
             <div class="item-cell">
-              <div class="item-icon"><i class="ri-megaphone-line" /></div>
+              <div class="item-icon"><i class="ri-book-2-line" /></div>
               <div class="item-text">
-                <div class="item-name">{{ rowOf(scope).Name || '?' }}</div>
+                <div class="item-name">{{ displayName(rowOf(scope)) }}</div>
                 <div class="item-code">{{ rowOf(scope).Code }}</div>
               </div>
             </div>
           </template>
 
           <template #Code="scope">
-            <span class="item-mono">{{ rowOf(scope).Code }}</span>
+            <span class="item-mono">{{ rowOf(scope).Code || '—' }}</span>
           </template>
 
           <template #Status="scope">
@@ -51,25 +50,18 @@
       </RContent>
 
       <!-- Create / Edit drawer -->
-      <!-- <RFormBuilderDrawer
+      <RFormBuilderDrawer
         v-model:show="drawerVisible"
-        :icon="editId ? 'ri-edit-box-line' : 'ri-add-circle-line'"
-        :title="editId ? 'update_form' : 'create_form'"
-        :description="editId ? 'edit_hint' : 'create_hint'"
-        :width="640"
+        v-model:data="dataModel"
+        :title="isUpdate ? 'update_form' : 'create_form'"
+        :description="isUpdate ? 'edit_hint' : 'create_hint'"
+        :icon="isUpdate ? 'ri-edit-box-line' : 'ri-add-circle-line'"
+        :form="drawerForm"
         :inputs="formInputs"
-        :form="formConfig"
+        :is-update="isUpdate"
+        @onSuccess="reloadTable"
         @submitted="onFormSubmitted"
-      /> -->
-      <RFormBuilderDrawer v-model:show="drawerVisible" :title="editId ? 'update_form' : 'create_form'"  :description="editId ? 'edit_hint' : 'create_hint'" :icon="editId ? 'ri-edit-box-line' : 'ri-add-circle-line'"
-        v-model:data="dataModel" :form="{
-          showReset: showReset,
-          api: {
-            create: api.novels.create,
-            update: api.novels.update,
-          },
-          confirmUpdate: textConfirmUpdate,
-        }" :inputs="formInputs" :isUpdate="isCreate" @onSuccess="reloadTable" />
+      />
     </RWrapperPage>
   </div>
 </template>
@@ -77,50 +69,100 @@
 <script setup>
 import { ref, computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useConfirm } from '../composables/useConfirm'
-import { useToast } from '../composables/useToast'
-import { useHttp } from '../composables/https'
 
-const { api } = helper();
+/* ============================================================================
+ * Setup
+ * ========================================================================== */
+const { api } = helper()
 const { t } = useI18n()
 const toast = useToast()
-const rbac = usePermissionConfig()
-console.log("RBac ================ ", rbac)
-// const canWrite = computed(() => rbac.isSuperuser.value || rbac.hasRole('ADMIN'))
 const { confirmDestructive } = useConfirm()
-const textConfirmUpdate = ref('')
-const isCreate = ref(false)
-const showReset = ref(false)
-const openDrawer = ref(false)
-const dataModel = ref({})
-// ---------- table state ----------
-const items = ref([])
-const loading = ref(false)
-let loadToken = 0
 
-function rowOf (scope) {
-  return scope?.rowData ?? scope ?? {}
+const STATUS_ACTIVE = 1
+const STATUS_INACTIVE = 0
+
+// Stable references: inline object literals in the template are re-created on
+// every render, which makes child components see a "changed" prop each time.
+const tableApi = { url: api.novels.list, method: 'POST' }
+const tableOptions = { searchable: true }
+
+/* ============================================================================
+ * Pure helpers
+ * ========================================================================== */
+const rowOf = (scope) => scope?.rowData ?? scope ?? {}
+const displayName = (row) => row?.Name || row?.Title || row?.TitleEn || '?'
+
+function generateSlug(value = '') {
+  return String(value ?? '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
-async function load () {
-  const token = ++loadToken
-  loading.value = true
-  try {
-    const { data } = await useHttp(api.novels.list, {
-      method: 'POST',
-      data: { Action: 'list', Pages: 1, Records: 0, Search: '' }
-    })
-    if (token !== loadToken) return
-    // RTable already normalises Items/Data, but we keep a fallback:
-    items.value = (data.value?.Items ?? data.value?.Data ?? [])
-  } finally {
-    if (token === loadToken) loading.value = false
-  }
+// Khmer/CJK titles slugify to '' — fall back to the English title.
+const autoSlug = (m) => generateSlug(m?.Title) || generateSlug(m?.TitleEn)
+
+// The select can hold either the option object or the raw value.
+const normalizeStatus = (s) =>
+  Number(s !== null && typeof s === 'object' ? s.Value : s) === STATUS_ACTIVE
+    ? STATUS_ACTIVE
+    : STATUS_INACTIVE
+
+function toastError(titleKey, err) {
+  toast.add({
+    color: 'error',
+    title: t(titleKey),
+    description: err?.Message ?? err?.message ?? 'Unknown error'
+  })
 }
 
-watch(load, () => { /* initial load */ }, { immediate: true })
+/* ============================================================================
+ * Status options — single source of truth (form select, filter, table badge)
+ * ========================================================================== */
+const statusData = computed(() => [
+  { Value: STATUS_ACTIVE, Name: t('active'), NameEnglish: 'Active' },
+  { Value: STATUS_INACTIVE, Name: t('inactive'), NameEnglish: 'Inactive' }
+])
+const statusOptions = computed(() =>
+  statusData.value.map((s) => ({ value: s.Value, label: s.Name }))
+)
+const statusOption = (value) => {
+  const v = normalizeStatus(value)
+  return { ...statusData.value.find((s) => s.Value === v) }
+}
+const statusLabel = (status) => statusOption(status).Name
+const statusClass = (status) =>
+  normalizeStatus(status) === STATUS_ACTIVE ? 'is-active' : 'is-inactive'
 
-const tableData = computed(() => items.value ?? [])
+/* ============================================================================
+ * State
+ * ========================================================================== */
+const tableRef = ref()
+const busy = ref(false) // table overlay (delete / reload)
+const drawerVisible = ref(false)
+const editId = ref(null)
+const isUpdate = computed(() => editId.value !== null)
+const lastAutoSlug = ref('')
+
+const emptyModel = () => ({
+  Code: '',
+  Title: '',
+  TitleEn: '',
+  Slug: '',
+  Status: statusOption(STATUS_ACTIVE),
+  SortOrder: 0
+})
+const dataModel = ref(emptyModel())
+const dataFilter = reactive({ Status: [] })
+
+const reload = async () => tableRef.value?.reload?.()
+
+/* ============================================================================
+ * Table
+ * ========================================================================== */
 const tableColumns = computed(() => [
   { key: 'Name', label: t('name'), sortable: true },
   { key: 'Code', label: t('code'), sortable: true },
@@ -128,42 +170,33 @@ const tableColumns = computed(() => [
   { key: 'actions', label: t('actions'), width: 120 }
 ])
 
-// filter state
-const dataFilter = reactive({ Status: [] })
-const statusOptions = computed(() => [
-  { value: 1, label: t('active') },
-  { value: 0, label: t('inactive') }
-])
-function statusLabel (status) {
-  const match = statusOptions.value.find((o) => Number(o.value) === Number(status))
-  return match ? t(match.key) : t('inactive')
-}
-function statusClass (status) {
-  return status === 1 ? 'is-active' : 'is-inactive'
+/**
+ * NOTE: `dataFilter` is currently NOT sent to the server — it was not in the
+ * original page either. RTable needs to receive it as request params
+ * (prop name depends on RTable's API) before this filter has any effect.
+ */
+function onApplyFilter(close) {
+  reload()
+  close?.()
 }
 
-// apply filter chips
-const dataChips = ref([])
-function onApplyFilter (close) {
-  dataChips.value = dataFilter.Status.map((s) => ({
-    icon: s === 1 ? 'ri-check-line' : 'ri-close-line',
-    value: statusLabel(s)
-  }))
-  close()
-}
-function onRemoveChip (chip) {
-  const match = statusOptions.value.find((o) => o.label === chip.value)
-  if (match) {
-    dataFilter.Status = dataFilter.Status.filter((v) => v !== match.value)
-  }
-  dataChips.value = dataChips.value.filter((c) => c.value !== chip.value)
-}
+/* ============================================================================
+ * Form
+ * ========================================================================== */
+const showReset = ref(false)
+const textConfirmUpdate = ref('')
 
-// ---------- form state ----------
-const drawerVisible = ref(false)
-const editId = ref(null)
+// Drawer owns the request (create/update endpoints). Computed so the object
+// identity is stable between renders instead of a new literal on every render.
+const drawerForm = computed(() => ({
+  showReset: showReset.value,
+  api: {
+    create: api.novels.create,
+    update: api.novels.update
+  },
+  confirmUpdate: textConfirmUpdate.value
+}))
 
-// form inputs – minimal set for novel CRUD
 const formInputs = computed(() => [
   {
     name: 'Code',
@@ -171,143 +204,204 @@ const formInputs = computed(() => [
     label: t('code'),
     placeholder: t('code'),
     required: true,
-    disabled: !!editId.value,
-    onInput: () => {}
+    disabled: isUpdate.value
   },
-  {
-    name: 'Name',
-    type: 'text',
-    label: t('name'),
-    placeholder: t('name'),
-    required: true,
-    onInput: () => {}
-  },
-  {
-    name: 'NameEn',
-    type: 'text',
-    label: t('name_en'),
-    placeholder: t('name_en'),
-    onInput: () => {}
-  },
+  { name: 'Title', type: 'text', label: t('name'), placeholder: t('name'), required: true },
+  { name: 'TitleEn', type: 'text', label: t('name_en'), placeholder: t('name_en') },
+  { name: 'Slug', type: 'text', label: 'Slug', placeholder: 'my-first-novel', required: true },
   {
     name: 'Status',
     type: 'select',
     label: t('status'),
     required: true,
-    options: [{ value: 1, label: t('active') }, { value: 0, label: t('inactive') }],
-    pk: 'value',
-    title: 'label',
-    onInput: () => {}
+    options: { data: statusData.value },
+    pk: 'Value',
+    title: 'Name'
   },
-  {
-    name: 'SortOrder',
-    type: 'number',
-    label: t('sortOrder'),
-    required: false,
-    onInput: () => {}
-  }
+  { name: 'SortOrder', type: 'number', label: t('sortOrder'), required: false }
 ])
 
-// form config for RFormBuilderDrawer
-const formConfig = computed(() => ({
-  showSubmit: false,
-  showReset: false,
-  showCancel: false
-}))
+// Auto-slug while creating. Never rewrites a slug the user edited by hand, and
+// never touches the slug of an existing record (URL stability).
+watch(
+  () => [dataModel.value.Title, dataModel.value.TitleEn],
+  () => {
+    if (isUpdate.value) return
+    const next = autoSlug(dataModel.value)
+    const current = dataModel.value.Slug
+    if (!current || current === lastAutoSlug.value) dataModel.value.Slug = next
+    lastAutoSlug.value = next
+  }
+)
 
-// ---------- CRUD actions ----------
-function openCreate () {
+/* ============================================================================
+ * CRUD
+ * ========================================================================== */
+function openCreate() {
   editId.value = null
+  lastAutoSlug.value = ''
+  dataModel.value = emptyModel()
   drawerVisible.value = true
 }
-function openEdit (row) {
-  editId.value = row.Id
+
+function openEdit(row) {
+  if (row?.Id === undefined || row?.Id === null) return
+  editId.value = row.Id // set first: disables the auto-slug watcher
+  dataModel.value = {
+    ...row,
+    Title: row.Title ?? '',
+    TitleEn: row.TitleEn ?? '',
+    Slug: row.Slug || autoSlug(row),
+    Status: statusOption(row.Status)
+  }
   drawerVisible.value = true
 }
-function closeForm () {
+
+function closeForm() {
   drawerVisible.value = false
   editId.value = null
 }
 
-// submit payload to backend
-async function onFormSubmitted (state) {
-  await confirmDestructive({
-    title: t('discardTitle'),
-    description: t('discardBody'),
-    confirmLabel: t('discard'),
-    cancelLabel: t('keepEditing'),
-    color: 'warning'
-  }) // placeholder – real guard would check dirty state
-
-  const payload = {
-    Action: editId.value ? 'update' : 'create',
-    Id: editId.value ?? undefined,
-    Code: state.Code,
-    Name: state.Name,
-    NameEn: state.NameEn,
-    Status: Number(state.Status),
-    SortOrder: state.SortOrder ?? 0
-  }
-
-  const { data, error } = await useHttp(api.novels.create, {
-    method: 'POST',
-    data: payload
-  })
-  if (error.value || !data.value) {
-    toast.add({ color: 'error', title: editId.value ? 'update_failed' : 'create_failed', description: (error.value)?.Message ?? 'Unknown error' })
-    return
-  }
-  const result = data.value
-  toast.add({ color: 'success', title: result.Message || (editId.value ? 'updated' : 'created') })
+// Drawer finished create/update successfully (it performs the request itself).
+async function reloadTable() {
   closeForm()
-  await load()
+  await reload()
 }
 
-// ---------- delete ----------
-async function remove (row) {
+// Fired with the form state on submit. No request here (the drawer owns it) —
+// only normalizes the state in place so the payload is clean.
+function onFormSubmitted(state) {
+  if (!state) return
+  state.Slug = generateSlug(state.Slug) || autoSlug(state)
+  state.Status = normalizeStatus(state.Status)
+  state.SortOrder = Number(state.SortOrder) || 0
+}
+
+async function remove(row) {
+  if (busy.value) return
   const ok = await confirmDestructive({
     title: t('delete'),
-    description: t('delete_body', { name: row.Name }),
+    description: t('delete_body', { name: displayName(row) }),
     confirmLabel: t('delete'),
     color: 'error'
   })
   if (!ok) return
-  const { data, error } = await useHttp(`${api.novels.list}?Action=delete&Id=${row.Id}`, {
-    method: 'GET'
-  })
-  if (error.value || !data.value) {
-    toast.add({ color: 'error', title: 'delete_failed', description: (error.value)?.Message ?? 'Unknown error' })
-    return
+
+  busy.value = true
+  try {
+    const query = new URLSearchParams({ Action: 'delete', Id: String(row.Id) })
+    const { data, error } = await useHttp(`${api.novels.list}?${query}`, { method: 'GET' })
+
+    if (error.value || !data.value) {
+      toastError('delete_failed', error.value)
+      return
+    }
+    toast.add({ color: 'success', title: t('deleted') })
+    await reload()
+  } catch (e) {
+    toastError('delete_failed', e)
+  } finally {
+    busy.value = false
   }
-  toast.add({ color: 'success', title: 'deleted' })
-  await load()
 }
 
-// ---------- action bar items ----------
-function actionItems (row) {
-  const items = [
-    { type: 'view', label: t('view'), icon: 'ri-eye-line', color: 'view', actionClick: () => {} }
-  ]
-  {
-    items.push({
+/* ============================================================================
+ * Row actions
+ * ========================================================================== */
+function actionItems(row) {
+  return [
+    // TODO: no view handler existed in the original page
+    { type: 'view', label: t('view'), icon: 'ri-eye-line', color: 'view', actionClick: () => {} },
+    {
       type: 'update',
       label: t('edit'),
       icon: 'ri-pencil-line',
       color: 'edit',
       actionClick: () => openEdit(row)
-    })
-    items.push({
+    },
+    {
       type: 'delete',
       label: t('delete'),
       icon: 'ri-delete-bin-3-line',
       color: 'delete',
       actionClick: () => remove(row)
-    })
-  }
-  return items
+    }
+  ]
 }
 </script>
 
 <style lang="scss" scoped>
-/* minimal overrides if needed */
+.item-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  color: var(--c-accent, #ff8c42);
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--c-accent, #ff8c42) 12%, transparent);
+}
+
+.item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.item-name {
+  font-weight: 600;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-code {
+  font-size: 12px;
+  color: var(--c-muted);
+}
+
+.item-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--c-text);
+}
+
+.item-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-full, 9999px);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &.is-active {
+    color: var(--r-c-success, #5ec47a);
+    background: var(--r-c-success-bg, rgba(94, 196, 122, 0.12));
+  }
+
+  &.is-inactive {
+    color: var(--r-c-disabled, #858585);
+    background: var(--r-b-disabled, #efefef);
+  }
+}
 </style>

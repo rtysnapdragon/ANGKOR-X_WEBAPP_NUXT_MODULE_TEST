@@ -1,6 +1,6 @@
 
 .my-module-toast {
-  background: var(--ui-bg);
+  background: var(--bg-wrapper) !important;
   color: var(--ui-text);
   border: 1px solid var(--ui-border);
   border-radius: 14px;
