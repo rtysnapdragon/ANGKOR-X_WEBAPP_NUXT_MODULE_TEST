@@ -21,6 +21,7 @@
 
           <template #headerRight>
             <RBtn type="add" icon="ri-add-line" :label="t('create')" @click="openCreate" />
+            <RBtn type="add" icon="ri-file-text-line" :label="t('create_content')" @click="openContentCreate" />
           </template>
 
           <template #Name="scope">
@@ -62,6 +63,21 @@
         @onSuccess="reloadTable"
         @submitted="onFormSubmitted"
       />
+    <RFormBuilderDrawer
+        v-model:show="contentDrawerVisible"
+        :icon=" 'ri-file-text-line' "
+        :title="t('create_content')"
+        :description="t('create_content_hint')"
+        :width="800"
+        :inputs="[]"
+        :form="{}"
+        :pending="contentGuard.state.pending"
+        :before-close="contentGuard.beforeClose"
+      >
+        <template #default>
+          <NovelContentCreate @created="onContentCreated" />
+        </template>
+      </RFormBuilderDrawer>
     </RWrapperPage>
   </div>
 </template>
@@ -77,6 +93,7 @@ const { api } = helper()
 const { t } = useI18n()
 const toast = useToast()
 const { confirmDestructive } = useConfirm()
+import NovelContentCreate from '~/runtime/app/components/NovelContentCreate.vue'
 
 const STATUS_ACTIVE = 1
 const STATUS_INACTIVE = 0
@@ -146,6 +163,27 @@ const drawerVisible = ref(false)
 const editId = ref(null)
 const isUpdate = computed(() => editId.value !== null)
 const lastAutoSlug = ref('')
+
+const contentDrawerVisible = ref(false)
+
+const contentGuard = {
+  state: { pending: false, dirty: false },
+  beforeClose: async (): Promise<boolean> => {
+    if (contentGuard.state.pending) return false
+    if (!contentGuard.state.dirty) return true
+    return await confirmDestructive({
+      title: t('discardTitle'),
+      description: t('discardBody'),
+      confirmLabel: t('discard'),
+      cancelLabel: t('keepEditing'),
+      color: 'warning'
+    })
+  }
+}
+
+function markContentDirty () {
+  contentGuard.state.dirty = true
+}
 
 const emptyModel = () => ({
   Code: '',
@@ -257,6 +295,11 @@ function openEdit(row) {
   drawerVisible.value = true
 }
 
+function openContentCreate () {
+  contentDrawerVisible.value = true
+  markContentDirty()
+}
+
 function closeForm() {
   drawerVisible.value = false
   editId.value = null
@@ -275,6 +318,18 @@ function onFormSubmitted(state) {
   state.Slug = generateSlug(state.Slug) || autoSlug(state)
   state.Status = normalizeStatus(state.Status)
   state.SortOrder = Number(state.SortOrder) || 0
+}
+
+function onContentSubmitted () {
+  // called by the content drawer when the user clicks “Save” inside RVisualEditor
+  onContentCreated({ chapter: { Code: '', Title: '', TitleEn: '', Slug: '', Status: 1, SortOrder: 0 } })
+}
+
+function onContentCreated (payload) {
+  // payload may contain chapter data; for now just reload the table and close the drawer
+  toast.add({ color: 'success', title: t('content_created') })
+  await load()
+  contentDrawerVisible.value = false
 }
 
 async function remove(row) {

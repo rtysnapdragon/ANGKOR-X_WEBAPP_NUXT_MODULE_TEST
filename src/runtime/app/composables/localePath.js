@@ -1,5 +1,13 @@
-import { useLocalePath, useCookie } from "#imports";
+import { useCookie } from '#imports'
+
 export default (path) => {
-  const cookie = useCookie("i18n_redirected").value;
-  return cookie != "en" ? `/${cookie}${path}` : path;
-};
+  const locale = useCookie('i18n_redirected').value
+
+  if (!path.startsWith('/')) {
+    path = `/${path}`
+  }
+
+  return locale && locale !== 'en'
+    ? `/${locale}${path}`
+    : path
+}

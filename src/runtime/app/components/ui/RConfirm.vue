@@ -1,11 +1,11 @@
 <template>
   <Teleport to="body">
   <Transition name="r-confirm">
-    <div v-if="!!confirmStore.data" class="r-confirm">
+    <div v-if="!!confirmStore.data" class="r-confirm" @click.stop @pointerdown.stop @keydown.esc="!confirmStore.data?.persistent && onCancel()">
       <!-- persistent=true means overlay click must NOT close the dialog -->
-      <div class="r-confirm__overlay" @click="!confirmStore.data?.persistent && confirmStore.hide()" />
-      <div class="r-confirm__wrapper">
-        <div class="r-confirm__card">
+      <div class="r-confirm__overlay" aria-hidden="true" @keydown.esc="!confirmStore.data?.persistent && onCancel()" />
+      <div class="r-confirm__wrapper" @pointerdown.stop @click.stop>
+        <div class="r-confirm__card" role="dialog" aria-modal="true" :aria-labelledby="title ? 'r-confirm-title' : undefined" @click.stop @pointerdown.stop>
 
           <!-- Icon -->
           <!-- <div
@@ -72,8 +72,8 @@
 
           <!-- Actions -->
           <div class="r-confirm__actions">
-            <RBtn type="cancel" :label="$t('cancel')" size="s" variant="solid" :noIcon="true" :disabled="confirmStore.loading"  @click="onCancel"/>
-            <RBtn :type="type" :icon="type" :label="labelBtnConfirm" size="s" :variant="confirmStore.loading ? 'ghost' : 'solid'" :noIcon="!confirmStore.loading" :loading="confirmStore.loading" @click="onConfirm" />
+            <RBtn type="cancel" :label="$t('cancel')" size="s" variant="solid" :noIcon="true" :disabled="confirmStore.loading"  @click.stop="onCancel"/>
+            <RBtn :type="type" :icon="type" :label="labelBtnConfirm" size="s" :variant="confirmStore.loading ? 'ghost' : 'solid'" :noIcon="!confirmStore.loading" :loading="confirmStore.loading" @click.stop="onConfirm" />
           </div>
         </div>
       </div>
@@ -98,10 +98,9 @@ confirm.show({
 </template>
 
 <script setup>
+import { h, isVNode,computed ,defineComponent,onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia';
-import { computed } from 'vue';
 import { useConfirmStore } from '../../stores/confirm'
-import { h, isVNode, defineComponent } from 'vue'
 const confirmStore = useConfirmStore();
 
 // const isOpen = computed(() => !!confirmStore.data);
@@ -246,6 +245,24 @@ watch(
     }
   }
 );
+
+
+watch(
+  () => !!confirmStore.data,
+  (isOpen) => {
+    if (import.meta.client) {
+      document.body.style.overflow = isOpen ? 'hidden' : ''
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  if (import.meta.client) {
+    document.body.style.overflow = ''
+  }
+})
+
 // watch(
 //   () => confirmStore.data,
 //   (val) => {
@@ -421,34 +438,41 @@ async function onCancel() {
   inset: 0;
   z-index: 2147483647;
 
+    // Block all pointer interactions with background elements.
+  isolation: isolate;
+  pointer-events: auto;
+
   &__overlay {
     position: absolute;
     inset: 0;
+    z-index: 0;
     background: rgba(17, 24, 39, 0.55);
     backdrop-filter: blur(3px);
   }
 
   &__wrapper {
     position: relative;
-    // z-index: 1;
+    z-index: 1;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
-    min-height: 100vh;
+    min-height: 100dvh;
     padding: 1rem;
+    pointer-events: none;
   }
 
   &__card {
+    position: relative;
+    z-index: 2;
     width: 100%;
     max-width: 460px;
-    z-index: 1;
+    padding: 1.5rem;
 
     background: var(--bg-c-card);
     color: var(--c-text);
     border-radius: 1rem;
-    padding: 1.5rem;
 
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     // box-shadow: 0 25px 50px -12px rgb(0 0 0 / 25%);
@@ -456,6 +480,9 @@ async function onCancel() {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+
+    // Allow interactions inside the dialog.
+    pointer-events: auto;
   }
 
   &__icon {

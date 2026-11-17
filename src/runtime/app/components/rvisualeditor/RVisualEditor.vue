@@ -210,11 +210,13 @@ function kindOfFile(file) {
 }
 
 /** XHR (not fetch) because fetch cannot report upload progress. */
-async function xhrUpload(file, cfg, { onProgress, signal }) {
+async function xhrUpload1(file, cfg, { onProgress, signal }) {
   const headers = typeof cfg.headers === 'function' ? await cfg.headers() : (cfg.headers ?? {})
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open(cfg.method ?? 'POST', cfg.url)
+    const apiUrl = getUrl(cfg.url)
+    xhr.open(cfg.method ?? 'POST', apiUrl)
+    // xhr.open(cfg.method ?? 'POST', cfg.url)
     xhr.withCredentials = !!cfg.withCredentials
     for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total) }

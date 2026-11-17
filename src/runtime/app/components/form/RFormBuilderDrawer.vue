@@ -82,6 +82,7 @@ const disabledUpdate = computed(() => props.disabledUpdate ?? false);
 const isUpdate = computed(() =>
   isClone.value === true ? false : isNotEmpty(dataUpdate.value)
 );
+// const isUpdate = computed(() => !isClone.value && props.isUpdate === true )
 const show = defineModel("show");
 const loading = ref(false);
 const inForm = computed(() => props.form);

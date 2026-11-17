@@ -1007,8 +1007,8 @@ async function getData() {
   if (controller) {
     controller.abort();
   }
-  loading.value = true;
   try {
+    loading.value = true;
     // OCTable's request contract: PascalCase paging/sort fields. A caller can
     // still reshape this through the `update:data` handler (that is how
     // CurrencyMain drops the unsupported OrderBy/OrderDir keys).
@@ -1059,7 +1059,7 @@ async function getData() {
       data: dataSender,
     });
 
-    if (error.value) throw error.value;
+    if (isNotEmpty(error.value)) throw error.value;
     if (isNotEmpty(selectAllPk.value) && isNotEmpty(api.value)) {
       listAllSelect.value = data.value[selectAllPk.value] || [];
     }
@@ -1112,6 +1112,7 @@ async function getData() {
 
     return data.value || [];
   } catch (error) {
+    console.log("error ===============get list",error)
     toast.add({
       color: "error",
       title: `${isNotEmpty(error?.Message) || isNotEmpty(error?.message) || isNotEmpty(error?.detail) ? error.Message || error?.message || error?.detail : error}`,

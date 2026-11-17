@@ -457,6 +457,7 @@ async function onSubmitModal() {
   loading.value = true;
   emit("onLoading", true);
   try {
+    console.log("isUpdate in RFormBuilder -------------- > ", isUpdate.value)
     if (isUpdate.value) {
       emit("onSubmitted", state);
       if (isNotEmpty(form.value.isClone) && form.value.isClone) {
