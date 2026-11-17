@@ -37,8 +37,7 @@
 </template>
 
 <script setup>
-import { useToastStore } from "#imports";
-const toast = useToastStore();
+const toast = useToast();
 const props = useBreadCrumb();
 // color-sub-text
 function fnBack() {

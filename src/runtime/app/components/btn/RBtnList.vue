@@ -12,8 +12,6 @@
 
 <script setup>
 import { computed } from "vue";
-import { useToastStore } from "#imports";
-const toastStore = useToastStore();
 const dataMenu = useMenuStore();
 const props = defineProps([
   'type',
@@ -65,7 +63,7 @@ const showIfAllowed = computed(() =>
   per == 1 ? true : props.showIfAllowed ?? true
 );
 const emit = defineEmits(["click"]);
-const toast = toastStore();
+const toast = useToast();
 function fnClick() {
   if (per == 1) {
     emit("click");

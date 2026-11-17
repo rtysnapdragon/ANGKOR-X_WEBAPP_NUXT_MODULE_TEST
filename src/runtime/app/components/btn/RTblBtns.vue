@@ -99,14 +99,13 @@
 </template>
 
 <script setup>
-import { useToastStore } from "#imports";
 import { FwbDropdown, FwbListGroup, FwbListGroupItem } from "flowbite-vue";
 const { t } = useI18n();
 import RTooltip from '../RTooltip.vue'
 const props = defineProps(["items", "closeInside","use"]);
 const close = computed(() => props.closeInside);
 const dataMenu = useMenuStore();
-const toast = useToastStore();
+const toast = useToast();
 const open = ref(false)
 const model = computed(() => {
   return props.items;
@@ -116,7 +115,6 @@ function showIfAllowed(ifAllow = true, per) {
   return per == 1 || ifAllow;
 }
 const use = computed(() => props.use)
-// const toast = useToast()
 function generateIcon(icon) {
   if (!icon) {
     console.error('Icon is not defined')

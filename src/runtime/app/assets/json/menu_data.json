@@ -55,6 +55,15 @@
     "icon":"<i class='ri-file-list-3-line'></i>",
     "menu":[
       {
+        "id": "novels",
+        "key": "novels",
+        "title": "novels",
+        "color": "#1E88E5",
+        "icon": "<i class='ri-article-line'></i>",
+        "href": "/novels",
+        "permission": "NOVELS"
+      },
+      {
         "id": "forum",
         "key": "forum",
         "title": "forum",

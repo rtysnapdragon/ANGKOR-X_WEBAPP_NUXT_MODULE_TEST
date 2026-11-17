@@ -19,6 +19,8 @@ import createDOMPurify from 'dompurify'
 import RVToolbar from './RVToolbar.vue'
 import { z } from 'zod'
 import { useI18n } from 'vue-i18n'
+import RIcon from '../RIcon.vue'
+import RModal from '../RModal.vue'
 import RTooltip from '../RTooltip.vue'
 
 defineOptions({ name: 'RVisualEditor' })
@@ -242,9 +244,30 @@ const FEATURE_KEYS = [
   'slashMenu', 'bubbleMenu', 'blockHandle', 'dropFiles', 'media', 'images', 'videos', 'audio', 'files',
   'floatingMedia', 'shapes', 'drawing', 'canvas',
 ]
+const PRESETS = {
+  full: {},
+  standard: { canvas: false, drawing: false, shapes: false, floatingMedia: false, typography: false },
+  document: { canvas: false, drawing: false, shapes: false, floatingMedia: false, zoom: true, wordCount: true },
+  comment: {
+    footer: true, wordCount: false, zoom: false, fonts: false, colors: false, headings: false, alignment: false, lists: false,
+    blockquote: false, indent: false, spacing: false, tables: false, codeBlock: false, divider: false, callout: false,
+    typography: false, slashMenu: false, blockHandle: false, dropFiles: false, media: false, images: false, videos: false,
+    audio: false, files: false, floatingMedia: false, shapes: false, drawing: false, canvas: false,
+    appearance: 'notion', toolbarMode: 'compact',
+  },
+  minimal: {
+    history: true, textFormatting: true, links: false, lists: false, headings: false, alignment: false, colors: false,
+    fonts: false, spacing: false, indent: false, blockquote: false, tables: false, codeBlock: false, divider: false,
+    callout: false, typography: false, bubbleMenu: false, blockHandle: false, slashMenu: false, footer: false, wordCount: false,
+    zoom: false, dropFiles: false, media: false, images: false, videos: false, audio: false, files: false,
+    appearance: 'notion', toolbarMode: 'compact',
+  },
+}
+const PRESET_NAMES = Object.keys(PRESETS)
 const optShape = {
   // Generic feature flags first, so the explicit config keys below can override the flag schema.
   ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, flag])),
+  preset: z.enum(PRESET_NAMES),
   theme: z.enum(['light', 'dark', 'system']),
   appearance: z.enum(['notion', 'paper']),
   toolbarMode: z.enum(['ribbon', 'compact']), // ribbon = Word-style tabs; compact = single-row (UEditor-style)
@@ -257,7 +280,7 @@ const optShape = {
 }
 const OPT_DEFAULTS = {
   ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, true])),
-  theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false,
+  preset: 'full', theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false,
   fonts: DEFAULT_FONTS, fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96],
   wordCount: true,
   zoom: false,
@@ -276,8 +299,9 @@ const toState = (v) => (v === true ? { register: true, visible: true, enabled: t
 const warn = (...a) => { if (import.meta.dev) console.warn('[RVisualEditor]', ...a) }
 
 function resolveOptions(raw, overrides) {
-  const merged = { ...OPT_DEFAULTS }
   const input = { ...(isObj(raw) ? raw : {}) }
+  const preset = typeof input.preset === 'string' && input.preset in PRESETS ? input.preset : OPT_DEFAULTS.preset
+  const merged = { ...OPT_DEFAULTS, ...PRESETS[preset] }
   if (overrides.editable !== undefined) input.editable = overrides.editable
   if (overrides.theme !== undefined) input.theme = overrides.theme
   for (const [key, value] of Object.entries(input)) {
@@ -506,6 +530,9 @@ const ICONS = {
   trash: svg('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
   file: svg('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'),
   download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'),
+  preview: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>'),
+  copy: svg('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>'),
+  rename: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
   alert: svg('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
   retry: svg('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'),
   design: svg('<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.7-1.7h2C18.6 16.4 21 14 21 11c0-5-4.5-9-9-9Z"/>'),
@@ -606,6 +633,27 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     link.target = '_blank'
     link.rel = 'noopener noreferrer'
     link.click()
+  }
+  const previewMedia = () => {
+    const src = safeUrl(node.attrs.src, opts.value.allowBlobUrls)
+    if (src) window.open(src, '_blank', 'noopener,noreferrer')
+  }
+  const copyMediaLink = async () => {
+    const src = safeUrl(node.attrs.src, opts.value.allowBlobUrls)
+    if (!src) return
+    try {
+      await navigator.clipboard.writeText(src)
+      showNotice(t('rve_link_copied', 'Link copied to clipboard.'))
+    } catch {
+      showNotice(t('rve_copy_link_failed', 'Could not copy the link.'))
+    }
+  }
+  const renameMedia = () => {
+    const current = node.attrs.filename || node.attrs.alt || ''
+    const value = window.prompt(t('rve_file_name_prompt', 'File name'), current)
+    if (value === null) return
+    const name = value.trim().slice(0, 200)
+    if (name && name !== current) patch({ filename: name })
   }
   // Swap the file behind this node, keeping its size / layout / caption.
   const replaceMedia = () => {
@@ -731,7 +779,10 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     }
     if (a.kind === 'image' && on('canvas')) bar.append(button(ICONS.design, t('rve_edit_design', 'Edit design'), () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }))
     if (a.kind === 'image') bar.append(button('', t('rve_alt_text', 'Alternative text'), () => { const v = window.prompt(t('rve_alt_text_prompt', 'Alternative text (describe the image)'), a.alt || ''); if (v !== null) patch({ alt: v.slice(0, 300) }) }, t('rve_alt', 'Alt')))
+    if (a.linked || a.kind === 'file') bar.append(button(ICONS.preview, t('rve_preview', 'Preview'), previewMedia))
     if (a.linked || a.kind === 'file') bar.append(button(ICONS.download, t('rve_download', 'Download'), downloadMedia))
+    if (a.linked || a.kind === 'file') bar.append(button(ICONS.copy, t('rve_copy_link', 'Copy link'), copyMediaLink))
+    if (a.kind === 'file') bar.append(button(ICONS.rename, t('rve_rename', 'Rename'), renameMedia))
     bar.append(button(ICONS.retry, t('rve_replace', 'Replace'), replaceMedia))
     bar.append(button(ICONS.trash, t('rve_delete', 'Delete'), remove))
   }
@@ -978,7 +1029,8 @@ function buildSlashItems() {
   if (kindAllowed('image')) add('image', M, MK, 'Image', 'rve_image', 'Upload or drop an image (PNG, JPG, WEBP, GIF, SVG, AVIF).', 'rve_image_hint', 'i-lucide-image', ['photo', 'picture', 'png', 'jpg'], () => pickFiles('image'))
   if (kindAllowed('video')) add('video', M, MK, 'Video', 'rve_video', 'Upload a video (MP4, WEBM).', 'rve_video_hint', 'i-lucide-video', ['movie', 'mp4', 'webm'], () => pickFiles('video'))
   if (kindAllowed('audio')) add('audio', M, MK, 'Audio', 'rve_audio', 'Upload audio (MP3, WAV, OGG).', 'rve_audio_hint', 'i-lucide-music', ['sound', 'mp3', 'wav', 'ogg'], () => pickFiles('audio'))
-  if (kindAllowed('file')) add('file', M, MK, 'File', 'rve_file', 'Attach a PDF document.', 'rve_file_hint', 'i-lucide-paperclip', ['pdf', 'attachment', 'document'], () => pickFiles('file'))
+  if (kindAllowed('file')) add('file', M, MK, 'File', 'rve_file', 'Attach a PDF, Word, Excel or PowerPoint document.', 'rve_file_hint', 'i-lucide-paperclip', ['pdf', 'word', 'excel', 'powerpoint', 'attachment', 'document'], () => pickFiles('file'))
+  if (KINDS.some(k => kindAllowed(k))) add('media-url', M, MK, 'From URL', 'rve_media_from_url', 'Embed media or a document from a link.', 'rve_media_from_url_hint', 'i-lucide-link-2', ['url', 'link', 'embed', 'web'], () => openMediaUrl())
   if (on('canvas')) add('design', M, MK, 'Design', 'rve_design', 'Create an image with the design canvas.', 'rve_design_hint', 'i-lucide-palette', ['canva', 'design', 'draw', 'poster', 'canvas', 'shape'], () => openDesign())
   const X = 'Advanced'
   const XK = 'rve_advanced'
@@ -1158,11 +1210,48 @@ function onPicked(e) {
   if (input?.files?.length) insertFiles(input.files)
   if (input) input.value = ''
 }
+function urlFilename(url) {
+  try {
+    const path = new URL(url, 'https://placeholder.invalid').pathname
+    return decodeURIComponent(path.split('/').filter(Boolean).pop() ?? '')
+  }
+  catch {
+    return ''
+  }
+}
 function insertMediaUrl(kind, url) {
   const src = safeUrl(asStr(url).trim(), opts.value.allowBlobUrls)
-  if (!src || !kindAllowed(kind) || !live()) { emit('error', { source: 'media', code: 'invalid-url', error: new Error(t('rve_invalid_media_url', 'Invalid or disallowed media URL.')) }); return false }
-  insertBlocks([{ type: 'media', attrs: { kind, src, status: 'ready', filename: src.split('/').pop() ?? '', linked: true } }])
+  if (!src || !kindAllowed(kind) || !live()) {
+    emit('error', { source: 'media', code: 'invalid-url', error: new Error(t('rve_invalid_media_url', 'Invalid or disallowed media URL.')) })
+    return false
+  }
+  const filename = urlFilename(src)
+  const ext = filename.includes('.') ? filename.split('.').pop().toLowerCase() : ''
+  const mime = EXT_MIME[ext] ?? ''
+  insertBlocks([{ type: 'media', attrs: { kind, src, status: 'ready', filename, mime, alt: kind === 'image' ? stripExt(filename) : '', linked: true } }])
   return true
+}
+
+const mediaUrl = reactive({ open: false, kind: 'file', url: '', error: '' })
+const mediaUrlInput = ref(null)
+const mediaUrlKinds = computed(() => KINDS.filter(k => kindAllowed(k)).map(k => ({ value: k, label: kindLabel(k) })))
+function openMediaUrl(kind) {
+  const available = mediaUrlKinds.value
+  if (!available.length) return
+  mediaUrl.kind = available.some(k => k.value === kind) ? kind : available[0].value
+  mediaUrl.url = ''
+  mediaUrl.error = ''
+  mediaUrl.open = true
+  nextTick(() => nextTick(() => mediaUrlInput.value?.focus()))
+}
+function submitMediaUrl() {
+  const ok = insertMediaUrl(mediaUrl.kind, mediaUrl.url)
+  if (ok) {
+    mediaUrl.open = false
+    mediaUrl.url = ''
+    mediaUrl.error = ''
+  }
+  else mediaUrl.error = t('rve_enter_valid_media_url', 'Enter a valid http(s) media or file URL.')
 }
 
 // ---- file drag & drop over the whole editor (Canva-style drop zone) ----------------------------------
@@ -2365,6 +2454,7 @@ function placeBubble() {
   const cx = (Math.min(a.left, b.left) + Math.max(a.right, b.right)) / 2
   let y = Math.min(a.top, b.top) - hgt - 10
   if (y < 8) y = Math.max(a.bottom, b.bottom) + 10
+  y = Math.max(8, Math.min(y, window.innerHeight - hgt - 8))
   bubble.x = Math.round(Math.max(8, Math.min(cx - w / 2, window.innerWidth - w - 8)))
   bubble.y = Math.round(y)
 }
@@ -2507,6 +2597,9 @@ defineExpose({
   insertImage: (fileOrUrl) => (typeof fileOrUrl === 'string' ? insertMediaUrl('image', fileOrUrl) : insertFiles([fileOrUrl])),
   insertVideo: (url) => insertMediaUrl('video', url),
   insertAudio: (url) => insertMediaUrl('audio', url),
+  insertFile: (url) => insertMediaUrl('file', url),
+  insertMediaUrl,
+  openMediaUrl,
   pickFiles,
   isUploading: () => Array.from(pending.values()).some((p) => p.controller),
 })
@@ -2555,9 +2648,9 @@ defineExpose({
         <div v-if="showStart" class="rv-start">
           <p class="rv-start__hint">{{ t('rve_press_slash', 'Press') }} <kbd>/</kbd> {{ t('rve_press_slash_suffix', 'for commands, or start with') }}</p>
           <div class="rv-start__chips">
-            <button v-for="item in startItems" :key="item.id" type="button" class="rv-chip" @mousedown.prevent @click="runStart(item)"><UIcon :name="item.icon" />{{ t(item.titleKey, item.title) }}</button>
+            <button v-for="item in startItems" :key="item.id" type="button" class="rv-chip" @mousedown.prevent @click="runStart(item)"><RIcon :name="item.icon" />{{ t(item.titleKey, item.title) }}</button>
           </div>
-          <p v-if="feat.dropFiles.register" class="rv-start__drop"><UIcon name="i-lucide-cloud-upload" /> {{ t('rve_drag_drop_hint', 'Drag & drop images, video, audio or PDFs anywhere on the page') }}</p>
+          <p v-if="feat.dropFiles.register" class="rv-start__drop"><UIcon name="i-lucide-cloud-upload" /> {{ t('rve_drag_drop_hint', 'Drag & drop images, video, audio or documents anywhere on the page') }}</p>
         </div>
       </div>
     </div>
@@ -2632,7 +2725,7 @@ defineExpose({
         <div v-for="g in slashGroups" :key="g.key" class="rv-slash__section">
           <div class="rv-slash__group">{{ g.name }}</div>
           <button v-for="e in g.items" :key="e.item.id" type="button" class="rv-slash__item" role="option" :aria-selected="e.i === slash.index" @mousedown.prevent="slash.command(e.item)" @mousemove="slash.index = e.i">
-            <span class="rv-slash__icon"><UIcon :name="e.item.icon" /></span>
+            <span class="rv-slash__icon"><RIcon :name="e.item.icon" /></span>
             <span class="rv-slash__text"><strong>{{ t(e.item.titleKey, e.item.title) }}</strong><small>{{ t(e.item.hintKey, e.item.hint) }}</small></span>
           </button>
         </div>
@@ -2645,7 +2738,7 @@ defineExpose({
       <div class="rv-drop__card">
         <UIcon name="i-lucide-cloud-upload" class="rv-drop__icon" />
         <strong>{{ t('rve_drop_to_upload', 'Drop to upload') }}</strong>
-        <span>{{ t('rve_drop_hint', 'Images, video, audio and PDFs') }}</span>
+        <span>{{ t('rve_drop_hint', 'Images, video, audio and documents') }}</span>
       </div>
     </div>
 
@@ -2662,8 +2755,12 @@ defineExpose({
           <!-- Header -->
           <div class="r-design__bar">
             <strong class="r-design__title">{{ designPlaceholder ? 'New design' : 'Edit design' }}</strong>
-            <button type="button" class="r-design__btn" title="Undo (Ctrl+Z)" :disabled="!designUi.canUndo" @click="undo"><i class="i-lucide-undo-2" /></button>
-            <button type="button" class="r-design__btn" title="Redo (Ctrl+Shift+Z)" :disabled="!designUi.canRedo" @click="redo"><i class="i-lucide-redo-2" /></button>
+            <RTooltip text="Undo (Ctrl+Z)" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="!designUi.canUndo" @click="undo"><i class="i-lucide-undo-2" /></button>
+            </RTooltip>
+            <RTooltip text="Redo (Ctrl+Shift+Z)" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="!designUi.canRedo" @click="redo"><i class="i-lucide-redo-2" /></button>
+            </RTooltip>
             <select class="r-design__field" :value="designPage.preset" aria-label="Page size" @change="onPreset($event.target.value)">
               <option v-for="p in DESIGN_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
               <option value="custom" disabled>Custom</option>
@@ -2671,14 +2768,20 @@ defineExpose({
             <input class="r-design__field r-design__num" type="number" min="100" max="4000" :value="designPage.w" aria-label="Page width" @change="setPageSize($event.target.value, designPage.h)">
             <span>×</span>
             <input class="r-design__field r-design__num" type="number" min="100" max="4000" :value="designPage.h" aria-label="Page height" @change="setPageSize(designPage.w, $event.target.value)">
-            <input class="r-design__color" type="color" :value="designPage.bg" title="Page background" aria-label="Page background" @input="setBackground($event.target.value)">
+            <RTooltip text="Page background" side="bottom">
+              <input class="r-design__color" type="color" :value="designPage.bg" aria-label="Page background" @input="setBackground($event.target.value)">
+            </RTooltip>
             <span class="r-design__grow" />
-            <label class="r-design__check" title="Also insert the documents / videos you added as file blocks under the image">
-              <input v-model="designUi.attach" type="checkbox"> Attach files
-            </label>
-            <button type="button" class="r-design__btn" :title="designUi.expanded ? 'Back to in-place' : 'Expand to full screen'" @click="designUi.expanded = !designUi.expanded">
-              <i :class="designUi.expanded ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'" />
-            </button>
+            <RTooltip text="Also insert the documents / videos you added as file blocks under the image" side="bottom">
+              <label class="r-design__check">
+                <input v-model="designUi.attach" type="checkbox"> Attach files
+              </label>
+            </RTooltip>
+            <RTooltip :text="designUi.expanded ? 'Back to in-place' : 'Expand to full screen'" side="bottom">
+              <button type="button" class="r-design__btn" @click="designUi.expanded = !designUi.expanded">
+                <i :class="designUi.expanded ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'" />
+              </button>
+            </RTooltip>
             <button type="button" class="r-design__btn r-design__btn--text" @click="closeDesign({ cancelled: true })">Cancel</button>
             <button type="button" class="r-design__btn r-design__btn--text r-design__btn--primary" :disabled="!designUi.ready || designUi.busy" @click="insertDesign">
               {{ designUi.busy ? 'Working…' : 'Done' }}
@@ -2688,23 +2791,47 @@ defineExpose({
           <!-- Tools: add / align / arrange -->
           <div class="r-design__tools">
             <input ref="designFileInput" type="file" multiple hidden @change="onDesignPick">
-            <button type="button" class="r-design__btn r-design__btn--text" title="Add files" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
-            <button type="button" class="r-design__btn" title="Text" @click="addText"><i class="i-lucide-type" /></button>
-            <button type="button" class="r-design__btn" title="Rectangle" @click="addRect"><i class="i-lucide-square" /></button>
-            <button type="button" class="r-design__btn" title="Line" @click="addLine"><i class="i-lucide-minus" /></button>
+            <RTooltip text="Add files" side="bottom">
+              <button type="button" class="r-design__btn r-design__btn--text" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
+            </RTooltip>
+            <RTooltip text="Text" side="bottom">
+              <button type="button" class="r-design__btn" @click="addText"><i class="i-lucide-type" /></button>
+            </RTooltip>
+            <RTooltip text="Rectangle" side="bottom">
+              <button type="button" class="r-design__btn" @click="addRect"><i class="i-lucide-square" /></button>
+            </RTooltip>
+            <RTooltip text="Line" side="bottom">
+              <button type="button" class="r-design__btn" @click="addLine"><i class="i-lucide-minus" /></button>
+            </RTooltip>
             <span class="r-design__sep" />
-            <select v-model="designUi.alignTo" class="r-design__field" aria-label="Align relative to" title="Align relative to">
-              <option value="page">To page</option>
-              <option value="objects">To each other</option>
-            </select>
-            <button v-for="[mode, icon, label] in ALIGN_BUTTONS" :key="mode" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="align(mode)"><i :class="icon" /></button>
-            <button type="button" class="r-design__btn" title="Distribute horizontally" :disabled="designSel.n < 3" @click="distribute('x')"><i class="i-lucide-align-horizontal-distribute-center" /></button>
-            <button type="button" class="r-design__btn" title="Distribute vertically" :disabled="designSel.n < 3" @click="distribute('y')"><i class="i-lucide-align-vertical-distribute-center" /></button>
+            <RTooltip text="Align relative to" side="bottom">
+              <select v-model="designUi.alignTo" class="r-design__field" aria-label="Align relative to">
+                <option value="page">To page</option>
+                <option value="objects">To each other</option>
+              </select>
+            </RTooltip>
+            <RTooltip v-for="[mode, icon, label] in ALIGN_BUTTONS" :key="mode" :text="label" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="!designSel.n" @click="align(mode)"><i :class="icon" /></button>
+            </RTooltip>
+            <RTooltip text="Distribute horizontally" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="designSel.n < 3" @click="distribute('x')"><i class="i-lucide-align-horizontal-distribute-center" /></button>
+            </RTooltip>
+            <RTooltip text="Distribute vertically" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="designSel.n < 3" @click="distribute('y')"><i class="i-lucide-align-vertical-distribute-center" /></button>
+            </RTooltip>
             <span class="r-design__sep" />
-            <button v-for="[op, icon, label] in ORDER_BUTTONS" :key="op" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="arrange(op)"><i :class="icon" /></button>
-            <button type="button" class="r-design__btn" title="Flip horizontally" :disabled="!designSel.n" @click="flip"><i class="i-lucide-flip-horizontal-2" /></button>
-            <button type="button" class="r-design__btn" title="Duplicate (Ctrl+D)" :disabled="!designSel.n" @click="duplicate"><i class="i-lucide-copy" /></button>
-            <button type="button" class="r-design__btn r-design__btn--danger" title="Delete" :disabled="!designSel.n" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
+            <RTooltip v-for="[op, icon, label] in ORDER_BUTTONS" :key="op" :text="label" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="!designSel.n" @click="arrange(op)"><i :class="icon" /></button>
+            </RTooltip>
+            <RTooltip text="Flip horizontally" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="!designSel.n" @click="flip"><i class="i-lucide-flip-horizontal-2" /></button>
+            </RTooltip>
+            <RTooltip text="Duplicate (Ctrl+D)" side="bottom">
+              <button type="button" class="r-design__btn" :disabled="!designSel.n" @click="duplicate"><i class="i-lucide-copy" /></button>
+            </RTooltip>
+            <RTooltip text="Delete" side="bottom">
+              <button type="button" class="r-design__btn r-design__btn--danger" :disabled="!designSel.n" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
+            </RTooltip>
             <span class="r-design__sep" />
             <label class="r-design__check"><input v-model="designUi.snap" type="checkbox"> Snap</label>
           </div>
@@ -2735,11 +2862,17 @@ defineExpose({
 
         <footer v-if="designUi.expanded" class="r-design__foot">
           <span class="r-design__grow" />
-          <button type="button" class="r-design__btn" title="Zoom out" @click="setDesignZoom(designUi.zoom / 1.2)"><i class="i-lucide-zoom-out" /></button>
+          <RTooltip text="Zoom out" side="top">
+            <button type="button" class="r-design__btn" @click="setDesignZoom(designUi.zoom / 1.2)"><i class="i-lucide-zoom-out" /></button>
+          </RTooltip>
           <input type="range" min="5" max="300" :value="Math.round(designUi.zoom * 100)" aria-label="Zoom" @input="setDesignZoom(Number($event.target.value) / 100)">
-          <button type="button" class="r-design__btn" title="Zoom in" @click="setDesignZoom(designUi.zoom * 1.2)"><i class="i-lucide-zoom-in" /></button>
+          <RTooltip text="Zoom in" side="top">
+            <button type="button" class="r-design__btn" @click="setDesignZoom(designUi.zoom * 1.2)"><i class="i-lucide-zoom-in" /></button>
+          </RTooltip>
           <span class="r-design__pct">{{ Math.round(designUi.zoom * 100) }}%</span>
-          <button type="button" class="r-design__btn" title="Fit to screen" @click="fit"><i class="i-lucide-maximize" /></button>
+          <RTooltip text="Fit to screen" side="top">
+            <button type="button" class="r-design__btn" @click="fit"><i class="i-lucide-maximize" /></button>
+          </RTooltip>
         </footer>
       </div>
     </Teleport>
@@ -2764,6 +2897,43 @@ defineExpose({
         </div>
       </div>
     </footer>
+
+    <RModal
+      v-model="mediaUrl.open"
+      :title="t('rve_media_from_url', 'Media from URL')"
+      :description="t('rve_media_from_url_desc', 'Paste a public image, video, audio or document link.')"
+      icon="ri-link"
+      modal-width="520px"
+      @on-close="mediaUrl.error = ''"
+    >
+      <div class="rv-url">
+        <label class="rv-url__field">
+          <span>{{ t('rve_type', 'Type') }}</span>
+          <select v-model="mediaUrl.kind" class="rv-input" :aria-label="t('rve_type', 'Type')" @change="mediaUrl.error = ''">
+            <option v-for="k in mediaUrlKinds" :key="k.value" :value="k.value">{{ k.label }}</option>
+          </select>
+        </label>
+        <label class="rv-url__field">
+          <span>{{ t('rve_url', 'URL') }}</span>
+          <input ref="mediaUrlInput" v-model="mediaUrl.url" class="rv-input" type="url" inputmode="url" spellcheck="false" :placeholder="t('rve_media_url_placeholder', 'https://example.com/file.pdf')" :aria-label="t('rve_url', 'URL')" @input="mediaUrl.error = ''" @keydown.enter.prevent="submitMediaUrl">
+        </label>
+        <p v-if="mediaUrl.error" class="rv-pop__error" role="alert">
+          {{ mediaUrl.error }}
+        </p>
+        <p class="rv-url__hint">
+          {{ t('rve_media_url_hint', 'The link is embedded directly. Download, preview and rename controls appear on the file block.') }}
+        </p>
+      </div>
+      <template #footer>
+        <button type="button" class="rv-pill" @click="mediaUrl.open = false">
+          {{ t('rve_cancel', 'Cancel') }}
+        </button>
+        <button type="button" class="rv-pill rv-pill--primary" :disabled="!mediaUrl.url.trim()" @click="submitMediaUrl">
+          {{ t('rve_insert', 'Insert') }}
+        </button>
+      </template>
+    </RModal>
+
     <input ref="fileInput" type="file" multiple hidden @change="onPicked">
   </div>
 </template>
@@ -2872,6 +3042,14 @@ defineExpose({
   border-radius: 6px;
   &:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
 }
+.rv-url { display: grid; gap: 14px; }
+.rv-url .rv-input { width: 100%; }
+.rv-url__field {
+  display: grid;
+  gap: 6px;
+  span { font-size: 0.75rem; font-weight: 600; color: var(--c-muted); }
+}
+.rv-url__hint { margin: 0; font-size: 0.75rem; line-height: 1.5; color: color-mix(in srgb, var(--c-muted) 75%, transparent); }
 
 // ---- popovers / menus --------------------------------------------------------------------------------
 .rv-pop, .rv-menu, .rv-bubble__panel {
@@ -2880,7 +3058,9 @@ defineExpose({
   border-radius: 8px;
   box-shadow: var(--glass-shadow);
 }
-.rv-pop { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; display: grid; gap: 8px; min-width: 14rem; padding: 12px; }
+.rv-pop { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; display: grid; gap: 8px; min-width: 14rem; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; padding: 12px; }
+.rv-pop--up { top: auto; bottom: calc(100% + 6px); }
+.rv-pop--end { left: auto; right: 0; }
 .rv-pop--link { min-width: 18rem; }
 .rv-pop--insert { min-width: 14rem; max-height: 22rem; overflow-y: auto; gap: 2px; padding: 8px; }
 .rv-pop__label { font-size: 0.75rem; font-weight: 600; color: color-mix(in srgb, var(--c-muted) 65%, transparent); text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 4px 0; }

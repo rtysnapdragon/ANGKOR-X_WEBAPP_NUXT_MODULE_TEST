@@ -22,12 +22,61 @@ import copyJsonFile from "./utils/copyJsonFile.js";
 import getPages from "./utils/getPages.js";
 import createTsConfigFile from "./utils/createTsConfigFile.js";
 // import { runtimeDir } from "@nuxt/ui/unplugin";
-export interface ModuleOptions {}
+// export interface ModuleOptions {}
+// Then expose these options through your module's runtime configuration and apply them in your toast composable.
+  export interface ModuleOptions {
+    toast: {
+      enabled: boolean
+      ui: Record<string, any>
+    }
+  }
+
+// export interface ModuleOptions {
+//   toast: {
+//     position: 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left'
+//     duration: number
+//     ui: {
+//       root?: string
+//       title?: string
+//       description?: string
+//       icon?: string
+//     }
+//   }
+// }
+
+// const defaults: ModuleOptions = {
+//   toast: {
+//     position: 'top-right',
+//     duration: 5000,
+//     ui: {
+//       root: 'rounded-xl shadow-lg',
+//       title: 'font-semibold black',
+//       description: 'text-sm',
+//       icon: 'size-5',
+//     },
+//   },
+// }
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: "webapp-nuxt-module",
     configKey: "webappModule",
+  },
+
+defaults: {
+    toast: {
+      enabled: true,
+      ui: {
+        slots: {
+          root: 'my-module-toast',
+          wrapper: 'my-module-toast__wrapper',
+          title: 'my-module-toast__title',
+          description: 'my-module-toast__description',
+          icon: 'my-module-toast__icon',
+          close: 'my-module-toast__close'
+        }
+      }
+    }
   },
 
   moduleDependencies: {
@@ -60,6 +109,31 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.build.transpile.push(runtimeAppDir);
     nuxt.options.build.transpile.push(runtimeServerDir);
 
+    // if (!options.toast.enabled) return
+    // NuxtUI - useToast UI overide styling
+    // Merge module defaults into Nuxt UI global theme.
+    // nuxt.options.appConfig.ui ??= {}
+    // nuxt.options.appConfig.ui.toast = defu(
+    //   nuxt.options.appConfig.ui.toast,
+    //   options.toast?.ui,
+    // )
+
+    nuxt.options.appConfig = defu(
+      nuxt.options.appConfig,
+      {
+        ui: {
+          toast: {
+            slots: {
+              root: 'rounded-2xl border border-default bg-default shadow-xl',
+              wrapper: 'flex-1 flex flex-col gap-1',
+              title: 'font-semibold text-highlighted',
+              description: 'text-sm text-muted',
+              icon: 'size-5',
+            },
+          },
+        },
+      },
+    ),
     // Auto-load global SCSS mixins
     // const mixinPath = resolver.resolve(
     //   './runtime/app/assets/styles/mixin.scss'
@@ -91,6 +165,21 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.css.push(
       resolve(runtimeAppDir, "assets", "styles", "date.scss")
     ); 
+
+    // Register module-owned styles.
+    nuxt.options.css.push(
+      resolver.resolve('./runtime/assets/toast.css')
+    ),
+        // Register global Nuxt UI theme.
+    addAppConfig({
+      ui: {
+        toast: options.toast.ui
+      }
+   })
+   // Optional runtime plugin.
+    // addPlugin(
+    //   resolver.resolve('./runtime/plugins/toast-theme')
+    // ),
     nuxt.options.serverHandlers.push({
       route: '/api/completion',
       handler: resolve(runtimeServerDir, 'api/completion.post.js')
@@ -371,6 +460,10 @@ export default defineNuxtModule<ModuleOptions>({
 });
 
 
+
+function addAppConfig(arg0: { ui: { toast: any; }; }) {
+  throw new Error("Function not implemented.");
+}
 // import { defineNuxtModule, addPlugin, createResolver, addComponentsDir } from '@nuxt/kit'
 
 // // Module options TypeScript interface definition

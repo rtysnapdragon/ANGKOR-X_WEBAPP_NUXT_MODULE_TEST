@@ -27,9 +27,8 @@
 </template>
 
 <script setup>
-import { useToastStore } from "#imports";
 const dataMenu = useMenuStore();
-const toast = useToastStore();
+const toast = useToast();
 const props = defineProps(["items", "use", "placement"]);
 const items = computed(() => props.items);
 const use = computed(() => props.use ?? "nuxtui");

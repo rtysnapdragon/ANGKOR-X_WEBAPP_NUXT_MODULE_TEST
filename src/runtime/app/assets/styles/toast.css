@@ -1,0 +1,39 @@
+
+.my-module-toast {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 12%);
+  backdrop-filter: blur(12px);
+}
+
+.my-module-toast__wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-module-toast__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text-highlighted);
+}
+
+.my-module-toast__description {
+  font-size: 13px;
+  color: var(--ui-text-muted);
+}
+
+.my-module-toast__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.my-module-toast__close {
+  border-radius: 8px;
+}

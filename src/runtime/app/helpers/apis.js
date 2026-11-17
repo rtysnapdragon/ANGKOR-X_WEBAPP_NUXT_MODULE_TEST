@@ -248,6 +248,28 @@ const api = {
     delete: 'api/v1/permission/delete',
   },
 
+  // ── NOVELS MANAGEMENT ──
+  novels: {
+    list: 'api/v1/novels/list',
+    get: 'api/v1/novels/get',
+    create: 'api/v1/novels/create',
+    update: 'api/v1/novels/update',
+    delete: '/api/v1/novels/delete?Id=',
+    volumes: {
+      list: 'api/v1/novels/volumes/list',
+      create: 'api/v1/novels/volumes/create',
+      update: 'api/v1/novels/volumes/update',
+      delete: '/api/v1/novels/volumes/delete?Id=',
+    },
+    chapters: {
+      list: 'api/v1/novels/chapters/list',
+      get: 'api/v1/novels/chapters/get',
+      create: 'api/v1/novels/chapters/create',
+      update: 'api/v1/novels/chapters/update',
+      delete: '/api/v1/novels/chapters/delete?Id=&NovelId=',
+    },
+  },
+
   // ── CMS MANAGEMENT ──
   // Plain strings only. Callers interpolate the `{placeholders}` and hand the
   // finished URL to `useHttp` themselves.
