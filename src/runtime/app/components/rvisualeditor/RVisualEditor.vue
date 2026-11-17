@@ -80,11 +80,28 @@ const MEDIA_MIME = {
   image: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml', 'image/avif'],
   video: ['video/mp4', 'video/webm'],
   audio: ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg'],
-  file: ['application/pdf'],
+  file: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/csv',
+  ],
 }
 const EXT_MIME = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif',
-  mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', pdf: 'application/pdf',
+  mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+  pdf: 'application/pdf', doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  txt: 'text/plain', csv: 'text/csv',
 }
 const KIND_LABEL = { image: 'Image', video: 'Video', audio: 'Audio', file: 'File' }
 const kindLabel = (k) => t(`rve_kind_${k}`, KIND_LABEL[k] ?? '')
@@ -566,34 +583,12 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     if (typeof pos === 'number') ed.view.dispatch(ed.state.tr.delete(pos, pos + node.nodeSize))
   }
   const button = (icon, label, onClick, text) => {
-    const b = h(
-      'button',
-      {
-        type: 'button',
-        class: 'rv-media__btn',
-        'aria-label': label
-      },
-      text || null
-    )
-
-    if (!text) {
-      b.children = icon
-    }
-
-    b.props = {
-      ...b.props,
-      onMousedown: (e) => e.preventDefault(),
-      onClick: (e) => {
-        e.stopPropagation()
-        onClick()
-      }
-    }
-
-    return h(RTooltip, {
-      text: label
-    }, {
-      default: () => b
-    })
+    const b = h('button', 'rv-media__btn', { type: 'button', title: label, 'aria-label': label })
+    if (text) b.textContent = text
+    else b.innerHTML = icon
+    b.addEventListener('mousedown', (e) => e.preventDefault())
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick() })
+    return b
   }
   const setProgress = (p) => {
     if (progressEl) progressEl.style.width = `${Math.round(p * 100)}%`
@@ -702,7 +697,8 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       const name = h('strong')
       name.textContent = a.filename || t('rve_attachment', 'Attachment')
       const sub = h('small')
-      sub.textContent = [a.mime === 'application/pdf' ? 'PDF' : '', fmtBytes(a.size)].filter(Boolean).join(' · ')
+      const ext = /\.([^.]+)$/.test(a.filename || '') ? a.filename.split('.').pop().toUpperCase() : ''
+      sub.textContent = [ext, fmtBytes(a.size)].filter(Boolean).join(' · ')
       meta.append(name, sub)
       const dl = h('span', 'rv-file__dl')
       dl.innerHTML = ICONS.download
@@ -735,7 +731,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     }
     if (a.kind === 'image' && on('canvas')) bar.append(button(ICONS.design, t('rve_edit_design', 'Edit design'), () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }))
     if (a.kind === 'image') bar.append(button('', t('rve_alt_text', 'Alternative text'), () => { const v = window.prompt(t('rve_alt_text_prompt', 'Alternative text (describe the image)'), a.alt || ''); if (v !== null) patch({ alt: v.slice(0, 300) }) }, t('rve_alt', 'Alt')))
-    if (a.linked) bar.append(button(ICONS.download, t('rve_download', 'Download'), downloadMedia))
+    if (a.linked || a.kind === 'file') bar.append(button(ICONS.download, t('rve_download', 'Download'), downloadMedia))
     bar.append(button(ICONS.retry, t('rve_replace', 'Replace'), replaceMedia))
     bar.append(button(ICONS.trash, t('rve_delete', 'Delete'), remove))
   }
@@ -2689,16 +2685,26 @@ defineExpose({
             </button>
           </div>
 
-          <!-- Tools: file actions -->
+          <!-- Tools: add / align / arrange -->
           <div class="r-design__tools">
             <input ref="designFileInput" type="file" multiple hidden @change="onDesignPick">
-            <RTooltip :text="t('rve_add_files', 'Add files')">
-              <button type="button" class="r-design__btn r-design__btn--text" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
-            </RTooltip>
+            <button type="button" class="r-design__btn r-design__btn--text" title="Add files" @click="designFileInput?.click()"><i class="i-lucide-paperclip" /> Add files</button>
+            <button type="button" class="r-design__btn" title="Text" @click="addText"><i class="i-lucide-type" /></button>
+            <button type="button" class="r-design__btn" title="Rectangle" @click="addRect"><i class="i-lucide-square" /></button>
+            <button type="button" class="r-design__btn" title="Line" @click="addLine"><i class="i-lucide-minus" /></button>
             <span class="r-design__sep" />
-            <RTooltip :text="t('rve_delete', 'Delete')">
-              <button type="button" class="r-design__btn r-design__btn--danger" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
-            </RTooltip>
+            <select v-model="designUi.alignTo" class="r-design__field" aria-label="Align relative to" title="Align relative to">
+              <option value="page">To page</option>
+              <option value="objects">To each other</option>
+            </select>
+            <button v-for="[mode, icon, label] in ALIGN_BUTTONS" :key="mode" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="align(mode)"><i :class="icon" /></button>
+            <button type="button" class="r-design__btn" title="Distribute horizontally" :disabled="designSel.n < 3" @click="distribute('x')"><i class="i-lucide-align-horizontal-distribute-center" /></button>
+            <button type="button" class="r-design__btn" title="Distribute vertically" :disabled="designSel.n < 3" @click="distribute('y')"><i class="i-lucide-align-vertical-distribute-center" /></button>
+            <span class="r-design__sep" />
+            <button v-for="[op, icon, label] in ORDER_BUTTONS" :key="op" type="button" class="r-design__btn" :title="label" :disabled="!designSel.n" @click="arrange(op)"><i :class="icon" /></button>
+            <button type="button" class="r-design__btn" title="Flip horizontally" :disabled="!designSel.n" @click="flip"><i class="i-lucide-flip-horizontal-2" /></button>
+            <button type="button" class="r-design__btn" title="Duplicate (Ctrl+D)" :disabled="!designSel.n" @click="duplicate"><i class="i-lucide-copy" /></button>
+            <button type="button" class="r-design__btn r-design__btn--danger" title="Delete" :disabled="!designSel.n" @click="removeSelected"><i class="i-lucide-trash-2" /></button>
             <span class="r-design__sep" />
             <label class="r-design__check"><input v-model="designUi.snap" type="checkbox"> Snap</label>
           </div>

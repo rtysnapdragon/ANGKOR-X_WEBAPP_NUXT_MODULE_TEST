@@ -55,7 +55,8 @@
 <script setup>
 import { computed } from "vue";
 // import { useToastStore } from "#imports";
-const { useToastStore } = await import("#imports");
+import { useToastStore } from '../../stores/useRToast'
+// const { useToastStore } = await import("#imports");
 const toast = useToastStore();
 const emit = defineEmits(["click"]);
 const props = defineProps([
@@ -364,6 +365,7 @@ function actionClick(e) {
   if (per == 1) {
     emit("click",e);
   } else {
+    console.log(`You don't have permission to ${label.value}.`)
     toast.add({
       color: "yellow",
       title: `You don't have permission to ${label.value}.`,

@@ -48,11 +48,14 @@ export default defineNuxtModule<ModuleOptions>({
   //   anthropicApiKey: ''
   // },
   async setup(options: Record<any, any>, nuxt) {
+    const resolver = createResolver(import.meta.url)
+    console.log("resolver ------------------ ",resolver)
     const { resolve } = createResolver(import.meta.url);
+    console.log("resolve ------------------ ",resolve)
     const runtimeAppDir = resolve("./runtime/app"); // Client-side
     const runtimeServerDir = resolve("./runtime/server"); // Server-side
-    const resolver = createResolver(import.meta.url)
-
+    // const runtimeAppDir = resolve(runtimeDir, 'app')
+    console.log("runTimeAppDir --------------- ", runtimeAppDir)
     // Transpile
     nuxt.options.build.transpile.push(runtimeAppDir);
     nuxt.options.build.transpile.push(runtimeServerDir);
@@ -160,10 +163,44 @@ export default defineNuxtModule<ModuleOptions>({
     ]);
 
     // add import utils, stores, composables
-    const dirsToAdd = ["utils", "composables", "stores"];
-    for (const dir of dirsToAdd) {
-      addImportsDir(resolve(runtimeAppDir, dir));
-    }
+    // const dirsToAdd = ["utils", "composables", "stores"];
+    // for (const dir of dirsToAdd) {
+    //   addImportsDir(resolve(runtimeAppDir, dir));
+    // }
+        // =====================================================
+    // AUTO IMPORTS (CLIENT / SHARED)
+    // =====================================================
+
+    addImportsDir([
+      resolver.resolve('./runtime/app/utils'),
+      resolver.resolve('./runtime/app/composables'),
+      resolver.resolve('./runtime/app/stores'),
+    ])
+    // addImportsDir([
+    //   resolve(runtimeAppDir, 'utils'),
+    //   resolve(runtimeAppDir, 'composables'),
+    //   resolve(runtimeAppDir, 'stores'),
+    // ])
+
+        // =====================================================
+    // SERVER API HANDLERS
+    // =====================================================
+
+        // =====================================================
+    // SERVER AUTO IMPORTS
+    // =====================================================
+
+    addServerImportsDir([
+      resolver.resolve('./runtime/server/utils'),
+    ])
+    
+    addServerHandler({
+      route: '/api/completion',
+      method: 'post',
+      handler: resolver.resolve(
+        './runtime/server/api/completion.post',
+      ),
+    })
 
     // add middleware
     const middlewareDir = resolve(runtimeAppDir, "middlewares");

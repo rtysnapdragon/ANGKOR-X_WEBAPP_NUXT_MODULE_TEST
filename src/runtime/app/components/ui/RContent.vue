@@ -21,7 +21,7 @@ const color = computed(() => props.color == 'wrapper' ? 'color-bg-wrapper' : 'co
 
 .rty-content {
     padding: 20px;
-    background:    var(--c-surface) !important;
+    background:    var(--bg-card) !important;
     border-radius: var(--radius-lg,20px);
     display: flex;
     flex-direction: column;

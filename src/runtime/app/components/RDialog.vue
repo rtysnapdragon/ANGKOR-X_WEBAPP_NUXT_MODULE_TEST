@@ -72,7 +72,7 @@
     <template v-if="hasFooter(d)" #footer>
       <slot name="footer" v-bind="slotPropsOf(d)">
         <div class="r-dialog__footer">
-          <!-- <button
+          <button
             v-if="d.cancelText"
             type="button"
             class="r-dialog__btn r-dialog__btn--ghost"
@@ -92,7 +92,7 @@
           >
             <i v-if="d.pending" class="ri-loader-4-line r-dialog__spin" aria-hidden="true" />
             <span>{{ d.confirmText }}</span>
-          </button> -->
+          </button>
         </div>
       </slot>
     </template>

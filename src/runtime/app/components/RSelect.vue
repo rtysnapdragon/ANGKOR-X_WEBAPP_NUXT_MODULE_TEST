@@ -762,7 +762,7 @@ const ui = computed(() => {
     // container: "r-custom-select",
     base: `justify-between ui-select-base w-full color-bg-content rounded-[8px] ${props.multiple ? 'height-btn-select-all' : ''}`,
     // content:'min-w-fit',
-    content: 'flex-1 min-w-0',
+    content: 'ui_rselect_content flex-1 min-w-0',
     leading: 'hidden',
     trailing: 'ui_rselect_trailing',
     group:'ui_rselect_group',
@@ -841,6 +841,10 @@ function fnGenerateTextSubLabel(data, template) {
 // .truncated-select{
 //   padding-top: 7px !important;
 // }
+
+.ui_rselect_content{
+  background: var(--bg-wrapper);
+}
 
 .ui_rselect_trailing{
   display: flex !important; 

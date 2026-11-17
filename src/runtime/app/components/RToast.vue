@@ -38,7 +38,7 @@
 
 <script setup>
 // import { useToastStore } from "#imports";
-const { useToastStore } = await import("#imports");
+import { useToastStore } from "../stores/RToast";
 const toastStore = useToastStore();
 const toastTimers = ref({});
 const progressWidths = ref({});
