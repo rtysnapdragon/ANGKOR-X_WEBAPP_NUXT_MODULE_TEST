@@ -6,7 +6,6 @@
           ref="tableRef"
           :columns="tableColumns"
           :api="tableApi"
-          :loading="busy"
           :options="tableOptions"
         >
           <template #headerLeft>
@@ -21,12 +20,11 @@
 
           <template #headerRight>
             <RBtn type="add" icon="ri-add-line" :label="t('create')" @click="openCreate" />
-            <RBtn type="add" icon="ri-file-text-line" :label="t('create_content')" @click="openContentCreate" />
           </template>
 
-          <template #Name="scope">
+          <template #Title="scope">
             <div class="item-cell">
-              <div class="item-icon"><i class="ri-book-2-line" /></div>
+              <div class="item-icon"><img :src="scope.CoverUrl"  /></div>
               <div class="item-text">
                 <div class="item-name">{{ displayName(rowOf(scope)) }}</div>
                 <div class="item-code">{{ rowOf(scope).Code }}</div>
@@ -60,24 +58,10 @@
         :form="drawerForm"
         :inputs="formInputs"
         :is-update="isUpdate"
+        :is-clone="isClone"
         @onSuccess="reloadTable"
-        @submitted="onFormSubmitted"
+        @onSubmitted="onFormSubmitted"
       />
-    <RFormBuilderDrawer
-        v-model:show="contentDrawerVisible"
-        :icon=" 'ri-file-text-line' "
-        :title="t('create_content')"
-        :description="t('create_content_hint')"
-        :width="800"
-        :inputs="[]"
-        :form="{}"
-        :pending="contentGuard.state.pending"
-        :before-close="contentGuard.beforeClose"
-      >
-        <template #default>
-          <NovelContentCreate @created="onContentCreated" />
-        </template>
-      </RFormBuilderDrawer>
     </RWrapperPage>
   </div>
 </template>
@@ -85,15 +69,11 @@
 <script setup>
 import { ref, computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-/* ============================================================================
- * Setup
- * ========================================================================== */
+definePageMeta({ layout: 'navbar', middleware:'auth'})
 const { api } = helper()
 const { t } = useI18n()
 const toast = useToast()
-const { confirmDestructive } = useConfirm()
-import NovelContentCreate from '~/runtime/app/components/NovelContentCreate.vue'
+const confirm = useConfirmStore()
 
 const STATUS_ACTIVE = 1
 const STATUS_INACTIVE = 0
@@ -161,28 +141,26 @@ const tableRef = ref()
 const busy = ref(false) // table overlay (delete / reload)
 const drawerVisible = ref(false)
 const editId = ref(null)
-const isUpdate = computed(() => editId.value !== null)
-const lastAutoSlug = ref('')
+// const isUpdate = computed(() => editId.value !== null)
+const isUpdate = ref(false)
+const isClone = ref(false)
 
-const contentDrawerVisible = ref(false)
+const lastAutoSlug = ref('')
 
 const contentGuard = {
   state: { pending: false, dirty: false },
-  beforeClose: async (): Promise<boolean> => {
+  beforeClose: async () => {
     if (contentGuard.state.pending) return false
     if (!contentGuard.state.dirty) return true
-    return await confirmDestructive({
+    confirm.show({
       title: t('discardTitle'),
       description: t('discardBody'),
       confirmLabel: t('discard'),
       cancelLabel: t('keepEditing'),
-      color: 'warning'
+      color: 'warning',
+      onConfirm: () => {}
     })
   }
-}
-
-function markContentDirty () {
-  contentGuard.state.dirty = true
 }
 
 const emptyModel = () => ({
@@ -196,16 +174,15 @@ const emptyModel = () => ({
 const dataModel = ref(emptyModel())
 const dataFilter = reactive({ Status: [] })
 
-const reload = async () => tableRef.value?.reload?.()
+const reload = async () => tableRef.value?.reload()
 
 /* ============================================================================
  * Table
  * ========================================================================== */
 const tableColumns = computed(() => [
-  { key: 'Name', label: t('name'), sortable: true },
+  { key: 'Title', label: t('name'), sortable: true },
   { key: 'Code', label: t('code'), sortable: true },
-  { key: 'Status', label: t('status'), width: 120 },
-  { key: 'actions', label: t('actions'), width: 120 }
+  { key: 'Status', label: t('status'), width: 120 }
 ])
 
 /**
@@ -242,7 +219,7 @@ const formInputs = computed(() => [
     label: t('code'),
     placeholder: t('code'),
     required: true,
-    disabled: isUpdate.value
+    disabled: editId.value
   },
   { name: 'Title', type: 'text', label: t('name'), placeholder: t('name'), required: true },
   { name: 'TitleEn', type: 'text', label: t('name_en'), placeholder: t('name_en') },
@@ -264,7 +241,7 @@ const formInputs = computed(() => [
 watch(
   () => [dataModel.value.Title, dataModel.value.TitleEn],
   () => {
-    if (isUpdate.value) return
+    // if (isUpdate.value) return
     const next = autoSlug(dataModel.value)
     const current = dataModel.value.Slug
     if (!current || current === lastAutoSlug.value) dataModel.value.Slug = next
@@ -276,6 +253,7 @@ watch(
  * CRUD
  * ========================================================================== */
 function openCreate() {
+  isUpdate.value = false
   editId.value = null
   lastAutoSlug.value = ''
   dataModel.value = emptyModel()
@@ -295,20 +273,34 @@ function openEdit(row) {
   drawerVisible.value = true
 }
 
-function openContentCreate () {
-  contentDrawerVisible.value = true
-  markContentDirty()
+function openClone(row) {
+  isUpdate.value = false
+  isClone.value = true
+  editId.value = null
+
+  dataModel.value = {
+    ...row,
+    Id: undefined,
+    Code: '',
+    Slug: '',
+    Title: `${row.Title || ''} Copy`,
+    Status: statusOption(row.Status)
+  }
+
+  lastAutoSlug.value = ''
+  drawerVisible.value = true
 }
 
 function closeForm() {
   drawerVisible.value = false
   editId.value = null
+  isUpdate.value = false
 }
 
 // Drawer finished create/update successfully (it performs the request itself).
 async function reloadTable() {
   closeForm()
-  await reload()
+  reload()
 }
 
 // Fired with the form state on submit. No request here (the drawer owns it) —
@@ -320,44 +312,33 @@ function onFormSubmitted(state) {
   state.SortOrder = Number(state.SortOrder) || 0
 }
 
-function onContentSubmitted () {
-  // called by the content drawer when the user clicks “Save” inside RVisualEditor
-  onContentCreated({ chapter: { Code: '', Title: '', TitleEn: '', Slug: '', Status: 1, SortOrder: 0 } })
-}
-
-function onContentCreated (payload) {
-  // payload may contain chapter data; for now just reload the table and close the drawer
-  toast.add({ color: 'success', title: t('content_created') })
-  await load()
-  contentDrawerVisible.value = false
+async function onContentCreated (payload) {
+  const param = queryParams('novel', { Id: payload.Id})
+  await navigateTo(localePath(`content/novels/create${param}`))
 }
 
 async function remove(row) {
   if (busy.value) return
-  const ok = await confirmDestructive({
+  confirm.show({
+    type:'delete',
     title: t('delete'),
     description: t('delete_body', { name: displayName(row) }),
     confirmLabel: t('delete'),
-    color: 'error'
-  })
-  if (!ok) return
-
-  busy.value = true
-  try {
-    const query = new URLSearchParams({ Action: 'delete', Id: String(row.Id) })
-    const { data, error } = await useHttp(`${api.novels.list}?${query}`, { method: 'GET' })
-
-    if (error.value || !data.value) {
-      toastError('delete_failed', error.value)
-      return
+    color: 'error',
+    onConfirm: async () => {
+      try {
+        busy.value = true
+        const { data, error } = await useHttp(`${api.novels.list}Id?=${String(row.Id)}`, { method: 'GET' })
+        if (error.value || !data.value) throw error.value
+        toast.add({ color: 'success', title: t('deleted') })
+        reload()
+      } catch (e) {
+        toastError('delete_failed', e)
+      } finally {
+        busy.value = false
+      }
     }
-    toast.add({ color: 'success', title: t('deleted') })
-    await reload()
-  } catch (e) {
-    toastError('delete_failed', e)
-  } finally {
-    busy.value = false
-  }
+  })
 }
 
 /* ============================================================================
@@ -366,7 +347,7 @@ async function remove(row) {
 function actionItems(row) {
   return [
     // TODO: no view handler existed in the original page
-    { type: 'view', label: t('view'), icon: 'ri-eye-line', color: 'view', actionClick: () => {} },
+    { type: 'view', label: t('view'), icon: 'ri-eye-line', color: 'view', actionClick: () => onContentCreated(row) },
     {
       type: 'update',
       label: t('edit'),
@@ -375,11 +356,25 @@ function actionItems(row) {
       actionClick: () => openEdit(row)
     },
     {
+      type: 'create',
+      label: t('create_nevel_content'),
+      icon: 'ri-pencil-line',
+      color: 'create',
+      actionClick: () => onContentCreated(row)
+    },
+    {
       type: 'delete',
       label: t('delete'),
       icon: 'ri-delete-bin-3-line',
       color: 'delete',
       actionClick: () => remove(row)
+    },
+    {
+      type: 'clone',
+      label: t('clone'),
+      icon: 'ri-file-copy-line',
+      color: 'copy',
+      actionClick: () => openClone(row)
     }
   ]
 }

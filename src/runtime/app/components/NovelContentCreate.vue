@@ -1,36 +1,20 @@
 <template>
-    <RWrapperPage>
-      <RContent>
-        <RVisualEditor
-          v-model="editorValue"
-          :options="{ preset: 'full', theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false }"
-          :uploadApi="uploadApi"
-          :allowedMedia="['image', 'video', 'audio', 'file']"
-          @upload="onUpload"
-          @media-select="onMediaSelect"
-          @save="onSave"
-          @error="onEditorError"
-        >
-          <template #toolbar>
-            <RToolbar default />
-          </template>
-        </RVisualEditor>
-      </RContent>
-
-        <RCard>
-          <RForm ref="refForm" :schema="formSchema" :state="formState" class="space-y-4">
+  <RWrapperPage>
+    <RContent>
+      <RCard>
+        <RForm ref="refForm" :schema="formSchema" :state="formState" class="space-y-4">
+          <div class="group-input">
             <RFormGroup :label="t('chapter_code')" :name="code" :required="true">
               <RInput v-model="formState.code" :placeholder="t('chapter_code')" />
             </RFormGroup>
-
+        
             <RFormGroup :label="t('chapter_title')" :name="title" :required="true">
               <RInput v-model="formState.title" :placeholder="t('chapter_title')" />
             </RFormGroup>
-
             <RFormGroup :label="t('chapter_title_en')" :name="title_en">
               <RInput v-model="formState.title_en" :placeholder="t('chapter_title_en')" />
             </RFormGroup>
-
+        
             <RFormGroup :label="t('chapter_slug')" :name="slug">
               <RInput v-model="formState.slug" :placeholder="t('chapter_slug')" />
             </RFormGroup>
@@ -38,45 +22,44 @@
             <RFormGroup :label="t('chapter_status')" :name="status">
               <RSelect
                 v-model="formState.status"
-                :options="[{ value: 1, label: t('active') }, { value: 0, label: t('inactive') }]"
+                :local-data="{ data: [{ value: 1, Name: t('active') }, { value: 0, Name: t('inactive') }]}"
                 :pk=" 'value' "
                 title="label"
               />
             </RFormGroup>
-
+        
             <RFormGroup :label="t('chapter_sort_order')" :name="sort_order">
               <RInput type="number" v-model.number="formState.sort_order" :placeholder="t('chapter_sort_order')" />
             </RFormGroup>
+          </div>
+      
+          <RBtn type="reset" :label="t('reset')" @click="resetForm" />
+          <RBtn type="create" :label="t('save')" @click="submitForm" :disabled="submitting" />
+        </RForm>
+      </RCard>
 
-            <RFormGroup>
-              <template #label>{{ t('cover_image') }}</template>
-              <RFileUpload
-                :url="api.novels.upload"
-                :accept="['image/*']"
-                @success="onFileSuccess"
-                @error="onFileError"
-              />
-            </RFormGroup>
-
-            <div v-if="uploadedUrl">
-              <img :src="uploadedUrl" alt="preview" class="w-full max-w-[200px] my-2" />
-            </div>
-
-            <RBtn type="submit" :label="t('save')" @click="submitForm" :disabled="submitting" />
-            <RBtn type="reset" :label="t('reset')" @click="resetForm" />
-          </RForm>
-        </RCard>
-    </RWrapperPage>
+      <RVisualEditor
+        v-model="editorValue"
+        :options="{ preset: 'full', theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false }"
+        :uploadApi="uploadApi"
+        :allowedMedia="['image', 'video', 'audio', 'file']"
+        @upload="onUpload"
+        @media-select="onMediaSelect"
+        @save="onSave"
+        @error="onEditorError"/>
+    </RContent>
+  </RWrapperPage>
 </template>
 
 <script setup>
 import { ref, computed, reactive, watch } from 'vue'
-import { useI18n, useToast } from 'vue-i18n'
-
+import { useI18n } from 'vue-i18n'
+definePageMeta({layout:'navbar', middleware:'auth'})
 const { t } = useI18n()
 const toast = useToast()
-const { confirmDestructive } = useConfirm()
-
+const confirm = useConfirmStore()
+const  { api } = helper()
+const paramData = queryParams()?.novel
 const editorValue = ref('') // stringified JSON from RVisualEditor
 
 // ---------------------------------------------------
@@ -90,31 +73,6 @@ const uploadApi = {
   url: '/api/v1/file_explorer/files/upload',
   method: 'POST',
   // body will be FormData built in the uploader helper
-}
-
-// custom file uploader helper (small wrapper around useHttp)
-async function uploadFile (file) {
-  uploading.value = true
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    // optional provider param; backend defaults to configured default
-    const { data, error } = await useHttp(uploadApi.url, {
-      method: uploadApi.method,
-      data: formData,
-      // useHttp will set Content-Type multipart automatically when data is FormData
-    })
-    if (error.value) throw error.value
-    // expected response: { Id: number, Url: string, ... }
-    const payload = data.value
-    uploadedId.value = payload.Id ?? null
-    uploadedUrl.value = payload.Url ?? null
-    toast.add({ color: 'success', title: 'upload_success' })
-  } catch (e) {
-    toast.add({ color: 'error', title: 'upload_failed', description: e?.Message ?? e?.message ?? 'Unknown error' })
-  } finally {
-    uploading.value = false
-  }
 }
 
 // listen to RVisualEditor upload event (phase 'success')
@@ -202,55 +160,64 @@ const formSchema = computed(() => [
 
 // ---------------------------------------------------
 // Form actions
-//
+
 async function submitForm () {
   if (submitting.value) return
-  submitting.value = true
 
-  // Build chapter payload
   const payload = {
-    NovelId: /* assume known from parent context, e.g. route param */ 0,
+    NovelId: paramData?.Id ?? 0,
     VolumeId: null,
     Code: formState.code,
     Title: formState.title,
     TitleEn: formState.title_en,
     Slug: formState.slug,
     Status: Number(formState.status),
-    SortOrder: formState.sort_order ?? 0,
-    // Content from RVisualEditor (HTML or JSON depending on output)
+    SortOrder: Number(formState.sort_order ?? 0),
     Content: editorValue.value || '',
-    Html: editorValue.value || '', // keep both for backend
-    EditorJson: '{}', // placeholder – could extract from editor if needed
+    Html: editorValue.value || '',
+    EditorJson: '{}',
     ImageFileIds: uploadedId.value ? [uploadedId.value] : [],
     AttachmentFileIds: []
   }
 
-  // optional confirm before create
-  const ok = await confirmDestructive({
+  confirm.show({
     title: t('confirm_create'),
     description: t('confirm_create_body'),
     confirmLabel: t('create'),
-    color: 'success'
-  })
-  if (!ok) {
-    submitting.value = false
-    return
-  }
+    color: 'success',
+    onConfirm: async () => {
+      if (submitting.value) return
+      submitting.value = true
+      try {
+        const { data, error } = await useHttp('/api/v1/novels/chapters/create', {
+            method: 'POST',
+            data: payload
+          }
+        )
 
-  const { data, error } = await useHttp('/api/v1/novels/chapters/create', {
-    method: 'POST',
-    data: payload
+        if (error.value) { throw error.value }
+        if (!data.value) {
+          throw new Error('Empty response from server')
+        }
+        toast.add({ color: 'success', title: data.value?.Message ?? t('created') })
+      } catch (error) {
+        console.error('[Chapter Create]', error)
+
+        toast.add({
+          color: 'error',
+          title: t('create_failed'),
+          description:
+            error?.Message ??
+            error?.message ??
+            'Unknown error'
+        })
+      } finally {
+        submitting.value = false
+      }
+    }
   })
-  submitting.value = false
-  if (error.value || !data.value) {
-    toast.add({ color: 'error', title: 'create_failed', description: (error.value)?.Message ?? 'Unknown error' })
-    return
-  }
-  const result = data.value
-  toast.add({ color: 'success', title: result.Message ?? 'created' })
-  // close or reload parent
-  emit('created')
 }
+
 
 function resetForm () {
   formState.code = ''
@@ -265,5 +232,11 @@ function resetForm () {
 </script>
 
 <style lang="scss" scoped>
-/* minimal overrides – RVisualEditor already ships its own styles */
+.group-input{
+  display: flex;
+  flex-direction: row;
+  align-items:  center;
+  gap:10px;
+  width: 100%;
+}
 </style>
