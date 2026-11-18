@@ -34,15 +34,14 @@
               :key="index"
               class="flex justify-between items-center  w-full color-bg-wrapper rounded-[14px] p-[10px]"
             >
-              {{ console.log(getFile.isUploading) }}
               <div class="flex justify-left items-center gap-2.5">
                 <img
-                  v-if="isImageP(fileData.file.name.split('.')[1])"
+                  v-if="isImageP(extensionOf(fileData.file.name))"
                   class="w-[40px] h-[40px] object-cover rounded-[7px]"
                   :src="getImageUrl(fileData.file)"
                 />
                 <img
-                  v-if="isVideoP(fileData.file.name.split('.')[1])"
+                  v-if="isVideoP(extensionOf(fileData.file.name))"
                   class="w-[40px] h-[40px] object-cover rounded-[7px]"
                   src="/images/profile_male.png"
                 />
@@ -64,6 +63,9 @@
                 <ProgressCircle
                   :percentage="fileData.progress"
                 ></ProgressCircle>
+              </div>
+              <div v-else-if="fileData.status === 'completed'">
+                <UIcon name="i-lucide-circle-check" class="text-green-500 text-[20px]" />
               </div>
               <div v-else-if="fileData.status === 'error'">
                 <span>❌</span>
@@ -120,17 +122,21 @@ watch(getFile.fileCompleted, () => {
 
 function formatFileSize(bytes) {
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  if (bytes === 0) return "0 Bytes";
+  if (!bytes) return "0 Bytes";
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + " " + sizes[i];
+}
+function extensionOf(name) {
+  const parts = String(name ?? "").split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
 }
 const isImage = (file) => {
   const imageExtensions = ["jpg", "png", "jpeg", "JPG", "PNG", "JPEG"];
   return imageExtensions.includes(file.Extension);
 };
 const isImageP = (file) => {
-  const imageExtensions = ["jpg", "png", "jpeg", "JPG", "PNG", "JPEG"];
-  return imageExtensions.includes(file);
+  const imageExtensions = ["jpg", "png", "jpeg", "webp", "gif", "svg"];
+  return imageExtensions.includes(String(file ?? "").toLowerCase());
 };
 
 const isVideo = (file) => {
@@ -147,21 +153,19 @@ const isVideo = (file) => {
   return videoExtensions.includes(file.Extension);
 };
 const isVideoP = (file) => {
-  const videoExtensions = [
-    "mp4",
-    "mov",
-    "avi",
-    "mkv",
-    "MP4",
-    "MOV",
-    "AVI",
-    "MKV",
-  ];
-  return videoExtensions.includes(file);
+  const videoExtensions = ["mp4", "mov", "avi", "mkv", "webm"];
+  return videoExtensions.includes(String(file ?? "").toLowerCase());
 };
+const previewUrls = new Map();
 const getImageUrl = (file) => {
-  return URL.createObjectURL(file);
+  if (!file) return "";
+  if (!previewUrls.has(file)) previewUrls.set(file, URL.createObjectURL(file));
+  return previewUrls.get(file);
 };
+onBeforeUnmount(() => {
+  previewUrls.forEach((url) => URL.revokeObjectURL(url));
+  previewUrls.clear();
+});
 </script>
 <style lang="scss" scoped>
 .customer-shadow-dialog-filter {

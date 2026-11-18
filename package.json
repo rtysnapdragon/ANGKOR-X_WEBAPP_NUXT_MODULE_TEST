@@ -85,6 +85,7 @@
     "fabric": "^7.4.0",
     "flowbite-vue": "^0.2.3",
     "fs-extra": "^11.3.5",
+    "gsap": "^3.15.1",
     "katex": "^0.19.1",
     "nuxt-swiper": "^2.0.2",
     "query-string": "^9.5.1",

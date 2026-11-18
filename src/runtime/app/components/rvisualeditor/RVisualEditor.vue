@@ -24,6 +24,8 @@ import { useI18n } from 'vue-i18n'
 import RIcon from '../RIcon.vue'
 import RModal from '../RModal.vue'
 import RTooltip from '../RTooltip.vue'
+import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
+import { useUploadProgress } from '../../stores/uploadProgress'
 import { useHttp } from '../../composables/https'
 
 defineOptions({ name: 'RVisualEditor' })
@@ -53,7 +55,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update:modelValue', 'update', 'change', 'save', 'error', 'focus', 'blur',
-  'upload', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved',
+  'upload', 'upload-complete', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved',
 ])
 
 // =====================================================================================================
@@ -384,6 +386,10 @@ const isEditable = computed(() => runtimeEditable.value ?? opts.value.editable)
 const dropping = ref(false)
 const zoom = ref(100)
 const uploading = ref(0) // uploads currently in flight
+const uploadProgress = useUploadProgress()
+const globalUploadEntries = new Map()
+let globalActive = 0
+const globalUploading = computed(() => uploadProgress.isUploading)
 const toolbarRef = ref(null)
 const mounted = ref(false) // client-only values are computed after mount so SSR and hydration markup match
 const hostHasMode = ref(false)
@@ -546,13 +552,14 @@ const RVCallout = Node.create({
 
 // ---- media block: image | video | audio | file (one atom node, vanilla-DOM NodeView) -----------------
 const pending = new Map() // uploadId -> { file, kind, controller, localUrl, state }
-function releasePendingUpload(p) {
+function releasePendingUpload(p, uploadId) {
   if (!p) return
   p.controller?.abort()
   releaseObjectUrl(p.localUrl)
+  if (uploadId) cancelGlobalUpload(uploadId)
 }
 function clearPendingUploads() {
-  pending.forEach(releasePendingUpload)
+  pending.forEach((p, id) => releasePendingUpload(p, id))
   pending.clear()
   mediaCtx.views.clear()
 }
@@ -563,7 +570,7 @@ const mediaCtx = {
   canRetry: id => pending.get(id)?.state === 'error',
   onRemoved: (a) => {
     if (!a.uploadId) return
-    releasePendingUpload(pending.get(a.uploadId))
+    releasePendingUpload(pending.get(a.uploadId), a.uploadId)
     pending.delete(a.uploadId)
   },
   onSelect: (a) => emit('media-select', { kind: a.kind, src: a.src, alt: a.alt, caption: a.caption }),
@@ -720,8 +727,9 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       const uploadId = uid()
       const defer = shouldDeferUpload.value
       const localUrl = defer ? createObjectUrl(file) : null
+      trackGlobalUpload(file, uploadId)
       if (node.attrs.uploadId) {
-        releasePendingUpload(pending.get(node.attrs.uploadId))
+        releasePendingUpload(pending.get(node.attrs.uploadId), node.attrs.uploadId)
         pending.delete(node.attrs.uploadId)
       }
       if (defer) {
@@ -1203,6 +1211,7 @@ async function insertFiles(fileList, at) {
     }
     const item = { file, kind: v.kind, mime: v.type, uploadId: uid(), localUrl: defer ? createObjectUrl(file) : null }
     items.push(item)
+    trackGlobalUpload(item.file, item.uploadId)
     if (defer) {
       pending.set(item.uploadId, { file: item.file, kind: item.kind, controller: null, localUrl: item.localUrl, state: 'local' })
       emit('upload', { phase: 'pending', file: item.file, uploadId: item.uploadId })
@@ -1248,6 +1257,65 @@ async function runUploader(file, ctx) {
   throw new Error(t('rve_no_upload_endpoint', 'No upload endpoint configured (set the upload-api or uploader prop).'))
 }
 
+function trackGlobalUpload(file, uploadId) {
+  if (!import.meta.client || !file || !uploadId || globalUploadEntries.has(uploadId)) return null
+  try {
+    const [entry] = uploadProgress.registerExternalFiles([file])
+    if (entry) globalUploadEntries.set(uploadId, entry)
+    return entry ?? null
+  } catch { return null }
+}
+function beginGlobalUpload(uploadId) {
+  const entry = globalUploadEntries.get(uploadId)
+  if (!entry) return
+  uploadProgress.beginExternalUpload(entry)
+  globalActive++
+}
+function progressGlobalUpload(uploadId, p) {
+  const entry = globalUploadEntries.get(uploadId)
+  if (entry) uploadProgress.setExternalProgress(entry, (Number(p) || 0) * 100)
+}
+function finishGlobalUpload(uploadId, result, size) {
+  const entry = globalUploadEntries.get(uploadId)
+  if (!entry) return
+  uploadProgress.completeExternalUpload(entry, result, size)
+  globalUploadEntries.delete(uploadId)
+  endGlobalUpload()
+}
+function failGlobalUpload(uploadId, err) {
+  const entry = globalUploadEntries.get(uploadId)
+  if (!entry) return
+  uploadProgress.failExternalUpload(entry, err)
+  globalUploadEntries.delete(uploadId)
+  endGlobalUpload()
+}
+function cancelGlobalUpload(uploadId) {
+  const entry = globalUploadEntries.get(uploadId)
+  if (!entry) return
+  uploadProgress.removeExternalUpload(entry)
+  globalUploadEntries.delete(uploadId)
+  endGlobalUpload()
+}
+function endGlobalUpload() {
+  globalActive = Math.max(0, globalActive - 1)
+  if (globalActive > 0) return
+  const stillRunning = uploadProgress.allFileMoreUpload.some((e) => e.status === 'uploading')
+  uploadProgress.syncExternalUploading(stillRunning)
+  emit('upload-complete', {
+    total: uploadProgress.allFileMoreUpload.length,
+    completed: Object.keys(uploadProgress.fileCompleted).length,
+    failed: uploadProgress.fileError.length,
+  })
+}
+function waitForUploadsToSettle() {
+  if (uploading.value === 0 && !uploadProgress.isUploading) return Promise.resolve()
+  return new Promise((resolve) => {
+    const stop = watch([uploading, () => uploadProgress.isUploading], ([n, g]) => {
+      if (n === 0 && !g) { stop(); resolve() }
+    })
+  })
+}
+
 async function performUpload(record) {
   const { file, kind, uploadId } = record
   const controller = record.controller ?? new AbortController()
@@ -1255,11 +1323,12 @@ async function performUpload(record) {
   pending.set(uploadId, { ...record, file, kind, controller, localUrl, state: 'uploading' })
   uploading.value++
   emit('upload', { phase: 'start', file, uploadId })
+  beginGlobalUpload(uploadId)
   try {
     const toSend = kind === 'image' && file.type === 'image/svg+xml' ? await sanitizeSvgFile(file) : file
     const result = await runUploader(toSend, {
       signal: controller.signal,
-      onProgress: (p) => { mediaCtx.views.get(uploadId)?.setProgress(p); emit('upload', { phase: 'progress', file, uploadId, progress: p }) },
+      onProgress: (p) => { mediaCtx.views.get(uploadId)?.setProgress(p); progressGlobalUpload(uploadId, p); emit('upload', { phase: 'progress', file, uploadId, progress: p }) },
     })
     const url = safeUrl(uploadUrl(result), opts.value.allowBlobUrls)
     if (!url) throw new Error(t('rve_upload_no_url', 'The uploader did not return a persistent http(s) URL.'))
@@ -1268,10 +1337,15 @@ async function performUpload(record) {
     releaseObjectUrl(localUrl)
     patchMedia(uploadId, { src: url, status: 'ready', uploadId: null, fileId, draft: false, error: '' })
     const upload = { uploadId, file, kind, url, fileId, result }
+    finishGlobalUpload(uploadId, result, file.size)
     emit('upload', { phase: 'success', file, uploadId, kind, url, fileId, result })
     return { ok: true, ...upload }
   } catch (err) {
-    if (controller.signal.aborted) return { ok: false, aborted: true, uploadId, file, kind, error: err }
+    if (controller.signal.aborted) {
+      cancelGlobalUpload(uploadId)
+      return { ok: false, aborted: true, uploadId, file, kind, error: err }
+    }
+    failGlobalUpload(uploadId, err)
     pending.set(uploadId, { ...record, file, kind, controller: null, localUrl, state: 'error' })
     patchMedia(uploadId, { status: 'error', draft: !!localUrl, error: err?.message || t('rve_upload_failed', 'Upload failed.') })
     const upload = { uploadId, file, kind, url: null, fileId: null, result: null }
@@ -1288,6 +1362,7 @@ async function startUpload(record) {
 function retryUpload(uploadId) {
   const p = pending.get(uploadId)
   if (!p || p.state === 'uploading') return Promise.resolve(null)
+  trackGlobalUpload(p.file, uploadId)
   return performUpload({ ...p, uploadId, controller: new AbortController() })
 }
 async function flushPendingUploads() {
@@ -2445,6 +2520,7 @@ async function saveToApi() {
   apiState.saving = true
   apiState.error = null
   try {
+    await waitForUploadsToSettle()
     const uploads = await flushPendingUploads()
     const failed = uploads.find(u => !u.ok && !u.aborted)
     if (failed) throw failed.error
@@ -2934,7 +3010,8 @@ defineExpose({
   clearPendingUploads: () => clearPendingUploads(),
   reloadApi: () => loadFromApi(),
   apiState: () => ({ ...apiState }),
-  isUploading: () => Array.from(pending.values()).some((p) => p.controller),
+  getUploadQueue: () => uploadProgress.allFileMoreUpload.map((e) => ({ name: e.file?.name, size: e.file?.size, progress: e.progress, status: e.status })),
+  isUploading: () => Array.from(pending.values()).some((p) => p.controller) || uploadProgress.isUploading,
 })
 </script>
 
@@ -3219,9 +3296,10 @@ defineExpose({
         <span v-if="apiState.loading" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_loading', 'Loading') }}…</span>
         <span v-if="apiState.saving" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_saving', 'Saving') }}…</span>
         <span v-if="uploading > 0" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_uploading', 'Uploading') }} {{ uploading }} {{ uploading === 1 ? t('rve_file_singular', 'file') : t('rve_file_plural', 'files') }}…</span>
+        <span class="rv-footer__upload" :aria-label="t('rve_upload_progress', 'Upload progress')"><BtnShowUploadProcess /></span>
       </div>
       <div class="rv-footer__group">
-        <button v-if="hasApiSave" type="button" class="rv-pill rv-pill--primary" :disabled="apiState.saving || uploading > 0 || !isEditable" @click="saveToApi()"><UIcon name="i-lucide-save" />{{ t('rve_save', 'Save') }}</button>
+        <button v-if="hasApiSave" type="button" class="rv-pill rv-pill--primary" :disabled="apiState.saving || uploading > 0 || globalUploading || !isEditable" @click="saveToApi()"><UIcon name="i-lucide-save" />{{ t('rve_save', 'Save') }}</button>
         <template v-if="feat.wordCount.visible && counts">
           <span>{{ counts.words }} {{ counts.words === 1 ? t('rve_word', 'word') : t('rve_words', 'words') }}</span>
           <span>{{ counts.characters }} {{ counts.characters === 1 ? t('rve_character', 'character') : t('rve_characters', 'characters') }}</span>
@@ -3813,6 +3891,7 @@ defineExpose({
 }
 .rv-footer__group { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .rv-footer__busy { display: inline-flex; align-items: center; gap: 6px; color: var(--color-primary); }
+.rv-footer__upload { display: inline-flex; align-items: center; justify-content: center; height: 24px; line-height: 0; }
 .rv-badge { padding: 1px 8px; font-weight: 600; color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 11%, transparent); border-radius: 999px; }
 .rv-spin { animation: rv-spin 0.9s linear infinite; }
 @keyframes rv-spin { to { transform: rotate(360deg); } }
