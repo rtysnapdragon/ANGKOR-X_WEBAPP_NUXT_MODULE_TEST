@@ -102,6 +102,12 @@
 .rc-grad { display: grid; grid-template-columns: repeat(3, 44px); gap: 8px; }
 .rc-grad__chip { height: 32px; border-radius: 8px; border: 1px solid var(--rc-border); cursor: pointer; }
 .rc-list { display: flex; flex-direction: column; gap: 2px; }
+.rc-list--grouped { gap: 8px; }
+.rc-list__group { display: flex; flex-direction: column; gap: 2px; }
+.rc-list__label {
+  padding: 2px 10px 1px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--rc-muted);
+}
 .rc-list__item {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 7px 10px; border: none; border-radius: 8px; background: transparent;

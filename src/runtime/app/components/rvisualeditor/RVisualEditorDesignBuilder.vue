@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import RDialog from '../RDialog.vue'
 import RModal from '../RModal.vue'
 import RSlider from '../RSlider.vue'
+import FloatingInput from '../input/FloatingInput.vue'
 import RVisualEditorRawEditor from './RVisualEditorRawEditor.vue'
 
 const props = defineProps({
@@ -160,14 +161,20 @@ function requestCancel() {
   performCancel()
 }
 
+function focusFileNameInput() {
+  const root = fileNameInput.value?.$el ?? fileNameInput.value
+  const input = root?.querySelector?.('input') ?? root
+  input?.focus()
+  input?.select()
+}
+
 watch(confirmOpen, async (isOpen) => {
   if (!isOpen) {
     clearPendingSave()
     return
   }
   await nextTick()
-  fileNameInput.value?.focus()
-  fileNameInput.value?.select()
+  focusFileNameInput()
 })
 
 watch(open, (isOpen) => {
@@ -246,17 +253,13 @@ onBeforeUnmount(clearPendingSave)
       <div class="rv-save-dialog__meta">
         <div class="rv-save-dialog__section">
           <span class="rv-save-dialog__section-title">Image options</span>
-          <label class="rv-save-dialog__field">
-            <span>File name</span>
-            <input
-              ref="fileNameInput"
-              v-model="fileName"
-              class="rv-save-dialog__input"
-              type="text"
-              spellcheck="false"
-              @keydown.enter.prevent="confirmSave"
-            >
-          </label>
+          <FloatingInput
+            ref="fileNameInput"
+            v-model="fileName"
+            class="rv-save-dialog__name"
+            label="File name"
+            @keydown.enter.prevent="confirmSave"
+          />
         </div>
 
         <div class="rv-save-dialog__stats">
@@ -339,7 +342,6 @@ onBeforeUnmount(clearPendingSave)
   }
 
   &__label,
-  &__field > span,
   &__stat > span {
     font-size: 0.72rem;
     font-weight: 600;
@@ -388,27 +390,8 @@ onBeforeUnmount(clearPendingSave)
     color: var(--c-text);
   }
 
-  &__field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  &__input {
-    width: 100%;
-    height: 38px;
-    padding: 0 12px;
-    font: inherit;
-    color: var(--c-text);
-    background: var(--bg-content);
-    border: 1px solid var(--c-border);
-    border-radius: 8px;
-    outline: none;
-
-    &:focus {
-      border-color: var(--c-accent);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 18%, transparent);
-    }
+  &__name {
+    --color-bg: var(--bg-wrapper, var(--c-surface));
   }
 
   &__stats {

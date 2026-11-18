@@ -210,7 +210,7 @@ const props = defineProps([
 const emit = defineEmits("selected", "mapData", "onSearch",'onOpen');
 const localData = computed(() => props.localData);
 const selectType = computed(() => props.selectType || "");
-const required = computed(() => isNotEmpty(props.required));
+const required = computed(() => props.required === "" || !!props.required);
 // const hasSelectAll = computed(() => isNotEmpty(props.hasSelectAll));
 const pk = computed(() => isNotEmpty(props.pk) ? props.pk : null);
 const variant = computed(() => props.variant ?? "outline"); // Ex: variant = solid,outline,none
@@ -494,7 +494,7 @@ watch(
     if (!props.api) {
       listData.value = [...(n?.data ?? [])];
 
-      if (!multiple.value && !n?.defaultSelect) {
+      if (!required.value && !multiple.value && !n?.defaultSelect) {
         if (!props.isNotAllowClear) {
           listData.value.unshift({
             [pk.value]: '',

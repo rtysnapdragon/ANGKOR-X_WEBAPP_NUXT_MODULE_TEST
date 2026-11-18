@@ -2,15 +2,111 @@
 // Static data for RCanvas: page sizes, fonts, palettes, vector shapes, templates.
 // Pure data + tiny pure helpers — safe to import on the server.
 
-export const PAGE_PRESETS = [
-  { id: 'ig-post', label: 'Instagram post', w: 1080, h: 1080 },
-  { id: 'ig-story', label: 'Instagram story', w: 1080, h: 1920 },
-  { id: 'fb-post', label: 'Facebook post', w: 1200, h: 630 },
-  { id: 'yt-thumb', label: 'YouTube thumbnail', w: 1280, h: 720 },
-  { id: 'slide', label: 'Presentation 16:9', w: 1920, h: 1080 },
-  { id: 'a4', label: 'A4 document', w: 794, h: 1123 },
-  { id: 'article-cover', label: 'Article cover', w: 1600, h: 900 },
+export const PAGE_PRESET_GROUPS = [
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    key: 'rve_preset_group_facebook',
+    presets: [
+      { id: 'fb-post', label: 'Facebook post', w: 1200, h: 630 },
+      { id: 'fb-cover', label: 'Facebook cover', w: 820, h: 312 },
+      { id: 'fb-story', label: 'Facebook story', w: 1080, h: 1920 },
+      { id: 'fb-profile', label: 'Facebook profile', w: 320, h: 320 },
+      { id: 'fb-event', label: 'Facebook event cover', w: 1920, h: 1005 },
+    ],
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    key: 'rve_preset_group_instagram',
+    presets: [
+      { id: 'ig-post', label: 'Instagram post', w: 1080, h: 1080 },
+      { id: 'ig-portrait', label: 'Instagram portrait', w: 1080, h: 1350 },
+      { id: 'ig-story', label: 'Instagram story', w: 1080, h: 1920 },
+      { id: 'ig-reel', label: 'Instagram reel', w: 1080, h: 1920 },
+      { id: 'ig-profile', label: 'Instagram profile', w: 320, h: 320 },
+    ],
+  },
+  {
+    id: 'tiktok',
+    label: 'TikTok',
+    key: 'rve_preset_group_tiktok',
+    presets: [
+      { id: 'tiktok-video', label: 'TikTok video', w: 1080, h: 1920 },
+      { id: 'tiktok-photo', label: 'TikTok photo', w: 1080, h: 1920 },
+      { id: 'tiktok-profile', label: 'TikTok profile', w: 200, h: 200 },
+    ],
+  },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    key: 'rve_preset_group_linkedin',
+    presets: [
+      { id: 'li-post', label: 'LinkedIn post', w: 1200, h: 627 },
+      { id: 'li-cover', label: 'LinkedIn cover', w: 1584, h: 396 },
+      { id: 'li-banner', label: 'LinkedIn banner', w: 1128, h: 191 },
+      { id: 'li-story', label: 'LinkedIn story', w: 1080, h: 1920 },
+      { id: 'li-profile', label: 'LinkedIn profile', w: 400, h: 400 },
+    ],
+  },
+  {
+    id: 'youtube',
+    label: 'YouTube',
+    key: 'rve_preset_group_youtube',
+    presets: [
+      { id: 'yt-thumb', label: 'YouTube thumbnail', w: 1280, h: 720 },
+      { id: 'yt-banner', label: 'YouTube banner', w: 2560, h: 1440 },
+      { id: 'yt-profile', label: 'YouTube profile', w: 800, h: 800 },
+      { id: 'yt-shorts', label: 'YouTube Shorts', w: 1080, h: 1920 },
+    ],
+  },
+  {
+    id: 'x',
+    label: 'X (Twitter)',
+    key: 'rve_preset_group_x',
+    presets: [
+      { id: 'x-post', label: 'X post', w: 1600, h: 900 },
+      { id: 'x-header', label: 'X header', w: 1500, h: 500 },
+      { id: 'x-profile', label: 'X profile', w: 400, h: 400 },
+    ],
+  },
+  {
+    id: 'pinterest',
+    label: 'Pinterest',
+    key: 'rve_preset_group_pinterest',
+    presets: [
+      { id: 'pin-standard', label: 'Pinterest pin', w: 1000, h: 1500 },
+      { id: 'pin-long', label: 'Pinterest long pin', w: 1000, h: 2100 },
+      { id: 'pin-square', label: 'Pinterest square', w: 1000, h: 1000 },
+      { id: 'pin-story', label: 'Pinterest story', w: 1080, h: 1920 },
+    ],
+  },
+  {
+    id: 'snapchat',
+    label: 'Snapchat',
+    key: 'rve_preset_group_snapchat',
+    presets: [
+      { id: 'snap-ad', label: 'Snapchat ad', w: 1080, h: 1920 },
+      { id: 'snap-story', label: 'Snapchat story', w: 1080, h: 1920 },
+    ],
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    key: 'rve_preset_group_other',
+    presets: [
+      { id: 'slide', label: 'Presentation 16:9', w: 1920, h: 1080 },
+      { id: 'a4', label: 'A4 document', w: 794, h: 1123 },
+      { id: 'article-cover', label: 'Article cover', w: 1600, h: 900 },
+    ],
+  },
 ]
+
+export const PAGE_PRESETS = PAGE_PRESET_GROUPS.flatMap(group => group.presets.map(preset => ({
+  ...preset,
+  group: group.id,
+  groupLabel: group.label,
+})))
 
 export const FONTS = [
   'Inter', 'Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Courier New',

@@ -90,6 +90,11 @@ export const useHttp = async (
 
     return { data: ref(response?.data), error: ref(null) };
   } catch (e: any) {
+    // On 401: try one token refresh then retry the original request
+    if (e?.response?.status === 401) {
+      await useRefreshToken(true);
+    }
+
     if (options?.alertError != null && typeof options?.alertError == "object") {
       alertToast(
         options?.alertError.title ?? "Error",

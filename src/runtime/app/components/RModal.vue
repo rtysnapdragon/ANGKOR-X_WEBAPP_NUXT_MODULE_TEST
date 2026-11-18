@@ -4,7 +4,7 @@
       v-if="!forTable"
       v-model:open="isOpen"
       :transition="transition"
-      :fullscreen="isFullScreen"
+      :fullscreen="isFs"
       :dismissible="noClose"
       :close="false"
       :content="{ style: contentStyle }"
@@ -12,7 +12,7 @@
     >
       <!-- ── HEADER (not mounted at all when noHeader) ── -->
       <template v-if="!noHeader" #header>
-        <slot name="header">
+        <slot name="header" :close="onCloseModal" :fullscreen="isFs" :toggle-fullscreen="toggleFullscreen">
           <div class="rm-header">
             <div class="rm-header__left">
               <i v-if="icon" :class="[icon, 'rm-header__icon']" />
@@ -25,7 +25,17 @@
             <div class="rm-header__actions">
               <slot name="headerCenter" />
               <slot name="headerRight" />
-              <button v-if="noClose" class="rm-btn-close" aria-label="Close" @click="onCloseModal">
+              <!-- hidden when fullscreen is forced through the legacy isFullScreen prop -->
+              <button
+                v-if="expandable && !isFullScreen"
+                type="button"
+                class="rm-btn-close"
+                :aria-label="isFs ? 'Exit full screen' : 'Full screen'"
+                @click="toggleFullscreen"
+              >
+                <i :class="isFs ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line'" />
+              </button>
+              <button v-if="noClose" type="button" class="rm-btn-close" aria-label="Close" @click="onCloseModal">
                 <i :class="closeIcon || 'ri-close-line'" />
               </button>
             </div>
@@ -75,6 +85,8 @@
 import { computed } from 'vue'
 
 const isOpen = defineModel()
+// v-model:fullscreen (controlled) or the expandable toggle (uncontrolled)
+const isFullscreen = defineModel('fullscreen', { default: false })
 const emit = defineEmits(['onClose'])
 
 const props = defineProps({
@@ -82,8 +94,10 @@ const props = defineProps({
   description:  { type: String,  default: undefined },
   icon:         { type: String,  default: undefined },
   closeIcon:    { type: String,  default: undefined },
-  isFullScreen: { type: Boolean, default: false },
+  isFullScreen: { type: Boolean, default: false },      // legacy: forces fullscreen (no toggle)
+  expandable:   { type: Boolean, default: false },      // adds a full-screen toggle to the header
   modalWidth:   { type: String,  default: undefined }, // '600px' | '80vw' ...
+  modalRadius:  { type: [String, Number], default: undefined }, // '8px' | 16 (px) | 'var(--r-lg)' | '0'
   noClose:      { type: Boolean, default: true },      // true = close button shown + dismissible
   noHeader:     { type: Boolean, default: false },
   noFooter:     { type: Boolean, default: false },
@@ -101,14 +115,30 @@ const props = defineProps({
 
 // Portal content lives outside this component's DOM, so a CSS var set on our
 // root never reaches it. Set the var on the content element itself instead.
-const contentStyle = computed(() => (props.modalWidth ? { '--rm-w': props.modalWidth } : undefined))
+const hasRadius = computed(() => props.modalRadius !== undefined && props.modalRadius !== null && props.modalRadius !== '')
+
+const contentStyle = computed(() => {
+  const style = {}
+  if (props.modalWidth) style['--rm-w'] = props.modalWidth
+  if (hasRadius.value) {
+    style['--rm-radius'] = typeof props.modalRadius === 'number' ? `${props.modalRadius}px` : props.modalRadius
+  }
+  return style
+})
+
+// Effective fullscreen: the model / toggle OR the legacy `isFullScreen` prop.
+const isFs = computed(() => isFullscreen.value || props.isFullScreen)
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+}
 
 // Hook classes per UModal slot; caller's `ui` is appended per slot, not replacing.
 // `ref_content_h` is relied on by RTable for scroll calculation — keep it.
 const mergedUI = computed(() => {
   const base = {
     overlay: 'rm-overlay',
-    content: ['rm-content ref_content_h', props.isFullScreen && 'rm-content--fullscreen'],
+    content: ['rm-content ref_content_h', isFs.value && 'rm-content--fullscreen'],
     header: 'rm-ui-header',
     body: 'rm-ui-body',
     footer: 'rm-ui-footer',
@@ -154,7 +184,7 @@ function onCloseModal() {
   color: var(--c-text);
   font-family: var(--font-400, var(--font-fallback));
   border: 0;
-  border-radius: var(--r-xl);
+  border-radius: var(--rm-radius, var(--r-xl)); // modalRadius prop
   box-shadow: none; // kills Tailwind ring/shadow defaults
 
   // kills default divide-y between header/body/footer
@@ -276,7 +306,13 @@ function onCloseModal() {
 @media (max-width: 480px) {
   .rm-content:not(.rm-content--fullscreen) {
     max-width: calc(100vw - 1rem);
-    border-radius: var(--r-lg);
+    border-radius: var(--rm-radius, var(--r-lg));
   }
 }
 </style>
+
+
+
+
+<!-- <RModal v-model="open" title="Report" expandable :modal-radius="16" />
+<RModal v-model="open" v-model:fullscreen="fs" expandable modal-radius="0" /> -->

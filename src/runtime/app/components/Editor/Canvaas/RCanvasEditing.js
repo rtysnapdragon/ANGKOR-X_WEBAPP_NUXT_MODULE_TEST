@@ -11,7 +11,7 @@ const GUIDE_COLOR = '#ff3d9a'
 const INLINE_KEYS = new Set(['fill', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'underline', 'linethrough'])
 
 export function installEditing(ctx) {
-  const { K, canvas, state, EXTRA_PROPS, isGuide, isText, isImage, commit, refresh, refreshNow, bbox } = ctx
+  const { K, canvas, state, EXTRA_PROPS, isGuide, isText, isImage, commit, refresh, refreshNow, bbox, imageNaturalSize } = ctx
   const { Rect, FabricLine, FabricImage, Path, Textbox, Group, ActiveSelection, Shadow, Point, util, filters } = K
 
   canvas.targetFindTolerance = 8   // thin lines stay clickable
@@ -45,9 +45,15 @@ export function installEditing(ctx) {
     o.set({ left: (W - o.getScaledWidth()) / 2, top: (H - o.getScaledHeight()) / 2 })
     o.setCoords()
   }
+  function attachToFrame(o, x, y) {
+    if (!o || o.rcFrame || !ctx.frameAt) return
+    const frame = ctx.frameAt(x, y, o)
+    if (frame) ctx.assignToFrame?.(o, frame)
+  }
   function place(o, { centered = true } = {}) {
     if (canvas.isDrawingMode) { canvas.isDrawingMode = false; state.tool = 'select' }
     if (centered) center(o)
+    attachToFrame(o, o.left + o.getScaledWidth() / 2, o.top + o.getScaledHeight() / 2)
     canvas.add(o)
     canvas.setActiveObject(o)
     canvas.requestRenderAll()
@@ -90,6 +96,7 @@ export function installEditing(ctx) {
     if (canvas.isDrawingMode) { canvas.isDrawingMode = false; state.tool = 'select' }
     o.set({ left, top })
     o.setCoords()
+    attachToFrame(o, o.left + o.getScaledWidth() / 2, o.top + o.getScaledHeight() / 2)
     canvas.add(o)
     canvas.setActiveObject(o)
     canvas.requestRenderAll()
@@ -98,10 +105,23 @@ export function installEditing(ctx) {
     return o
   }
 
+  function nextFrameName() {
+    const used = new Set(stack().filter(o => ctx.isFrame?.(o)).map(o => o.name))
+    let i = 1
+    while (used.has(`Frame ${i}`)) i++
+    return `Frame ${i}`
+  }
+
+  function addFrame({ left = 0, top = 0, width = 320, height = 240, fill = '#ffffff', name } = {}) {
+    const frame = buildShape('square', { width, height, fill })
+    frame.set({ name: name || nextFrameName(), rcFrame: true })
+    return placeAt(frame, { left, top })
+  }
+
   function addShapeAt(id, { left = 0, top = 0, width, height, fill, name, rcFrame } = {}) {
     const shape = buildShape(id, { width, height, fill })
     if (name) shape.set({ name })
-    if (rcFrame) shape.rcFrame = true
+    if (rcFrame) shape.set({ rcFrame: true, name: name || nextFrameName() })
     return placeAt(shape, { left, top })
   }
 
@@ -201,7 +221,10 @@ export function installEditing(ctx) {
     if (!old) return null
     const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' })
     const s = old.getScaledWidth() / img.width
-    img.set({ left: old.left, top: old.top, angle: old.angle, scaleX: s, scaleY: s, flipX: old.flipX, flipY: old.flipY })
+    img.set({
+      left: old.left, top: old.top, angle: old.angle, scaleX: s, scaleY: s,
+      flipX: old.flipX, flipY: old.flipY, rcParent: old.rcParent || null,
+    })
     const idx = orderOf(old)
     ctx.setSuppress(true)
     try {
@@ -209,6 +232,7 @@ export function installEditing(ctx) {
       canvas.remove(old)
       canvas.add(img)
       canvas.moveObjectTo(img, Math.min(idx, canvas.getObjects().length - 1))
+      ctx.syncFrameClip?.(img)
       canvas.setActiveObject(img)
     }
     finally { ctx.setSuppress(false) }
@@ -331,9 +355,10 @@ export function installEditing(ctx) {
   }
 
   function setImageFx(name, value) {
+    const patch = name && typeof name === 'object' ? name : { [name]: value }
     apply((o) => {
       if (!isImage(o)) return
-      const fx = { ...(o.rcFx || {}), [name]: value }
+      const fx = { ...(o.rcFx || {}), ...patch }
       o.rcFx = fx
       const list = []
       if (fx.brightness) list.push(new filters.Brightness({ brightness: fx.brightness }))
@@ -343,6 +368,56 @@ export function installEditing(ctx) {
       o.filters = list
       o.applyFilters()
     })
+  }
+
+  function cropImage(ratio = null) {
+    const images = selected().filter(isImage)
+    if (!images.length) return
+    const target = Number(ratio)
+    images.forEach((o) => {
+      const full = imageNaturalSize(o)
+      const displayW = Math.max(1, o.getScaledWidth())
+      const displayH = Math.max(1, o.getScaledHeight())
+      const center = o.getCenterPoint()
+
+      let cropW, cropH, cropX, cropY
+
+      if (Number.isFinite(target) && target > 0) {
+        if (full.w / full.h > target) {
+          cropW = full.h * target
+          cropH = full.h
+        }
+        else {
+          cropW = full.w
+          cropH = full.w / target
+        }
+        cropX = (full.w - cropW) / 2
+        cropY = (full.h - cropH) / 2
+      }
+      else {
+        cropW = full.w
+        cropH = full.h
+        cropX = 0
+        cropY = 0
+      }
+
+      cropW = clamp(cropW, 1, full.w)
+      cropH = clamp(cropH, 1, full.h)
+      cropX = clamp(cropX, 0, Math.max(0, full.w - cropW))
+      cropY = clamp(cropY, 0, Math.max(0, full.h - cropH))
+      const scale = Math.max(0.0001, Math.min(displayW / cropW, displayH / cropH))
+
+      o.set({ cropX, cropY, width: cropW, height: cropH, scaleX: scale, scaleY: scale })
+      if (o.rcRadius && o.clipPath && !o.clipPath.rcFrameClip) {
+        const pct = clamp(o.rcRadius, 0, 100)
+        const px = (Math.min(o.width, o.height) / 2) * (pct / 100)
+        o.clipPath.set({ width: o.width, height: o.height, rx: px, ry: px })
+        o.clipPath.setCoords?.()
+      }
+      o.setPositionByOrigin(new Point(center.x, center.y), 'center', 'center')
+      touch(o)
+    })
+    done(true)
   }
 
   function setPosition({ x, y }) {
@@ -460,6 +535,7 @@ export function installEditing(ctx) {
     const show = o.visible === false
     if (!show && selected().includes(o)) canvas.discardActiveObject()
     o.set('visible', show)
+    if (ctx.isFrame?.(o)) ctx.childrenOf?.(o).forEach(c => c.set('visible', show))
     done()
   }
   function renameLayer(id, name) {
@@ -478,8 +554,13 @@ export function installEditing(ctx) {
 
   // ── Delete / select ───────────────────────────────────────────────────────
   function remove() {
-    const objs = selected()
-    if (!objs.length) return
+    const direct = selected()
+    if (!direct.length) return
+    const frameIds = new Set(direct.filter(o => ctx.isFrame?.(o)).map(o => o.id))
+    const objs = [...new Set([
+      ...direct,
+      ...stack().filter(o => o.rcParent && frameIds.has(o.rcParent)),
+    ])]
     canvas.discardActiveObject()
     canvas.remove(...objs)
     done(true)
@@ -496,6 +577,7 @@ export function installEditing(ctx) {
     const a = canvas.getActiveObject()
     if (!a || a.rcLocked) return
     a.set({ left: a.left + dx, top: a.top + dy })
+    if (ctx.isFrame?.(a)) ctx.moveFrameBy?.(a, dx, dy)
     a.setCoords()
     canvas.fire('object:modified', { target: a })
     canvas.requestRenderAll()
@@ -549,24 +631,40 @@ export function installEditing(ctx) {
   // ── Clipboard ─────────────────────────────────────────────────────────────
   let clipboard = null
   function copy() {
-    const objs = selected()
-    if (!objs.length) return false
+    const direct = selected()
+    if (!direct.length) return false
+    const frameIds = new Set(direct.filter(o => ctx.isFrame?.(o)).map(o => o.id))
+    const objs = [...new Set([
+      ...direct,
+      ...stack().filter(o => o.rcParent && frameIds.has(o.rcParent)),
+    ])].sort((a, b) => orderOf(a) - orderOf(b))
     canvas.discardActiveObject()                       // objects back to scene coords
     clipboard = objs.map(o => o.toObject(EXTRA_PROPS))
-    reselect(objs)
+    reselect(direct)
     return true
   }
   async function paste(offset = 24) {
     if (!clipboard?.length) return
     const objs = await util.enlivenObjects(clipboard)
+    const idMap = new Map()
+    objs.forEach((o) => {
+      const old = o.id
+      o.id = uid()
+      idMap.set(old, o.id)
+    })
+    objs.forEach((o) => {
+      if (o.rcParent) o.rcParent = idMap.get(o.rcParent) || null
+      if (!o.rcParent && o.clipPath?.rcFrameClip) o.set('clipPath', null)
+    })
     ctx.setSuppress(true)
     try {
       canvas.discardActiveObject()
       objs.forEach((o) => {
         o.set({ left: o.left + offset, top: o.top + offset })
-        o.id = uid()
         canvas.add(o)
       })
+      objs.forEach(o => ctx.updateParentFor?.(o))
+      ctx.syncAllFrameClips?.()
       clipboard = clipboard.map(c => ({ ...c, left: c.left + offset, top: c.top + offset }))
       reselect(objs)
     }
@@ -702,11 +800,11 @@ export function installEditing(ctx) {
 
   return {
     // add
-    addText, addTextAt, addShape, addShapeAt, addLine, addLineAt, addImage, addImageAt, replaceImage, applyTemplate,
+    addText, addTextAt, addShape, addShapeAt, addFrame, addLine, addLineAt, addImage, addImageAt, replaceImage, applyTemplate,
     // text
     setFont, setFontSize, toggleBold, toggleItalic, toggleUnderline, toggleStrike, setAlign, setLineHeight, setCharSpacing,
     // style
-    setFill, setStroke, setStrokeWidth, setOpacity, setShadow, setRadius, setImageFx, flip, setAngle, setPosition,
+    setFill, setStroke, setStrokeWidth, setOpacity, setShadow, setRadius, setImageFx, cropImage, flip, setAngle, setPosition,
     // arrange
     align, order, moveLayer, moveLayerTo,
     // layers

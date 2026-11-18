@@ -11,7 +11,7 @@ import { clamp, uid } from './RCanvasData'
 import { installEditing } from './RCanvasEditing'
 
 // Custom object props that must survive toObject()/loadFromJSON().
-export const EXTRA_PROPS = ['id', 'name', 'rcLocked', 'rcFx', 'rcRadius', 'rcBase', 'rcFrame']
+export const EXTRA_PROPS = ['id', 'name', 'rcLocked', 'rcFx', 'rcRadius', 'rcBase', 'rcFrame', 'rcParent']
 
 export const CONTROL_STYLE = {
   cornerStyle: 'circle',
@@ -30,7 +30,7 @@ const MIN_ZOOM = 0.05
 const MAX_ZOOM = 4
 const round = n => Math.round(n * 100) / 100
 
-export async function createEngine({ el, stage, state, width = 1080, height = 1080, onChange }) {
+export async function createEngine({ el, stage, state, width = 1080, height = 1080, onChange, wheelZoom = false }) {
   const fabric = await import('fabric')
   const {
     Canvas, Rect, Line: FabricLine, FabricImage, Path,
@@ -76,19 +76,205 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   const isGuide = o => !!o?.rcGuide
   const isText = o => o instanceof Textbox
   const isImage = o => o instanceof FabricImage
+  const isFrame = o => !!o?.rcFrame
   const kindOf = (o) => {
     if (o instanceof ActiveSelection) return 'multi'
+    if (isFrame(o)) return 'frame'
     if (o instanceof Group) return 'group'
     if (o instanceof Textbox) return 'text'
     if (o instanceof FabricImage) return 'image'
     if (o instanceof FabricLine) return 'line'
     return 'shape'
   }
-  const LABELS = { text: 'Text', image: 'Image', line: 'Line', shape: 'Shape', group: 'Group' }
+  const LABELS = { text: 'Text', image: 'Image', line: 'Line', shape: 'Shape', group: 'Group', frame: 'Frame' }
   const nameOf = (o) => {
     if (o.name) return o.name
     if (isText(o)) return (o.text || 'Text').replace(/\s+/g, ' ').slice(0, 26)
     return LABELS[kindOf(o)] ?? 'Object'
+  }
+
+  function imageNaturalSize(o) {
+    const el = o?._originalElement || o?._element || o?.getElement?.()
+    const w = Number(el?.naturalWidth || el?.videoWidth || el?.width || o?.width || 0)
+    const h = Number(el?.naturalHeight || el?.videoHeight || el?.height || o?.height || 0)
+    return { w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) }
+  }
+
+  function imageFileInfo(o) {
+    const src = o?.getSrc?.() || ''
+    const mime = /^data:([^;,]+)/i.exec(src)?.[1] || ''
+    const ext = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(src)?.[1] || ''
+    const type = (mime ? mime.split('/').pop() : ext || 'image').toUpperCase()
+    let name = 'Image'
+    if (src && !src.startsWith('data:')) {
+      try {
+        const clean = src.split('?')[0].split('#')[0]
+        name = decodeURIComponent(clean.split('/').pop() || 'Image')
+      }
+      catch { name = 'Image' }
+    }
+    else if (mime) {
+      name = `Image.${mime.split('/').pop() || 'png'}`
+    }
+    return { name, type }
+  }
+
+  // ── Frames ────────────────────────────────────────────────────────────────
+  const frames = () => canvas.getObjects().filter(o => isFrame(o) && !isGuide(o))
+  const frameById = id => frames().find(o => o.id === id) || null
+  const childrenOf = (frame) => {
+    const id = typeof frame === 'string' ? frame : frame?.id
+    return id ? canvas.getObjects().filter(o => o.rcParent === id) : []
+  }
+
+  function rotatePoint(p, c, deg) {
+    const a = (deg * Math.PI) / 180
+    const cos = Math.cos(a)
+    const sin = Math.sin(a)
+    const dx = p.x - c.x
+    const dy = p.y - c.y
+    return new Point(c.x + dx * cos - dy * sin, c.y + dx * sin + dy * cos)
+  }
+
+  function frameClipRect(frame) {
+    const c = frame.getCenterPoint()
+    return new Rect({
+      left: c.x,
+      top: c.y,
+      width: Math.abs(frame.getScaledWidth()),
+      height: Math.abs(frame.getScaledHeight()),
+      originX: 'center',
+      originY: 'center',
+      angle: frame.angle || 0,
+      rx: frame.rx || 0,
+      ry: frame.ry || 0,
+      absolutePositioned: true,
+      fill: '#000',
+      strokeWidth: 0,
+      selectable: false,
+      evented: false,
+      objectCaching: false,
+      rcFrameClip: true,
+    })
+  }
+
+  function unassignFromFrame(o) {
+    if (!o) return
+    o.rcParent = null
+    if (o.clipPath?.rcFrameClip) o.set('clipPath', null)
+    o.dirty = true
+  }
+
+  function syncFrameClip(o, frame = null) {
+    if (!o || isGuide(o) || isFrame(o)) return
+    const f = frame || (o.rcParent ? frameById(o.rcParent) : null)
+    if (!f) {
+      unassignFromFrame(o)
+      return
+    }
+    o.rcParent = f.id
+    const c = f.getCenterPoint()
+    const clip = o.clipPath
+    if (clip?.rcFrameClip) {
+      clip.set({
+        left: c.x,
+        top: c.y,
+        width: Math.abs(f.getScaledWidth()),
+        height: Math.abs(f.getScaledHeight()),
+        angle: f.angle || 0,
+        rx: f.rx || 0,
+        ry: f.ry || 0,
+      })
+      clip.setCoords?.()
+    }
+    else {
+      o.set('clipPath', frameClipRect(f))
+    }
+    o.dirty = true
+  }
+
+  function syncFrameClips(frame) {
+    if (frame) childrenOf(frame).forEach(o => syncFrameClip(o, frame))
+  }
+
+  function syncAllFrameClips() {
+    const ids = new Set(frames().map(o => o.id))
+    canvas.getObjects().forEach((o) => {
+      if (isGuide(o) || isFrame(o) || !o.rcParent) return
+      if (!ids.has(o.rcParent)) unassignFromFrame(o)
+      else syncFrameClip(o)
+    })
+    frames().forEach(syncFrameClips)
+  }
+
+  function frameAt(x, y, exclude = null) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+    const p = new Point(x, y)
+    const list = frames()
+    for (let i = list.length - 1; i >= 0; i--) {
+      const f = list[i]
+      if (f === exclude || f.visible === false) continue
+      f.setCoords()
+      if (f.containsPoint(p)) return f
+    }
+    return null
+  }
+
+  function assignToFrame(o, frame) {
+    if (!o || !frame || isGuide(o) || isFrame(o)) return null
+    o.rcParent = frame.id
+    const objects = canvas.getObjects()
+    const fi = objects.indexOf(frame)
+    const oi = objects.indexOf(o)
+    if (fi >= 0 && oi >= 0 && oi < fi) canvas.moveObjectTo(o, fi + 1)
+    syncFrameClip(o, frame)
+    return frame
+  }
+
+  function moveFrameBy(frame, dx, dy) {
+    if (!frame || (!dx && !dy)) return
+    childrenOf(frame).forEach((o) => {
+      o.set({ left: o.left + dx, top: o.top + dy })
+      o.setCoords?.()
+      const clip = o.clipPath
+      if (clip?.rcFrameClip) {
+        clip.set({ left: clip.left + dx, top: clip.top + dy })
+        clip.setCoords?.()
+      }
+      o.dirty = true
+    })
+  }
+
+  function updateParentFor(o) {
+    if (!o || isGuide(o) || isFrame(o)) return
+    const c = o.getCenterPoint()
+    const parent = o.rcParent ? frameById(o.rcParent) : null
+    if (parent) {
+      parent.setCoords()
+      if (parent.containsPoint(c)) return
+    }
+    const next = frameAt(c.x, c.y, o)
+    if (next) assignToFrame(o, next)
+    else unassignFromFrame(o)
+  }
+
+  function frameScreenInfo(frame, selectedIds) {
+    const page = canvas.upperCanvasEl?.parentElement?.parentElement ?? stage
+    const rect = frame.getBoundingRect()
+    const p = util.transformPoint({ x: rect.left, y: rect.top }, canvas.viewportTransform)
+    const ur = canvas.upperCanvasEl.getBoundingClientRect()
+    const pr = page.getBoundingClientRect()
+    const zoom = canvas.getZoom()
+    return {
+      id: frame.id,
+      name: nameOf(frame),
+      selected: selectedIds.has(frame.id),
+      left: Math.round(p.x + ur.left - pr.left),
+      top: Math.round(p.y + ur.top - pr.top - 20),
+      width: Math.round(rect.width * zoom),
+      height: Math.round(rect.height * zoom),
+      locked: !!frame.rcLocked,
+    }
   }
 
   function prepObject(o) {
@@ -124,6 +310,7 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
       canvas.discardActiveObject()
       await canvas.loadFromJSON(json ?? blankJson())
       canvas.getObjects().forEach(prepObject)
+      syncAllFrameClips()
       applyBackgroundSize()
     }
     finally { loading = false }
@@ -203,6 +390,7 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
     canvas.setDimensions({ width: Math.round(W * z), height: Math.round(H * z) })
     canvas.setZoom(z)
     state.zoom = z
+    refresh()
   }
   function fit() {
     const pad = 56
@@ -293,10 +481,15 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   }
 
   function syncLayers() {
+    const selectedIds = canvas.getActiveObjects().map(o => o.id)
     state.layers = canvas.getObjects().filter(o => !isGuide(o)).map(o => ({
       id: o.id, name: nameOf(o), kind: kindOf(o), visible: o.visible !== false, locked: !!o.rcLocked,
+      parentId: o.rcParent || null, frame: isFrame(o),
     })).reverse()
-    state.selectedIds = canvas.getActiveObjects().map(o => o.id)
+    state.selectedIds = selectedIds
+    state.frames = frames()
+      .filter(o => o.visible !== false)
+      .map(o => frameScreenInfo(o, new Set(selectedIds)))
     const bg = canvas.backgroundColor
     state.bg = typeof bg === 'string' ? bg : '#gradient'
   }
@@ -311,6 +504,15 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
     const img = objs.find(isImage)
     const bb = active ? ctx.bbox(active) : null
     const bold = t && (t.fontWeight === 'bold' || Number(t.fontWeight) >= 600)
+    const imageSize = img ? imageNaturalSize(img) : null
+    const imageMeta = img ? imageFileInfo(img) : null
+    const imageCropW = img ? Math.max(1, Number(img.width) || imageSize.w) : null
+    const imageCropH = img ? Math.max(1, Number(img.height) || imageSize.h) : null
+    const imageCropped = img
+      ? (Number(img.cropX) || 0) > 0.5 || (Number(img.cropY) || 0) > 0.5
+      || imageCropW < imageSize.w - 0.5 || imageCropH < imageSize.h - 0.5
+      : false
+    const cropRatio = img ? Math.round((img.getScaledWidth() / img.getScaledHeight()) * 10000) / 10000 : null
     state.sel = {
       count: objs.length,
       kind: objs.length > 1 ? 'multi' : kindOf(o),
@@ -335,6 +537,14 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
       lineHeight: t?.lineHeight ?? 1.16,
       charSpacing: t?.charSpacing ?? 0,
       fx: { brightness: 0, contrast: 0, saturation: 0, blur: 0, ...(img?.rcFx || {}) },
+      cropRatio,
+      imageCropped,
+      imageName: imageMeta?.name ?? null,
+      imageType: imageMeta?.type ?? null,
+      imageNaturalWidth: imageSize?.w ?? null,
+      imageNaturalHeight: imageSize?.h ?? null,
+      imageCropWidth: imageCropW,
+      imageCropHeight: imageCropH,
       rect: bb ? { x: Math.round(bb.l), y: Math.round(bb.t), w: Math.round(bb.r - bb.l), h: Math.round(bb.b - bb.t) } : null,
     }
   }
@@ -551,6 +761,22 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
       }
     })
   }
+  function exportFrameBlob(id, options = {}) {
+    const frame = frameById(id)
+    if (!frame) return Promise.reject(new Error('Frame not found'))
+    const r = frame.getBoundingRect()
+    return exportBlob({
+      ...options,
+      crop: { left: r.left, top: r.top, width: r.width, height: r.height },
+    })
+  }
+  async function exportFrames(options = {}) {
+    const out = []
+    for (const frame of frames().filter(o => o.visible !== false)) {
+      out.push({ id: frame.id, name: nameOf(frame), blob: await exportFrameBlob(frame.id, options) })
+    }
+    return out
+  }
   const exportSVG = () => withUnzoomed(() => canvas.toSVG())
   const exportJSON = () => JSON.stringify(getDocument())
 
@@ -598,7 +824,9 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   // ── Context shared with the editing module ────────────────────────────────
   const ctx = {
     fabric, K, canvas, state, stage, EXTRA_PROPS, CONTROL_STYLE,
-    isGuide, isText, isImage, kindOf, nameOf, prepObject,
+    isGuide, isText, isImage, isFrame, kindOf, nameOf, prepObject, imageNaturalSize,
+    frames, frameById, childrenOf, frameAt, assignToFrame, unassignFromFrame,
+    syncFrameClip, syncFrameClips, syncAllFrameClips, moveFrameBy, updateParentFor,
     commit, flushCommit, refresh, refreshNow, resetHistory, pushHistory,
     setSize, setBackground, undo, redo,
     setSuppress: (v) => { suppress = v },
@@ -622,12 +850,48 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   let panStart = null
   const pt = e => e.touches?.[0] ?? e
 
+  let frameMove = null
+  let frameTurn = null
+
   canvas.on('selection:created', refresh)
   canvas.on('selection:updated', refresh)
   canvas.on('selection:cleared', refresh)
-  canvas.on('object:moving', refresh)
-  canvas.on('object:scaling', refresh)
-  canvas.on('object:rotating', refresh)
+  canvas.on('object:moving', ({ target }) => {
+    if (isFrame(target)) {
+      const c = target.getCenterPoint()
+      if (!frameMove || frameMove.id !== target.id) frameMove = { id: target.id, x: c.x, y: c.y }
+      const dx = c.x - frameMove.x
+      const dy = c.y - frameMove.y
+      if (dx || dy) {
+        moveFrameBy(target, dx, dy)
+        frameMove.x = c.x
+        frameMove.y = c.y
+      }
+    }
+    refresh()
+  })
+  canvas.on('object:scaling', ({ target }) => {
+    if (isFrame(target)) syncFrameClips(target)
+    refresh()
+  })
+  canvas.on('object:rotating', ({ target }) => {
+    if (isFrame(target)) {
+      if (!frameTurn || frameTurn.id !== target.id) frameTurn = { id: target.id, angle: target.angle || 0 }
+      const delta = (target.angle || 0) - frameTurn.angle
+      if (delta) {
+        const c = target.getCenterPoint()
+        childrenOf(target).forEach((o) => {
+          const p = rotatePoint(o.getCenterPoint(), c, delta)
+          o.setPositionByOrigin(p, 'center', 'center')
+          o.rotate((o.angle || 0) + delta)
+          o.setCoords?.()
+        })
+        syncFrameClips(target)
+        frameTurn.angle = target.angle || 0
+      }
+    }
+    refresh()
+  })
 
   canvas.on('object:added', ({ target }) => {
     if (isGuide(target)) return
@@ -643,6 +907,14 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   canvas.on('object:modified', (e) => {
     if (isGuide(e.target)) return
     editing.normalizeScale(e.target, e.transform?.corner ?? lastCorner)
+    if (isFrame(e.target)) {
+      syncFrameClips(e.target)
+      frameMove = null
+      frameTurn = null
+    }
+    else {
+      updateParentFor(e.target)
+    }
     refresh()
     commit()
   })
@@ -658,6 +930,11 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   canvas.on('mouse:down', (opt) => {
     stage.focus?.({ preventScroll: true })
     lastCorner = opt.transform?.corner ?? null
+    if (isFrame(opt.target)) {
+      const c = opt.target.getCenterPoint()
+      frameMove = { id: opt.target.id, x: c.x, y: c.y }
+      frameTurn = { id: opt.target.id, angle: opt.target.angle || 0 }
+    }
     const e = opt.e
     if (spaceDown || e.button === 1) {
       panning = true
@@ -676,7 +953,7 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   canvas.on('mouse:up', () => { panning = false; panStart = null })
 
   const onWheel = (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return
+    if (!(wheelZoom || e.ctrlKey || e.metaKey)) return
     e.preventDefault()
     zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1, e.clientX, e.clientY)
   }
@@ -727,7 +1004,7 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
     getDocument, loadDocument, loadImageDocument, setBackground, setSize,
     addPage, duplicatePage, deletePage, movePage, renamePage, goToPage,
     // export
-    exportBlob, exportSVG, exportJSON, exportPages,
+    exportBlob, exportSVG, exportJSON, exportPages, exportFrameBlob, exportFrames,
     // tools
     setTool, setPen,
     // internals the UI may need

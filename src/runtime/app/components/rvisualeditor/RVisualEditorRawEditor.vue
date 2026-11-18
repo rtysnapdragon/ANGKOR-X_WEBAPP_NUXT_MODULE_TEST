@@ -2,9 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRVisualEditorEngine } from '../../composables/useRVisualEditorEngine'
-import { FONTS, LINES, SHAPES, TEXT_ALIGNS, TEXT_PRESETS } from '../Editor/Canvaas/RCanvasData'
+import { FONTS, LINES, PAGE_PRESET_GROUPS, SHAPES, TEXT_ALIGNS, TEXT_PRESETS } from '../Editor/Canvaas/RCanvasData'
+import RIcon from '../RIcon.vue'
 import RTooltip from '../RTooltip.vue'
 import RBtnExCol from '../btn/RBtnExCol.vue'
+import RCanvasPresetPicker from './RCanvasPresetPicker.vue'
 
 let i18n = null
 try {
@@ -58,6 +60,63 @@ const FX = [
   { key: 'blur', label: 'Blur', min: 0, max: 1, step: 0.05 },
 ]
 
+const CROP_RATIOS = [
+  { id: 'free', label: 'Free', key: 'rve_free', ratio: null },
+  { id: '1:1', label: '1:1', ratio: 1 },
+  { id: '4:3', label: '4:3', ratio: 4 / 3 },
+  { id: '3:2', label: '3:2', ratio: 3 / 2 },
+  { id: '16:9', label: '16:9', ratio: 16 / 9 },
+  { id: '9:16', label: '9:16', ratio: 9 / 16 },
+  { id: '3:4', label: '3:4', ratio: 3 / 4 },
+  { id: '2:3', label: '2:3', ratio: 2 / 3 },
+  { id: '4:5', label: '4:5', ratio: 4 / 5 },
+]
+
+const IMAGE_PRESETS = [
+  {
+    id: 'original',
+    label: 'Original',
+    key: 'rve_preset_original',
+    swatch: 'linear-gradient(135deg, #e5e7eb, #9ca3af)',
+    fx: { brightness: 0, contrast: 0, saturation: 0, blur: 0 },
+  },
+  {
+    id: 'vivid',
+    label: 'Vivid',
+    key: 'rve_preset_vivid',
+    swatch: 'linear-gradient(135deg, #f59e0b, #ef4444, #8b5cf6)',
+    fx: { brightness: 0.02, contrast: 0.12, saturation: 0.25, blur: 0 },
+  },
+  {
+    id: 'warm',
+    label: 'Warm',
+    key: 'rve_preset_warm',
+    swatch: 'linear-gradient(135deg, #fbbf24, #f97316)',
+    fx: { brightness: 0.04, contrast: 0.05, saturation: 0.12, blur: 0 },
+  },
+  {
+    id: 'cool',
+    label: 'Cool',
+    key: 'rve_preset_cool',
+    swatch: 'linear-gradient(135deg, #38bdf8, #6366f1)',
+    fx: { brightness: 0.02, contrast: 0.05, saturation: -0.1, blur: 0 },
+  },
+  {
+    id: 'mono',
+    label: 'Mono',
+    key: 'rve_preset_mono',
+    swatch: 'linear-gradient(135deg, #111827, #e5e7eb)',
+    fx: { brightness: 0, contrast: 0.12, saturation: -1, blur: 0 },
+  },
+  {
+    id: 'fade',
+    label: 'Fade',
+    key: 'rve_preset_fade',
+    swatch: 'linear-gradient(135deg, #fde68a, #c4b5fd, #bfdbfe)',
+    fx: { brightness: 0.08, contrast: -0.12, saturation: -0.15, blur: 0 },
+  },
+]
+
 const ALIGN = [
   ['left', 'align-start-vertical'],
   ['center', 'align-center-vertical'],
@@ -95,6 +154,7 @@ const state = reactive({
   pages: [],
   pageIndex: 0,
   layers: [],
+  frames: [],
   selectedIds: [],
   sel: null,
   bg: '#ffffff',
@@ -132,6 +192,34 @@ const api = new Proxy({}, {
     return (...args) => value.apply(engine.value, args)
   },
 })
+
+const presetGroups = computed(() => PAGE_PRESET_GROUPS.map(group => ({
+  ...group,
+  label: t(group.key, group.label),
+  presets: group.presets.map(preset => ({
+    ...preset,
+    label: t(tKey(preset.label), preset.label),
+    sizeLabel: `${preset.w} × ${preset.h} px`,
+  })),
+})))
+const presetFlat = computed(() => presetGroups.value.flatMap(group => group.presets))
+const presetId = ref('')
+watch(() => [state.width, state.height], ([width, height]) => {
+  const current = presetFlat.value.find(preset => preset.id === presetId.value)
+  if (current?.w === width && current?.h === height) return
+  presetId.value = presetFlat.value.find(preset => preset.w === width && preset.h === height)?.id ?? ''
+}, { immediate: true })
+
+function applyCanvasPreset(preset) {
+  if (!preset) return
+  presetId.value = preset.id
+  const width = Math.round(Number(preset.w))
+  const height = Math.round(Number(preset.h))
+  if (!(width >= 50 && height >= 50)) return
+  canvasW.value = width
+  canvasH.value = height
+  api.setSize(width, height)
+}
 
 const selLabel = computed(() => {
   const value = state.sel
@@ -308,6 +396,31 @@ function applyAngle(value) {
   api.setAngle(next)
 }
 
+function rotateBy(degrees) {
+  applyAngle((Number(state.sel?.angle) || 0) + degrees)
+}
+
+function applyCrop(ratio) {
+  api.cropImage(ratio)
+}
+
+function cropRatioActive(item) {
+  if (!state.sel?.hasImage) return false
+  if (item.ratio == null) return !state.sel.imageCropped
+  return !!state.sel.imageCropped && Math.abs((Number(state.sel.cropRatio) || 0) - item.ratio) < 0.02
+}
+
+function applyImagePreset(preset) {
+  api.setImageFx(preset.fx)
+}
+
+function presetActive(preset) {
+  const fx = state.sel?.fx || {}
+  return ['brightness', 'contrast', 'saturation', 'blur'].every(
+    key => Math.abs((Number(fx[key]) || 0) - (Number(preset.fx[key]) || 0)) < 0.001,
+  )
+}
+
 function layerIcon(kind) {
   return {
     text: 'i-lucide-type',
@@ -315,6 +428,7 @@ function layerIcon(kind) {
     line: 'i-lucide-minus',
     group: 'i-lucide-group',
     multi: 'i-lucide-layers',
+    frame: 'i-lucide-frame',
   }[kind] || 'i-lucide-shapes'
 }
 
@@ -435,15 +549,24 @@ function onToolUp(event) {
     const height = Math.max(4, Math.abs(dy))
     const left = Math.min(start.x, end.x)
     const top = Math.min(start.y, end.y)
-    api.addShapeAt(isFrame || activeTool.value === 'rect' ? 'square' : 'circle', {
-      left,
-      top,
-      width: width < 5 ? (isFrame ? 320 : 160) : width,
-      height: height < 5 ? (isFrame ? 240 : 160) : height,
-      fill: isFrame ? '#ffffff' : '#8c52ff',
-      name: isFrame ? 'Frame' : undefined,
-      rcFrame: isFrame || undefined,
-    })
+    if (isFrame) {
+      api.addFrame({
+        left,
+        top,
+        width: width < 5 ? 320 : width,
+        height: height < 5 ? 240 : height,
+        fill: '#ffffff',
+      })
+    }
+    else {
+      api.addShapeAt(activeTool.value === 'rect' ? 'square' : 'circle', {
+        left,
+        top,
+        width: width < 5 ? 160 : width,
+        height: height < 5 ? 160 : height,
+        fill: '#8c52ff',
+      })
+    }
   }
   setTool('move')
 }
@@ -669,6 +792,7 @@ onMounted(async () => {
       width,
       height,
       onChange: onEngineChange,
+      wheelZoom: true,
     })
     if (unmounted) {
       eng.dispose()
@@ -731,7 +855,7 @@ defineExpose({
             :disabled="!state.canUndo || saving"
             @click="api.undo()"
           >
-            <UIcon
+            <RIcon
               name="i-lucide-undo-2"
               class="rc-ico"
             />
@@ -747,7 +871,7 @@ defineExpose({
             :disabled="!state.canRedo || saving"
             @click="api.redo()"
           >
-            <UIcon
+            <RIcon
               name="i-lucide-redo-2"
               class="rc-ico"
             />
@@ -843,7 +967,7 @@ defineExpose({
               @drop.prevent="onLayerDrop(layer.id)"
               @click="selectLayer(layer.id, $event)"
             >
-              <UIcon
+              <RIcon
                 :name="layerIcon(layer.kind)"
                 class="rc-ico"
               />
@@ -879,7 +1003,7 @@ defineExpose({
                     class="rc-btn rc-btn--sm"
                     @click.stop="api.toggleVisible(layer.id)"
                   >
-                    <UIcon
+                    <RIcon
                       :name="layer.visible ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                       class="rc-ico"
                     />
@@ -895,7 +1019,7 @@ defineExpose({
                     class="rc-btn rc-btn--sm"
                     @click.stop="api.toggleLock(layer.id)"
                   >
-                    <UIcon
+                    <RIcon
                       :name="layer.locked ? 'i-lucide-lock' : 'i-lucide-lock-open'"
                       class="rc-ico"
                     />
@@ -975,7 +1099,7 @@ defineExpose({
             class="rc-drop rv-raw__drop"
             @click="openImagePicker()"
           >
-            <UIcon
+            <RIcon
               name="i-lucide-upload"
               class="rc-ico rc-ico--lg"
             />
@@ -1072,7 +1196,7 @@ defineExpose({
               :disabled="!state.ready || saving"
               @click="setTool(tool.id)"
             >
-              <UIcon
+              <RIcon
                 :name="tool.icon"
                 class="rc-ico"
               />
@@ -1082,6 +1206,20 @@ defineExpose({
 
         <div class="rc-stage__page">
           <canvas ref="canvasEl" />
+          <div class="rv-raw__frame-labels">
+            <button
+              v-for="frame in state.frames"
+              :key="frame.id"
+              type="button"
+              class="rv-raw__frame-tag"
+              :class="{ 'is-on': frame.selected }"
+              :style="{ left: `${frame.left}px`, top: `${frame.top}px` }"
+              @pointerdown.stop
+              @click.stop="api.selectById(frame.id)"
+            >
+              {{ frame.name }}
+            </button>
+          </div>
         </div>
 
         <div
@@ -1104,7 +1242,7 @@ defineExpose({
         </div>
 
         <div class="rv-raw__stage-info">
-          <span class="rv-raw__frame-label">{{ t('rve_frame', 'Frame') }} {{ state.pageIndex + 1 }}</span>
+          <span class="rv-raw__frame-label">{{ t('rve_page', 'Page') }} {{ state.pageIndex + 1 }}</span>
           <span>{{ state.width }} x {{ state.height }}</span>
         </div>
 
@@ -1119,7 +1257,7 @@ defineExpose({
               :disabled="!state.ready || saving"
               @click="api.zoomBy(1 / 1.2)"
             >
-              <UIcon
+              <RIcon
                 name="i-lucide-minus"
                 class="rc-ico"
               />
@@ -1149,7 +1287,7 @@ defineExpose({
               :disabled="!state.ready || saving"
               @click="api.zoomBy(1.2)"
             >
-              <UIcon
+              <RIcon
                 name="i-lucide-plus"
                 class="rc-ico"
               />
@@ -1170,7 +1308,7 @@ defineExpose({
           class="rc-error"
           role="alert"
         >
-          <UIcon
+          <RIcon
             name="i-lucide-alert-triangle"
             class="rc-ico"
           />
@@ -1215,6 +1353,39 @@ defineExpose({
             @click="rightCollapsed = !rightCollapsed"
           />
         </div>
+        <section class="rv-raw__section rv-raw__section--presets">
+          <div class="rv-raw__title rv-raw__title--row">
+            <span>{{ t('rve_presets', 'Presets') }}</span>
+            <RTooltip
+              :text="t('rve_presets_info', 'Choose a canvas size for Facebook, Instagram, TikTok, LinkedIn and more.')"
+              side="left"
+              :is-popper="true"
+              class="rv-raw__tip"
+            >
+              <span class="rv-raw__info">
+                <RIcon
+                  name="i-lucide-info"
+                  class="rc-ico"
+                />
+              </span>
+            </RTooltip>
+          </div>
+          <RCanvasPresetPicker
+            v-model="presetId"
+            :groups="presetGroups"
+            :label="t('rve_choose_preset', 'Choose a preset')"
+            :placeholder="t('rve_choose_preset', 'Choose a preset')"
+            :title="t('rve_presets', 'Presets')"
+            :empty-label="t('rve_no_presets', 'No presets available')"
+            :disabled="!state.ready || saving"
+            side="bottom"
+            align="end"
+            @select="applyCanvasPreset"
+          />
+          <p class="rc-hint">
+            {{ t('rve_presets_hint', 'Presets resize the canvas. Existing elements keep their positions.') }}
+          </p>
+        </section>
         <div v-if="state.sel">
           <div class="rv-raw__inspector-head">
             <span class="rv-raw__title">{{ selLabel }}</span>
@@ -1229,7 +1400,7 @@ defineExpose({
                 :class="{ 'is-on': state.sel.locked }"
                 @click="api.setLocked(!state.sel.locked)"
               >
-                <UIcon
+                <RIcon
                   :name="state.sel.locked ? 'i-lucide-lock' : 'i-lucide-lock-open'"
                   class="rc-ico"
                 />
@@ -1293,6 +1464,40 @@ defineExpose({
                   @input="api.setOpacity(Number($event.target.value) / 100)"
                 >
               </label>
+            </div>
+            <div class="rv-raw__actions">
+              <RTooltip
+                :text="t('rve_rotate_left', 'Rotate left 90°')"
+                side="top"
+                class="rv-raw__tip"
+              >
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="rotateBy(-90)"
+                >
+                  <RIcon
+                    name="i-lucide-rotate-ccw"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_rotate_right', 'Rotate right 90°')"
+                side="top"
+                class="rv-raw__tip"
+              >
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="rotateBy(90)"
+                >
+                  <RIcon
+                    name="i-lucide-rotate-cw"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
           </section>
 
@@ -1376,7 +1581,7 @@ defineExpose({
                   :class="{ 'is-on': state.sel.shadow }"
                   @click="api.setShadow(!state.sel.shadow)"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-sun-dim"
                     class="rc-ico"
                   />
@@ -1392,7 +1597,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.flip('x')"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-flip-horizontal"
                     class="rc-ico"
                   />
@@ -1408,7 +1613,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.flip('y')"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-flip-vertical"
                     class="rc-ico"
                   />
@@ -1471,7 +1676,7 @@ defineExpose({
                   :class="{ 'is-on': state.sel.bold }"
                   @click="api.toggleBold()"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-bold"
                     class="rc-ico"
                   />
@@ -1488,7 +1693,7 @@ defineExpose({
                   :class="{ 'is-on': state.sel.italic }"
                   @click="api.toggleItalic()"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-italic"
                     class="rc-ico"
                   />
@@ -1505,7 +1710,7 @@ defineExpose({
                   :class="{ 'is-on': state.sel.underline }"
                   @click="api.toggleUnderline()"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-underline"
                     class="rc-ico"
                   />
@@ -1522,7 +1727,7 @@ defineExpose({
                   :class="{ 'is-on': state.sel.linethrough }"
                   @click="api.toggleStrike()"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-strikethrough"
                     class="rc-ico"
                   />
@@ -1543,7 +1748,7 @@ defineExpose({
                   :class="{ 'is-on': state.sel.textAlign === align }"
                   @click="api.setAlign(align)"
                 >
-                  <UIcon
+                  <RIcon
                     :name="`i-lucide-align-${align}`"
                     class="rc-ico"
                   />
@@ -1574,7 +1779,7 @@ defineExpose({
               class="rc-btn rc-btn--solid rv-raw__wide"
               @click="replaceFileInput?.click()"
             >
-              <UIcon
+              <RIcon
                 name="i-lucide-refresh-cw"
                 class="rc-ico"
               />
@@ -1596,6 +1801,75 @@ defineExpose({
             </label>
           </section>
 
+          <section
+            v-if="state.sel.kind === 'image'"
+            class="rv-raw__section"
+          >
+            <div class="rv-raw__title">
+              {{ t('rve_crop', 'Crop') }}
+            </div>
+            <div class="rv-raw__chips">
+              <button
+                v-for="item in CROP_RATIOS"
+                :key="item.id"
+                type="button"
+                class="rv-raw__chip"
+                :class="{ 'is-on': cropRatioActive(item) }"
+                @click="applyCrop(item.ratio)"
+              >
+                {{ item.key ? t(item.key, item.label) : item.label }}
+              </button>
+            </div>
+            <dl class="rv-raw__meta">
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_aspect_ratio', 'Aspect ratio') }}</dt>
+                <dd>{{ state.sel.cropRatio ? `${Math.round(state.sel.cropRatio * 100) / 100}:1` : '—' }}</dd>
+              </div>
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_crop_size', 'Crop size') }}</dt>
+                <dd>{{ state.sel.imageCropWidth }} × {{ state.sel.imageCropHeight }} px</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section
+            v-if="state.sel.kind === 'image'"
+            class="rv-raw__section"
+          >
+            <div class="rv-raw__title rv-raw__title--row">
+              <span>{{ t('rve_filters', 'Filters') }}</span>
+              <RTooltip
+                :text="t('rve_filters_info', 'Filters apply a quick look to the selected image. Fine-tune the result with the sliders above.')"
+                side="left"
+                :is-popper="true"
+                class="rv-raw__tip"
+              >
+                <span class="rv-raw__info">
+                  <RIcon
+                    name="i-lucide-info"
+                    class="rc-ico"
+                  />
+                </span>
+              </RTooltip>
+            </div>
+            <div class="rv-raw__presets">
+              <button
+                v-for="preset in IMAGE_PRESETS"
+                :key="preset.id"
+                type="button"
+                class="rv-raw__preset"
+                :class="{ 'is-on': presetActive(preset) }"
+                @click="applyImagePreset(preset)"
+              >
+                <span
+                  class="rv-raw__preset-dot"
+                  :style="{ background: preset.swatch }"
+                />
+                <span>{{ t(preset.key, preset.label) }}</span>
+              </button>
+            </div>
+          </section>
+
           <section class="rv-raw__section">
             <div class="rv-raw__title">
               {{ t('rve_arrange', 'Arrange') }}
@@ -1611,7 +1885,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.order('front')"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-chevrons-up"
                     class="rc-ico"
                   />
@@ -1627,7 +1901,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.order('forward')"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-arrow-up"
                     class="rc-ico"
                   />
@@ -1643,7 +1917,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.order('backward')"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-arrow-down"
                     class="rc-ico"
                   />
@@ -1659,7 +1933,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.order('back')"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-chevrons-down"
                     class="rc-ico"
                   />
@@ -1679,7 +1953,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.align(item[0])"
                 >
-                  <UIcon
+                  <RIcon
                     :name="`i-lucide-${item[1]}`"
                     class="rc-ico"
                   />
@@ -1693,7 +1967,7 @@ defineExpose({
                 class="rc-btn rc-btn--solid"
                 @click="api.group()"
               >
-                <UIcon
+                <RIcon
                   name="i-lucide-group"
                   class="rc-ico"
                 />
@@ -1705,7 +1979,7 @@ defineExpose({
                 class="rc-btn rc-btn--solid"
                 @click="api.ungroup()"
               >
-                <UIcon
+                <RIcon
                   name="i-lucide-ungroup"
                   class="rc-ico"
                 />
@@ -1721,7 +1995,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid"
                   @click="api.duplicate()"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-copy"
                     class="rc-ico"
                   />
@@ -1737,7 +2011,7 @@ defineExpose({
                   class="rc-btn rc-btn--solid rc-btn--danger"
                   @click="api.remove()"
                 >
-                  <UIcon
+                  <RIcon
                     name="i-lucide-trash-2"
                     class="rc-ico"
                   />
@@ -1810,6 +2084,51 @@ defineExpose({
             <p class="rc-hint">
               {{ t('rve_canvas_hint', 'Select an element to edit its properties. Drag layers to reorder them.') }}
             </p>
+          </section>
+          <section class="rv-raw__section rv-raw__section--file">
+            <div class="rv-raw__title">
+              {{ t('rve_file_info', 'File info') }}
+            </div>
+            <dl class="rv-raw__meta">
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_name', 'Name') }}</dt>
+                <dd>{{ title || t('rve_untitled_design', 'Untitled design') }}</dd>
+              </div>
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_canvas', 'Canvas') }}</dt>
+                <dd>{{ state.width }} × {{ state.height }} px</dd>
+              </div>
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_page', 'Page') }}</dt>
+                <dd>{{ state.pageIndex + 1 }} / {{ state.pages.length || 1 }}</dd>
+              </div>
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_elements', 'Elements') }}</dt>
+                <dd>{{ state.layers.length }}</dd>
+              </div>
+              <div class="rv-raw__meta-row">
+                <dt>{{ t('rve_zoom', 'Zoom') }}</dt>
+                <dd>{{ Math.round((state.zoom || 1) * 100) }}%</dd>
+              </div>
+              <template v-if="state.sel?.hasImage">
+                <div class="rv-raw__meta-row">
+                  <dt>{{ t('rve_name', 'Name') }}</dt>
+                  <dd>{{ state.sel.imageName }}</dd>
+                </div>
+                <div class="rv-raw__meta-row">
+                  <dt>{{ t('rve_type', 'Type') }}</dt>
+                  <dd>{{ state.sel.imageType }}</dd>
+                </div>
+                <div class="rv-raw__meta-row">
+                  <dt>{{ t('rve_image_size', 'Image size') }}</dt>
+                  <dd>{{ state.sel.imageNaturalWidth }} × {{ state.sel.imageNaturalHeight }} px</dd>
+                </div>
+                <div class="rv-raw__meta-row">
+                  <dt>{{ t('rve_crop_size', 'Crop size') }}</dt>
+                  <dd>{{ state.sel.imageCropWidth }} × {{ state.sel.imageCropHeight }} px</dd>
+                </div>
+              </template>
+            </dl>
           </section>
         </div>
       </aside>
@@ -1979,7 +2298,40 @@ defineExpose({
     }
 
     .rc-stage__page {
+      position: relative;
       padding: 72px;
+    }
+  }
+
+  &__frame-labels {
+    position: absolute;
+    inset: 0;
+    z-index: 12;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  &__frame-tag {
+    position: absolute;
+    max-width: 180px;
+    padding: 2px 6px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 16px;
+    color: rgba(255, 255, 255, 0.72);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+
+    &:hover,
+    &.is-on {
+      color: #fff;
+      background: rgba(140, 82, 255, 0.92);
     }
   }
 
@@ -2180,6 +2532,143 @@ defineExpose({
     letter-spacing: 0.04em;
     color: var(--rc-muted);
     text-transform: uppercase;
+  }
+
+  &__title--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: var(--rc-muted);
+    cursor: help;
+    border-radius: 50%;
+
+    &:hover {
+      color: var(--rc-text);
+      background: var(--rc-bg-soft);
+    }
+
+    .rc-ico {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__chip {
+    padding: 6px 9px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--rc-muted);
+    background: var(--rc-bg-soft);
+    border: 1px solid var(--rc-border);
+    border-radius: 999px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--rc-text);
+      border-color: var(--rc-accent);
+    }
+
+    &.is-on {
+      color: #fff;
+      background: var(--rc-accent);
+      border-color: var(--rc-accent);
+    }
+  }
+
+  &__presets {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  &__preset {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 6px 8px;
+    overflow: hidden;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--rc-text);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--rc-bg-soft);
+    border: 1px solid var(--rc-border);
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--rc-accent);
+    }
+
+    &.is-on {
+      border-color: var(--rc-accent);
+      box-shadow: inset 0 0 0 1px var(--rc-accent);
+    }
+  }
+
+  &__preset-dot {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+  }
+
+  &__meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+
+    dt {
+      color: var(--rc-muted);
+    }
+
+    dd {
+      max-width: 62%;
+      margin: 0;
+      overflow: hidden;
+      color: var(--rc-text);
+      font-weight: 600;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__section--file {
+    padding-top: 16px;
+    border-top: 1px solid var(--rc-border);
+    border-bottom: 0;
   }
 
   &__inspector-head {

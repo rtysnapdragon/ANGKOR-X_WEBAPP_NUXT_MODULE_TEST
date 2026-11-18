@@ -3,10 +3,25 @@
     <div v-if="isPopper" ref="trigger" :class="ui.wrapper" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
       <slot :open="open"> Hover </slot>
       <Teleport :to="to">
-        <div v-if="open && !prevent && isVisible && !isGlobal" ref="container" :class="[ui.container, ui.width, 'z-10']">
-          <Transition appear v-bind="ui.transition">
-            <div class="w-fit">
-              <div v-if="popper.arrow" data-popper-arrow :class="ui.arrow" />
+        <Transition appear v-bind="transitionClasses">
+          <div
+            v-if="open && !prevent && isVisible && !isGlobal"
+            ref="container"
+            :class="[ui.container, ui.width, 'z-10']"
+          >
+            <div class="w-fit rt-tooltip-anim">
+              <div
+                v-if="popper.arrow"
+                data-popper-arrow
+                :class="[
+                  ui.arrow.base,
+                  ui.arrow.ring,
+                  ui.arrow.rounded,
+                  ui.arrow.background,
+                  ui.arrow.shadow,
+                  ui.arrow.placement,
+                ]"
+              />
               <div :class="[
                 ui.base,
                 ui.color,
@@ -20,8 +35,8 @@
                 </slot>
               </div>
             </div>
-          </Transition>
-        </div>
+          </div>
+        </Transition>
       </Teleport>
     </div>
 
@@ -46,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, computed, useSlots, unref } from "vue";
+import { ref, computed, useSlots, unref, watch } from "vue";
 // import { usePopper } from "@vueuse/popper";
 import { usePopper } from '../composables/usePopper'
 const props = defineProps([
@@ -72,28 +87,46 @@ const props = defineProps([
 ]);
 
 const text = computed(() => props.text);
-const placement = computed(() => props.placement ?? (props.isPopper ? (props.side ?? "top") : "bottom-start"));
-const content = computed(() => props.content)
+const side = computed(() => props.side ?? 'top') // top / bottom / right / left
+const align = computed(() => props.align ?? 'center') // start / center / end
+const isPopper = computed(() => props.isPopper === '' || !!props.isPopper)
+const placement = computed(() => {
+  if (props.placement) return props.placement
+  if (!isPopper.value) return 'bottom-start'
+  const [base, sideAlign] = String(side.value).split('-')
+  const alignValue = props.align ?? sideAlign ?? 'center'
+  return alignValue === 'center' ? base : `${base}-${alignValue}`
+})
+const sideBase = computed(() => String(placement.value).split('-')[0])
 const mode = computed(() => props.mode ?? 'hover')
-const side = computed(() => props.side ?? "top") // top / bottom /right /left
-const prevent = computed(() => props.prevent);
-const isGlobal = computed(() => isNotEmpty(props.isGlobal));
-const disabled = computed(() => props.disabled ?? false)
-const openDelay = computed(() => props.openDelay ?? 200 )
-const closeDelay = computed(() => props.closeDelay ?? 300 )
-const align = computed(() => props.align ?? 'center') // start , center , end
+const prevent = computed(() => props.prevent === '' || !!props.prevent)
+const isGlobal = computed(() => props.isGlobal === '' || !!props.isGlobal)
+const disabled = computed(() => props.disabled === '' || !!props.disabled)
+const openDelay = computed(() => props.openDelay ?? 200)
+const closeDelay = computed(() => props.closeDelay ?? 300)
 const modal = computed(() => props.modal ?? false)
 const noClose = computed(() => props.noClose ?? false)
-const isPopper = computed(() => props.isPopper ?? false)
 const to = computed(() => unref(props.to) ?? 'body')
 
+const transitionClasses = computed(() => ({
+  enterActiveClass: 'rt-tooltip-enter-active',
+  enterFromClass: `rt-tooltip-enter-from rt-tooltip-from-${sideBase.value}`,
+  enterToClass: 'rt-tooltip-enter-to',
+  leaveActiveClass: 'rt-tooltip-leave-active',
+  leaveFromClass: 'rt-tooltip-leave-from',
+  leaveToClass: `rt-tooltip-leave-to rt-tooltip-to-${sideBase.value}`,
+}))
+
 const popper = computed(() => ({
-    placement: placement.value,
-    arrow: true,
-    offsetDistance: props.sideOffset ?? 8,
-    strategy: "fixed",
-}));
-const [trigger, container] = usePopper(popper.value);
+  placement: placement.value,
+  arrow: true,
+  offsetDistance: props.sideOffset ?? 8,
+  strategy: 'fixed',
+}))
+const [trigger, container, popperInstance] = usePopper(popper.value)
+watch([container, placement], ([el, value]) => {
+  if (el) popperInstance.value?.setOptions({ placement: value })
+}, { flush: 'post' })
 
 const open = ref(false);
 
@@ -131,20 +164,6 @@ const ui = {
   ].join(' '),
   shortcuts: "hidden md:inline-flex flex-shrink-0 gap-0.5",
   middot: "mx-1 text-gray-700 dark:text-gray-200",
-  transition: {
-    // enterActiveClass: "transition ease-out duration-200",
-    // enterFromClass: "opacity-0 translate-y-1",
-    // enterToClass: "opacity-100 translate-y-0",
-    // leaveActiveClass: "transition ease-in duration-150",
-    // leaveFromClass: "opacity-100 translate-y-0",
-    // leaveToClass: "opacity-0 translate-y-1",
-    enterActiveClass: "transition ease-out duration-200",
-    enterFromClass: "opacity-0 translate-y-1",
-    enterToClass: "opacity-100 translate-y-0",
-    leaveActiveClass: "transition ease-in duration-150",
-    leaveFromClass: "opacity-100 translate-y-0",
-    leaveToClass: "opacity-0 translate-y-1",
-  },
   popper: {
     // strategy: "fixed",
     strategy: "fixed",
@@ -426,6 +445,66 @@ function onMouseLeave() {
       0
     ) scale(0.98);
   }
+}
+
+:global(.rt-tooltip-enter-active),
+:global(.rt-tooltip-leave-active) {
+  transition: opacity 160ms ease;
+  will-change: opacity;
+}
+
+:global(.rt-tooltip-enter-from),
+:global(.rt-tooltip-leave-to) {
+  opacity: 0;
+}
+
+:global(.rt-tooltip-enter-to),
+:global(.rt-tooltip-leave-from) {
+  opacity: 1;
+}
+
+:global(.rt-tooltip-enter-active .rt-tooltip-anim),
+:global(.rt-tooltip-leave-active .rt-tooltip-anim) {
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+:global(.rt-tooltip-enter-from .rt-tooltip-anim),
+:global(.rt-tooltip-leave-to .rt-tooltip-anim) {
+  transform: translate3d(
+    var(--rt-tooltip-x, 0px),
+    var(--rt-tooltip-y, 6px),
+    0
+  ) scale(0.98);
+}
+
+:global(.rt-tooltip-enter-to .rt-tooltip-anim),
+:global(.rt-tooltip-leave-from .rt-tooltip-anim) {
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+:global(.rt-tooltip-from-top),
+:global(.rt-tooltip-to-top) {
+  --rt-tooltip-x: 0px;
+  --rt-tooltip-y: 6px;
+}
+
+:global(.rt-tooltip-from-bottom),
+:global(.rt-tooltip-to-bottom) {
+  --rt-tooltip-x: 0px;
+  --rt-tooltip-y: -6px;
+}
+
+:global(.rt-tooltip-from-left),
+:global(.rt-tooltip-to-left) {
+  --rt-tooltip-x: 6px;
+  --rt-tooltip-y: 0px;
+}
+
+:global(.rt-tooltip-from-right),
+:global(.rt-tooltip-to-right) {
+  --rt-tooltip-x: -6px;
+  --rt-tooltip-y: 0px;
 }
 
 // //closing animation

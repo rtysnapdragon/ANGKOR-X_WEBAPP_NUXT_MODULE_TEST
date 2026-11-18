@@ -2,7 +2,7 @@
 // Left rail + panel: Design (sizes/templates), Elements, Text, Uploads, Draw, Layers, Help.
 import { ref, watch } from 'vue'
 import RCanvasColor from './RCanvasColor.vue'
-import { PAGE_PRESETS, TEMPLATES, SHAPES, LINES, TEXT_PRESETS, SHORTCUTS } from './RCanvasData'
+import { PAGE_PRESET_GROUPS, TEMPLATES, SHAPES, LINES, TEXT_PRESETS, SHORTCUTS } from './RCanvasData'
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -91,13 +91,18 @@ const preview = t => ({ background: t.bg })
         </div>
 
         <h3 class="rc-panel__title">Page size</h3>
-        <div class="rc-list">
-          <button
-            v-for="p in PAGE_PRESETS" :key="p.id" type="button" class="rc-list__item"
-            :class="{ 'is-on': state.width === p.w && state.height === p.h }" @click="api.setSize(p.w, p.h)"
-          >
-            <span>{{ p.label }}</span><small>{{ p.w }} × {{ p.h }}</small>
-          </button>
+        <div class="rc-list rc-list--grouped">
+          <div v-for="group in PAGE_PRESET_GROUPS" :key="group.id" class="rc-list__group">
+            <div class="rc-list__label">
+              {{ group.label }}
+            </div>
+            <button
+              v-for="p in group.presets" :key="p.id" type="button" class="rc-list__item"
+              :class="{ 'is-on': state.width === p.w && state.height === p.h }" @click="api.setSize(p.w, p.h)"
+            >
+              <span>{{ p.label }}</span><small>{{ p.w }} × {{ p.h }}</small>
+            </button>
+          </div>
         </div>
         <div class="rc-row rc-row--gap">
           <input v-model.number="customW" type="number" min="50" max="8000" class="rc-num" aria-label="Width">
