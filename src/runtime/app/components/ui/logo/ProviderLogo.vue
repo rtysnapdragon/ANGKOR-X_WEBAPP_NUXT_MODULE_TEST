@@ -28,6 +28,8 @@ type Provider =
   | 'youtube'
   | 'google-gemini'
   | 'google-one'
+  | 'cloudflare'
+  | 'r2'
 
 type LogoVariant = 'plain' | 'solid' | 'soft' | 'outline'
 type LogoShape = 'square' | 'rounded' | 'circle'
@@ -143,6 +145,8 @@ const aliases: Record<string, Provider> = {
   'google-gemini': 'google-gemini',
   gemini: 'google-gemini',
   'google-one': 'google-one',
+  'cloudflare':'cloudflare',
+  'r2':'cloudflare'
 }
 
 const normalizedProvider = computed<Provider>(() => {
@@ -191,6 +195,8 @@ const providerLabel = computed(() => {
     'youtube': 'YouTube',
     'google-gemini': 'Google Gemini',
     'google-one': 'Google One',
+    'cloudflare': 'Cloudflare R2',
+    'r2': 'Cloudflare R2'
   }
 
   return labels[normalizedProvider.value]
@@ -305,6 +311,13 @@ function handleClick(event: MouseEvent | KeyboardEvent) {
         <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.92l-3.87-3c-1.08.72-2.46 1.15-4.06 1.15-3.12 0-5.77-2.1-6.72-4.93H1.28v3.09A12 12 0 0 0 12 24Z"/>
         <path fill="#FBBC05" d="M5.28 14.3a7.2 7.2 0 0 1 0-4.6V6.61H1.28a12 12 0 0 0 0 10.78l4-3.09Z"/>
         <path fill="#EA4335" d="M12 4.77c1.77 0 3.35.61 4.6 1.81l3.45-3.45C17.94 1.17 15.24 0 12 0A12 12 0 0 0 1.28 6.61l4 3.09C6.23 6.87 8.88 4.77 12 4.77Z"/>
+      </template>
+
+      <!-- Cloudflare -->
+      <template v-else-if="normalizedProvider === 'cloudflare'">
+        <path fill="#F38020" d="M19.68 14.48c.17-.59.13-1.25-.14-1.79-.35-.7-1.04-1.13-1.84-1.15l-9.1-.13c-.06 0-.11-.03-.14-.07a.2.2 0 0 1-.03-.16c.03-.08.11-.14.2-.15l9.18-.13c1.09-.05 2.24-.93 2.65-2.01l.52-1.38c.02-.06.03-.13.01-.19C19.83 3.62 16.26 1 12.08 1 8.2 1 4.91 3.25 3.4 6.59c-.97-.73-2.25-.92-3.39-.48C-.98 6.65-1.7 8.16-1.5 9.7c-1.85.05-3.5 1.27-4.03 3.07-.56 1.94.57 4 2.51 4.56.25.07.51.11.77.11h19.7c.07 0 .13-.05.15-.12l.68-2.31Z" transform="translate(3 3)"/>
+        <path fill="#FBAD41" d="M21.14 14.66c.13-.44.1-.91-.1-1.31-.26-.52-.77-.84-1.36-.86l-8.25-.12c-.05 0-.1-.03-.12-.07a.15.15 0 0 1-.02-.14c.02-.07.09-.12.17-.13l8.33-.12c.99-.04 2.03-.84 2.4-1.82l.47-1.25c.03-.08.04-.16.02-.24a8.98 8.98 0 0 1 .25 5.97h-1.79Z"/>
+        <path fill="#FAAE40" d="M22.72 14.66c-.51 1.57-1.49 2.93-2.77 3.9h1.69c1.52 0 2.75-1.23 2.75-2.75 0-.63-.21-1.21-.57-1.67-.34-.44-.81-.76-1.35-.92l.25 1.44Z"/>
       </template>
 
       <!-- Facebook -->

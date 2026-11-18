@@ -94,7 +94,17 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
 
   // ── Serialization ─────────────────────────────────────────────────────────
   const blankJson = (bg = '#ffffff') => ({ version: 'rcanvas', objects: [], background: bg })
-  const serializePage = () => canvas.toObject(EXTRA_PROPS)
+  const serializePage = () => {
+    const active = canvas.getActiveObject()
+    if (!(active instanceof ActiveSelection)) return canvas.toObject(EXTRA_PROPS)
+    const objects = active.getObjects().slice()
+    active.removeAll()
+    const json = canvas.toObject(EXTRA_PROPS)
+    if (objects.length > 1) canvas.setActiveObject(new ActiveSelection(objects, { canvas }))
+    else if (objects.length === 1) canvas.setActiveObject(objects[0])
+    canvas.requestRenderAll()
+    return json
+  }
 
   async function loadJSON(json) {
     loading = true

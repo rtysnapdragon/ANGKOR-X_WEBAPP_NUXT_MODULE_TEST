@@ -257,3 +257,79 @@ Only show the save-changes modal when the RCanvas document has changed. When Can
 
 - Dirty tracking is event-based; undoing every edit back to the original still counts as dirty.
 - The warning labels are English, matching the existing RCanvas and save dialog labels.
+
+## 2026-11-18 - Figma-Like Raw Editor for Saved RVisualEditor Designs
+
+Status: implemented; targeted ESLint and SFC compile verified; manual browser QA pending.
+
+### Goal
+
+Edit saved `RVisualEditor` designs in a standalone Figma-like side editor instead of the Canva-style `RCanvas` frame/template UI. Plain images keep the existing `RCanvas` flow.
+
+### Files
+
+- `src/runtime/app/components/rvisualeditor/RVisualEditorRawEditor.vue` (new)
+- `src/runtime/app/components/rvisualeditor/RVisualEditorDesignBuilder.vue`
+
+### Implementation
+
+- Added a new raw editor built on the reusable `createEngine()` from `RCanvasEngine.js`.
+- Layout: top bar, left `Layers`/`Insert` tabs, centered artboard stage, right inspector.
+- Top bar: undo/redo, title, dimensions, zoom out/in, fit, Cancel, Apply.
+- Layers: drag reorder, inline rename, visibility, lock, selection.
+- Insert: text presets, shapes, lines, image upload, image URL, existing media items.
+- Inspector: transform, appearance, text, image FX/replace, arrange/align/group/duplicate/delete.
+- Canvas inspector when nothing is selected: width/height, background, snapping.
+- Supports keyboard shortcuts, Space pan, paste, file drop, upload handler, and image replacement.
+- Reuses global `.rc*` styles from `RCanvas.css` under a `.rc.rv-raw` root.
+- Emits `change`, `ready`, `save`, `cancel`; exposes `getDocument`, `getEngine`, `state`, `api`.
+- `RVisualEditorDesignBuilder` now renders the raw editor when `props.document` exists, otherwise falls back to `RCanvas`.
+- Passes the saved document, title, save label, media items, loading state, and upload handler into the raw editor.
+- Existing dirty tracking, save modal, and discard warning are reused unchanged.
+
+### Contracts / Decisions
+
+- Only saved designs use the raw editor; plain images remain on `RCanvas`.
+- The raw editor edits the current page only; other pages are preserved through `getDocument()`.
+- Save payload remains `{ blob, file, design, width, height }` with a PNG named from the title.
+- Image FX values use Fabric ranges: brightness/contrast/saturation `-1..1`, blur `0..1`.
+- Alignment keys use `left`, `center`, `right`, `top`, `middle`, `bottom`.
+- Space pan uses `engine.setSpace(true/false)`, not direct engine state mutation.
+- Apply is disabled while loading, busy, or saving; Cancel is disabled while saving.
+- While saving, editing UI, undo/redo, zoom/fit, paste, drop, and image adds are disabled so the exported blob and saved design stay in sync.
+
+### Verification
+
+- Both modified SFCs pass `@vue/compiler-sfc` parse/script/template/style compilation.
+- Both modified SFCs pass targeted ESLint with no output.
+- `npm run dev:build` completes successfully for the playground.
+- Manual browser QA still needed:
+  - saved document loads with layers and page size;
+  - layers/insert/inspector actions update the canvas;
+  - pan, zoom, fit, undo/redo work;
+  - add/replace images work through upload and URL;
+  - Apply with and without changes follows the dirty-state flow;
+  - Cancel/discard closes without saving;
+  - plain-image `RCanvas` fallback still works.
+
+### Caveats / Follow-ups
+
+- `RVisualEditorRawEditor` only edits the current page; page switching is intentionally out of scope.
+- The design builder `canvasKey` includes a `docVersion` counter that increments when the document or initial image prop changes, so the raw editor reloads on a new document.
+- W/H edits now scale by the displayed bounding-box ratio, so rotated objects are more consistent with the inspector; text boxes still scale font/width uniformly and may not match both axes exactly.
+- `npm test` remains blocked by unrelated environment/repo issues.
+
+### Follow-up fixes
+
+- Added `:inert="!state.ready || saving"` to both side panels and disabled zoom out/in/fit while not ready or saving.
+- Fixed line styling controls: `showBorder` is now shown for every selection, and an `isLine` computed switches labels to `Line color` / `Line weight` and allows line weight down to `1`.
+- Fixed `applyAngle` to call `api.setAngle(next)` with an absolute angle. `FabricObject.rotate()` / the engine’s `setAngle` set the angle absolutely, not relatively.
+- W/H inspector edits now pass the displayed `state.sel.rect.w/h` into `setSelectionSize`, so the scale ratio matches the bounding box the user sees, including rotated objects.
+- Fixed `RCanvasEngine.serializePage()` for active multi-selections: it temporarily removes the children from the `ActiveSelection` to bake their transforms into `canvas.toObject()`, then restores the selection. Without this, moving/scaling a multi-selection while it stayed active serialized relative coordinates and lost the group transform. Verified with a Fabric node simulation.
+- Targeted ESLint passes for the two modified SFCs. `RCanvasEngine.js` still has pre-existing project lint errors unrelated to this change.
+- `openEditorDesign` now opens when a saved `editorDesign` document exists even if the rendered image `src` is no longer available; plain images still require a valid `src`.
+- `baseName()` now strips a trailing image extension before appending `.png`, preventing names like `photo.png.png` on a no-change Apply.
+- The raw editor now parses a JSON-string `document` prop before loading; invalid strings fall back to a blank document.
+- Image FX/replace controls now show only for a single image selection, matching RCanvas; a multi-selection no longer replaces only the first image.
+- Space pan now releases on a window-level `keyup` (and on window `blur`), so the canvas does not stay stuck in pan mode if focus leaves the editor while Space is held.
+- `npm run dev:build` passes after the final raw-editor changes.

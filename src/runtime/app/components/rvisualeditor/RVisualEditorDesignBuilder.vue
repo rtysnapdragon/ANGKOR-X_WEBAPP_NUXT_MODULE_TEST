@@ -4,6 +4,7 @@ import RCanvas from '../Editor/Canvaas/RCanvas.vue'
 import RDialog from '../RDialog.vue'
 import RModal from '../RModal.vue'
 import RSlider from '../RSlider.vue'
+import RVisualEditorRawEditor from './RVisualEditorRawEditor.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -24,6 +25,7 @@ const open = computed({
 })
 
 const doc = ref(null)
+const docVersion = ref(0)
 const confirmOpen = ref(false)
 const discardOpen = ref(false)
 const dirty = ref(false)
@@ -35,10 +37,12 @@ const canvasRef = ref(null)
 
 watch(() => [props.document, props.initialImage], () => {
   doc.value = props.document ?? null
+  docVersion.value += 1
   dirty.value = false
 }, { immediate: true })
 
-const canvasKey = computed(() => `${props.document ? 'doc' : 'image'}:${props.initialImage}`)
+const canvasKey = computed(() => `${props.document ? 'doc' : 'image'}:${docVersion.value}`)
+const hasSavedDesign = computed(() => !!props.document)
 
 const canConfirm = computed(() => !!(pendingSave.value?.file || pendingSave.value?.blob))
 const previewAlt = computed(() => fileName.value || 'Design preview')
@@ -186,13 +190,33 @@ onBeforeUnmount(clearPendingSave)
 <template>
   <RSlider
     v-model="open"
-    :ui="{ overlay: 'rv-design-builder-overlay', content: 'rv-design-builder-content', header: 'rv-design-builder-header', body: 'rv-design-builder-body' }"
+    :ui="{
+      overlay: 'rv-design-builder-overlay',
+      content: 'rv-design-builder-content',
+      header: 'rv-design-builder-header',
+      body: 'rv-design-builder-body',
+    }"
     :fullscreen="true"
     :prevent-close="true"
   >
     <div class="rv-design-builder">
+      <RVisualEditorRawEditor
+        v-if="open && hasSavedDesign"
+        ref="canvasRef"
+        :key="canvasKey"
+        :document="document"
+        :title="title"
+        :save-label="saveLabel"
+        :media-items="mediaItems"
+        :media-loading="mediaLoading"
+        :upload-handler="uploadHandler"
+        @change="onCanvasChange"
+        @ready="onCanvasReady"
+        @save="onSave"
+        @cancel="requestCancel"
+      />
       <RCanvas
-        v-if="open"
+        v-else-if="open"
         ref="canvasRef"
         :key="canvasKey"
         v-model="doc"

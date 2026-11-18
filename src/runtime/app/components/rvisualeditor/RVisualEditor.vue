@@ -2004,13 +2004,14 @@ function openEditorDesign({ pos = null } = {}) {
   if (!ed || node?.type.name !== 'media' || node.attrs.kind !== 'image') return
   const raw = node.attrs.src || ''
   const src = safeUrl(raw, opts.value.allowBlobUrls) || (/^data:image\/(?:png|jpe?g|webp|gif|avif);base64,/i.test(raw) ? raw : '')
-  if (!src) {
+  const designDoc = node.attrs.editorDesign ?? null
+  if (!src && !designDoc) {
     showNotice(t('rve_this_file_not_available', 'This file is not available.'))
     return
   }
   editorDesignTarget.value = { pos, src: node.attrs.src, fileId: node.attrs.fileId }
   editorDesignImage.value = src
-  editorDesignDoc.value = node.attrs.editorDesign ?? null
+  editorDesignDoc.value = designDoc
   editorDesignTitle.value = node.attrs.filename || t('rve_design_builder', 'Design builder')
   editorDesignOpen.value = true
 }
