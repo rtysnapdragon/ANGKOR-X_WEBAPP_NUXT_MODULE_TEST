@@ -80,7 +80,7 @@ const STATUS_INACTIVE = 0
 
 // Stable references: inline object literals in the template are re-created on
 // every render, which makes child components see a "changed" prop each time.
-const tableApi = { url: api.novels.list, method: 'POST' }
+const tableApi = reactive({ url: api.novels.list, method: 'POST', filter: {} })
 const tableOptions = { searchable: true }
 
 /* ============================================================================
@@ -141,9 +141,8 @@ const tableRef = ref()
 const busy = ref(false) // table overlay (delete / reload)
 const drawerVisible = ref(false)
 const editId = ref(null)
-// const isUpdate = computed(() => editId.value !== null)
-const isUpdate = ref(false)
 const isClone = ref(false)
+const isUpdate = computed(() => editId.value !== null && !isClone.value)
 
 const lastAutoSlug = ref('')
 
@@ -185,13 +184,11 @@ const tableColumns = computed(() => [
   { key: 'Status', label: t('status'), width: 120 }
 ])
 
-/**
- * NOTE: `dataFilter` is currently NOT sent to the server — it was not in the
- * original page either. RTable needs to receive it as request params
- * (prop name depends on RTable's API) before this filter has any effect.
- */
 function onApplyFilter(close) {
-  reload()
+  tableApi.filter = {
+    Status: (dataFilter.Status ?? []).map(normalizeStatus)
+  }
+  void reload()
   close?.()
 }
 
@@ -209,7 +206,9 @@ const drawerForm = computed(() => ({
     create: api.novels.create,
     update: api.novels.update
   },
-  confirmUpdate: textConfirmUpdate.value
+  confirmUpdate: textConfirmUpdate.value,
+  isUpdate: isUpdate.value,
+  isClone: isClone.value
 }))
 
 const formInputs = computed(() => [
@@ -241,7 +240,7 @@ const formInputs = computed(() => [
 watch(
   () => [dataModel.value.Title, dataModel.value.TitleEn],
   () => {
-    // if (isUpdate.value) return
+    if (isUpdate.value) return
     const next = autoSlug(dataModel.value)
     const current = dataModel.value.Slug
     if (!current || current === lastAutoSlug.value) dataModel.value.Slug = next
@@ -253,7 +252,7 @@ watch(
  * CRUD
  * ========================================================================== */
 function openCreate() {
-  isUpdate.value = false
+  isClone.value = false
   editId.value = null
   lastAutoSlug.value = ''
   dataModel.value = emptyModel()
@@ -262,6 +261,7 @@ function openCreate() {
 
 function openEdit(row) {
   if (row?.Id === undefined || row?.Id === null) return
+  isClone.value = false
   editId.value = row.Id // set first: disables the auto-slug watcher
   dataModel.value = {
     ...row,
@@ -274,17 +274,16 @@ function openEdit(row) {
 }
 
 function openClone(row) {
-  isUpdate.value = false
   isClone.value = true
   editId.value = null
 
   dataModel.value = {
-    ...row,
-    Id: undefined,
     Code: '',
-    Slug: '',
     Title: `${row.Title || ''} Copy`,
-    Status: statusOption(row.Status)
+    TitleEn: row.TitleEn ?? '',
+    Slug: '',
+    Status: statusOption(row.Status),
+    SortOrder: Number(row.SortOrder) || 0
   }
 
   lastAutoSlug.value = ''
@@ -294,13 +293,13 @@ function openClone(row) {
 function closeForm() {
   drawerVisible.value = false
   editId.value = null
-  isUpdate.value = false
+  isClone.value = false
 }
 
 // Drawer finished create/update successfully (it performs the request itself).
 async function reloadTable() {
   closeForm()
-  reload()
+  await reload()
 }
 
 // Fired with the form state on submit. No request here (the drawer owns it) —
@@ -328,10 +327,13 @@ async function remove(row) {
     onConfirm: async () => {
       try {
         busy.value = true
-        const { data, error } = await useHttp(`${api.novels.list}Id?=${String(row.Id)}`, { method: 'GET' })
+        const { data, error } = await useHttp(
+          `${api.novels.delete}${encodeURIComponent(row.Id)}`,
+          { method: 'GET' }
+        )
         if (error.value || !data.value) throw error.value
         toast.add({ color: 'success', title: t('deleted') })
-        reload()
+        await reload()
       } catch (e) {
         toastError('delete_failed', e)
       } finally {

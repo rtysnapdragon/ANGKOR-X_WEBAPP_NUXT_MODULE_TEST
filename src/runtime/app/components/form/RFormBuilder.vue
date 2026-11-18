@@ -62,7 +62,6 @@ const toast = useToast();
 const confirm = useConfirmStore();
 const refForm = ref();
 const dataUpdate = defineModel("data");
-const isUpdate = computed(() => isNotEmpty(dataUpdate.value));
 const emit = defineEmits([
   "onSubmitted",
   "onCancel",
@@ -292,6 +291,13 @@ const props = defineProps({
     ],
   },
 });
+
+const isUpdate = computed(() =>
+  props.form?.isClone
+    ? false
+    : props.form?.isUpdate === true ||
+      (props.form?.isUpdate == null && isNotEmpty(dataUpdate.value))
+);
 
 const form = computed(() => props.form);
 const inputs = computed(() => props.inputs);

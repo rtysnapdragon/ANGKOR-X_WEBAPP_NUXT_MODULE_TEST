@@ -67,6 +67,7 @@ const props = defineProps({
   /** drawer max width in px — snapped to the nearest supported size */
   width: { type: [Number, String], default: null },
   isClone: { type: Boolean, default: false },
+  isUpdate: { type: Boolean, default: null },
   disabledUpdate: { type: Boolean, default: false },
   /** external pending flag (parent is saving through its own request) */
   loading: { type: Boolean, default: false },
@@ -94,7 +95,13 @@ const innerLoading = ref(false);
 const busy = computed(() => innerLoading.value || props.loading);
 
 const inForm = computed(() => props.form);
-const isUpdate = computed(() => (props.isClone ? false : isNotEmpty(dataUpdate.value)));
+const isUpdate = computed(() =>
+  props.isClone
+    ? false
+    : props.isUpdate === null
+      ? isNotEmpty(dataUpdate.value)
+      : props.isUpdate
+);
 const resolvedTitle = computed(() =>
   isNotEmpty(props.title) ? props.title : isUpdate.value ? t("update_form") : t("create_form")
 );
@@ -107,6 +114,7 @@ const builderForm = computed(() => ({
   showReset: false,
   showCancel: false,
   isClone: props.isClone,
+  isUpdate: isUpdate.value,
 }));
 
 // FIX: `max-w-[${width}px]` was an interpolated class — Tailwind can't generate those at
