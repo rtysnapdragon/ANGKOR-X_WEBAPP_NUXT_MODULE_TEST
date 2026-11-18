@@ -1,5 +1,5 @@
 <script setup>
-import { h, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, render as renderVNode, getCurrentInstance } from 'vue'
+import { h, Fragment, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, render as renderVNode, getCurrentInstance } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { Extension, Node } from '@tiptap/core'
 import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state'
@@ -797,13 +797,16 @@ function tooltipButtonVNode(options) {
     className = '',
     active = false,
     side = 'top',
+    placement = side,
     buttonClass = 'rv-media__btn',
     role,
   } = options
   const child = text ? text : h('span', { class: 'rv-media__icon', innerHTML: icon })
   const vnode = h(RTooltip, {
+    class: 'rv-media__tip',
     text: label,
     side,
+    placement,
     isPopper: true,
     to: mediaOverlayTarget,
   }, {
@@ -848,7 +851,6 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
   let barHover = false
   let barSelected = false
   let barVisible = false
-  let barTooltipHosts = []
   function updateMediaBarPosition() {
     if (!barVisible) return
     const r = dom.getBoundingClientRect()
@@ -901,14 +903,8 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     const pos = getPos()
     if (typeof pos === 'number') ed.view.dispatch(ed.state.tr.delete(pos, pos + node.nodeSize))
   }
-  function clearBarTooltipHosts() {
-    for (const host of barTooltipHosts) renderVNode(null, host)
-    barTooltipHosts = []
-  }
   function barButton(options) {
-    const host = tooltipButton(options)
-    barTooltipHosts.push(host)
-    return host
+    return tooltipButtonVNode(options)
   }
 
   let altDraft = ''
@@ -1117,13 +1113,13 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
 
   function renderBar() {
     const a = node.attrs
-    clearBarTooltipHosts()
-    bar.replaceChildren()
+    renderVNode(null, bar)
     if (a.status !== 'ready') { syncMediaBarVisibility(); return }
+    const nodes = []
     const floated = MEDIA_LAYOUTS.includes(a.layout)
     if (a.kind !== 'audio' && !floated) {
       for (const al of ALIGNS) {
-        bar.append(barButton({
+        nodes.push(barButton({
           icon: ICONS[al],
           label: `${t('rve_align', 'Align')} ${t(`rve_align_${al}`, al)}`,
           active: a.align === al,
@@ -1133,48 +1129,49 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     }
     if (a.kind === 'image' || a.kind === 'video') {
       for (const [val, icon] of [['float-left', ICONS.floatLeft], ['float-right', ICONS.floatRight]]) {
-        bar.append(barButton({
+        nodes.push(barButton({
           icon,
           label: t(`rve_${val.replace('-', '_')}`, val === 'float-left' ? 'Float left' : 'Float right'),
           active: a.layout === val,
           onClick: () => patch({ layout: a.layout === val ? null : val }),
         }))
       }
-      bar.append(barButton({
+      nodes.push(barButton({
         icon: ICONS.size,
         label: t('rve_size', 'Size'),
         onClick: (anchor) => openBarMenu(anchor, sizeItems()),
       }))
     }
     if (a.kind === 'image' && on('canvas')) {
-      bar.append(barButton({
+      nodes.push(barButton({
         icon: ICONS.design,
         label: t('rve_edit_design', 'Edit design'),
         onClick: () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) },
       }))
     }
     if (a.kind === 'image') {
-      bar.append(barButton({
+      nodes.push(barButton({
         icon: ICONS.alt,
         label: t('rve_alt_text', 'Alternative text'),
         className: 'rv-media__alt-trigger',
         onClick: (anchor) => openAltPanel(anchor),
       }))
     }
-    bar.append(barButton({
+    nodes.push(barButton({
       icon: ICONS.caption,
       label: t('rve_toggle_caption', 'Toggle caption'),
       active: a.captionVisible !== false,
       onClick: () => patch({ captionVisible: a.captionVisible === false }),
     }))
     if (a.linked || a.kind === 'file') {
-      bar.append(barButton({ icon: ICONS.preview, label: t('rve_preview', 'Preview'), onClick: previewMedia }))
-      bar.append(barButton({ icon: ICONS.download, label: t('rve_download', 'Download'), onClick: downloadMedia }))
-      bar.append(barButton({ icon: ICONS.copy, label: t('rve_copy_link', 'Copy link'), onClick: copyMediaLink }))
+      nodes.push(barButton({ icon: ICONS.preview, label: t('rve_preview', 'Preview'), onClick: previewMedia }))
+      nodes.push(barButton({ icon: ICONS.download, label: t('rve_download', 'Download'), onClick: downloadMedia }))
+      nodes.push(barButton({ icon: ICONS.copy, label: t('rve_copy_link', 'Copy link'), onClick: copyMediaLink }))
     }
-    if (a.kind === 'file') bar.append(barButton({ icon: ICONS.rename, label: t('rve_rename', 'Rename'), onClick: renameMedia }))
-    bar.append(barButton({ icon: ICONS.retry, label: t('rve_replace', 'Replace'), onClick: replaceMedia }))
-    bar.append(barButton({ icon: ICONS.trash, label: t('rve_delete', 'Delete'), onClick: remove }))
+    if (a.kind === 'file') nodes.push(barButton({ icon: ICONS.rename, label: t('rve_rename', 'Rename'), onClick: renameMedia }))
+    nodes.push(barButton({ icon: ICONS.retry, label: t('rve_replace', 'Replace'), onClick: replaceMedia }))
+    nodes.push(barButton({ icon: ICONS.trash, label: t('rve_delete', 'Delete'), onClick: remove }))
+    renderVNode(h(Fragment, null, nodes), bar)
     syncMediaBarVisibility()
   }
 
@@ -1286,7 +1283,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     destroy() {
       closeBarMenu()
       if (mediaAltPanelEl === altPanel) closeMediaAltPanel()
-      clearBarTooltipHosts()
+      renderVNode(null, bar)
       for (const host of altTooltipHosts) renderVNode(null, host)
       for (const host of stateTooltipHosts) renderVNode(null, host)
       unregisterBarRefresher()

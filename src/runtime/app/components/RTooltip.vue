@@ -72,7 +72,7 @@ const props = defineProps([
 ]);
 
 const text = computed(() => props.text);
-const placement = computed(() => props.placement ?? "bottom-start");
+const placement = computed(() => props.placement ?? (props.isPopper ? (props.side ?? "top") : "bottom-start"));
 const content = computed(() => props.content)
 const mode = computed(() => props.mode ?? 'hover')
 const side = computed(() => props.side ?? "top") // top / bottom /right /left
@@ -88,7 +88,7 @@ const isPopper = computed(() => props.isPopper ?? false)
 const to = computed(() => unref(props.to) ?? 'body')
 
 const popper = computed(() => ({
-    placement: props.placement ?? "bottom",
+    placement: placement.value,
     arrow: true,
     offsetDistance: props.sideOffset ?? 8,
     strategy: "fixed",
