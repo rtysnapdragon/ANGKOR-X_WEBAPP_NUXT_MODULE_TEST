@@ -1,5 +1,6 @@
 <script setup>
-import { createVNode,computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch,render,resolveComponent,getCurrentInstance } from 'vue'
+import { createVNode,computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch,render as renderVNode,getCurrentInstance } from 'vue'
+import FloatingInput from '../input/FloatingInput.vue'
 
 const appContext = getCurrentInstance()?.appContext
 import { EditorContent, useEditor } from '@tiptap/vue-3'
@@ -689,6 +690,9 @@ const ICONS = {
   floatLeft: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>'),
   floatRight: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>'),
   size: svg('<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M14 15H9v-5"/><path d="M16 3h5v5"/><path d="M21 3l-7 7"/>'),
+  caption: svg('<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/>'),
+  back: svg('<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'),
+  check: svg('<polyline points="20 6 9 17 4 12"/>'),
 }
 // Media editing constants (shared by the media NodeView).
 const MEDIA_LAYOUTS = ['float-left', 'float-right']
@@ -714,7 +718,7 @@ function openBarMenu(anchor, items) {
   closeBarMenu()
   const menu = h('div', 'rv-media__menu', { role: 'menu' })
   for (const it of items) {
-    const btn = h('button', 'rv-media__menu-item', { type: 'button', role: 'menuitem' })
+    const btn = h('button', 'rv-media__menu-item', { type: 'button', role: 'menuitem', title: it.label })
     btn.textContent = it.label
     if (it.active) btn.classList.add('is-active')
     btn.addEventListener('click', () => { closeBarMenu(); it.onClick() })
@@ -727,6 +731,36 @@ function openBarMenu(anchor, items) {
   barMenuEl = menu
   setTimeout(() => document.addEventListener('pointerdown', onBarMenuOutside, true), 0)
   window.addEventListener('scroll', closeBarMenu, true)
+}
+
+let mediaAltPanelEl = null
+function closeMediaAltPanel() {
+  if (!mediaAltPanelEl) return
+  mediaAltPanelEl.remove()
+  mediaAltPanelEl = null
+  document.removeEventListener('pointerdown', onMediaAltPanelOutside, true)
+  window.removeEventListener('scroll', closeMediaAltPanel, true)
+  window.removeEventListener('resize', closeMediaAltPanel)
+}
+function onMediaAltPanelOutside(e) {
+  if (mediaAltPanelEl && !mediaAltPanelEl.contains(e.target) && !e.target?.closest?.('.rv-media__alt-trigger')) closeMediaAltPanel()
+}
+function openMediaAltPanel(el, anchor) {
+  closeMediaAltPanel()
+  const host = isFullscreen.value && root.value ? root.value : document.body
+  host.append(el)
+  const r = anchor.getBoundingClientRect()
+  const width = el.offsetWidth
+  const height = el.offsetHeight
+  let top = r.bottom + 6
+  if (top + height > window.innerHeight - 8) top = Math.max(8, r.top - height - 6)
+  const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8))
+  el.style.top = `${Math.round(top)}px`
+  el.style.left = `${Math.round(left)}px`
+  mediaAltPanelEl = el
+  setTimeout(() => document.addEventListener('pointerdown', onMediaAltPanelOutside, true), 0)
+  window.addEventListener('scroll', closeMediaAltPanel, true)
+  window.addEventListener('resize', closeMediaAltPanel)
 }
 
 const h = (tag, cls, attrsObj = {}) => {
@@ -746,7 +780,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
   const badge = h('div', 'rv-media__badge', { 'aria-hidden': 'true' })
   const handles = {}
   for (const dir of RESIZE_DIRS) handles[dir] = h('div', `rv-media__resize rv-media__resize--${dir}`, { 'data-rv-interactive': '', 'aria-hidden': 'true', 'data-dir': dir })
-  figure.append(body, bar, badge, ...RESIZE_DIRS.map((d) => handles[d]), caption)
+  figure.append(bar, body, badge, ...RESIZE_DIRS.map((d) => handles[d]), caption)
   dom.append(figure)
   let progressEl = null
   let progressLabel = null
@@ -761,14 +795,52 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     if (typeof pos === 'number') ed.view.dispatch(ed.state.tr.delete(pos, pos + node.nodeSize))
   }
   const button = (icon, label, onClick, text) => {
-    const b = h('button', 'rv-media__btn', { type: 'button', title: label, 'aria-label': label })
+    const b = h('button', 'rv-media__btn', { type: 'button', title: label, 'aria-label': label, 'data-tip': label })
     if (text) b.textContent = text
     else b.innerHTML = icon
     b.addEventListener('mousedown', (e) => e.preventDefault())
     b.addEventListener('click', (e) => { e.stopPropagation(); onClick() })
     return b
   }
-  
+
+  let altDraft = ''
+  const altPanel = h('div', 'rv-media__alt-panel', { 'data-rv-interactive': '', role: 'dialog', 'aria-label': t('rve_alt_text', 'Alternative text') })
+  const altInputHost = h('div', 'rv-media__alt-input')
+  const altHead = h('div', 'rv-media__alt-head')
+  const altTitle = h('strong')
+  altTitle.textContent = t('rve_alt_text', 'Alternative text')
+  const altFoot = h('div', 'rv-media__alt-foot')
+  const backBtn = button(ICONS.back, t('rve_back', 'Back'), () => closeMediaAltPanel())
+  const saveBtn = button(ICONS.check, t('rve_save', 'Save'), () => saveAlt(), t('rve_save', 'Save'))
+  saveBtn.classList.add('is-primary')
+  altHead.append(backBtn, altTitle)
+  altFoot.append(saveBtn)
+  altPanel.append(altHead, altInputHost, altFoot)
+  function renderAltInput() {
+    const vnode = createVNode(FloatingInput, {
+      label: t('rve_alt_text', 'Alternative text'),
+      modelValue: altDraft,
+      placeholder: t('rve_alt_description', 'Describe the image'),
+      'onUpdate:modelValue': (value) => { altDraft = String(value ?? '').slice(0, 300) },
+    })
+    if (appContext) vnode.appContext = appContext
+    renderVNode(vnode, altInputHost)
+  }
+  function saveAlt() {
+    const value = altDraft.trim().slice(0, 300)
+    if (value !== (node.attrs.alt || '')) patch({ alt: value })
+    closeMediaAltPanel()
+  }
+  function openAltPanel(anchor) {
+    altDraft = node.attrs.alt || ''
+    renderAltInput()
+    openMediaAltPanel(altPanel, anchor)
+  }
+  altInputHost.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveAlt() }
+    if (e.key === 'Escape') { e.preventDefault(); closeMediaAltPanel() }
+  })
+
   const setProgress = (p) => {
     if (progressEl) progressEl.style.width = `${Math.round(p * 100)}%`
     if (progressLabel) progressLabel.textContent = `${Math.round(p * 100)}%`
@@ -945,7 +1017,14 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       bar.append(sb)
     }
     if (a.kind === 'image' && on('canvas')) bar.append(button(ICONS.design, t('rve_edit_design', 'Edit design'), () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }))
-    if (a.kind === 'image') bar.append(button('', t('rve_alt_text', 'Alternative text'), () => { const v = window.prompt(t('rve_alt_text_prompt', 'Alternative text (describe the image)'), a.alt || ''); if (v !== null) patch({ alt: v.slice(0, 300) }) }, t('rve_alt', 'Alt')))
+    if (a.kind === 'image') {
+      const altBtn = button('', t('rve_alt_text', 'Alternative text'), () => openAltPanel(altBtn), t('rve_alt', 'Alt'))
+      altBtn.classList.add('rv-media__alt-trigger')
+      bar.append(altBtn)
+    }
+    const capBtn = button(ICONS.caption, t('rve_toggle_caption', 'Toggle caption'), () => patch({ captionVisible: a.captionVisible === false }), t('rve_caption', 'Caption'))
+    if (a.captionVisible !== false) capBtn.classList.add('is-active')
+    bar.append(capBtn)
     if (a.linked || a.kind === 'file') bar.append(button(ICONS.preview, t('rve_preview', 'Preview'), previewMedia))
     if (a.linked || a.kind === 'file') bar.append(button(ICONS.download, t('rve_download', 'Download'), downloadMedia))
     if (a.linked || a.kind === 'file') bar.append(button(ICONS.copy, t('rve_copy_link', 'Copy link'), copyMediaLink))
@@ -973,6 +1052,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     renderBar()
     if (document.activeElement !== caption) caption.value = a.caption || ''
     caption.disabled = !ed.isEditable
+    caption.hidden = a.captionVisible === false
     const dirs = a.status === 'ready' && ed.isEditable ? RESIZE_HANDLES[a.kind] : null
     for (const d of RESIZE_DIRS) handles[d].hidden = !dirs || !dirs.includes(d)
     register()
@@ -1035,7 +1115,10 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     handles[dir].addEventListener('mousedown', (e) => e.preventDefault())
     handles[dir].addEventListener('pointerdown', (e) => startResize(dir, e))
   }
-  const commitCaption = () => { if (caption.value !== node.attrs.caption) patch({ caption: caption.value.slice(0, 500) }) }
+  const commitCaption = () => {
+    const value = caption.value.slice(0, 500)
+    if (value !== (node.attrs.caption || '')) patch({ caption: value, captionVisible: value ? true : node.attrs.captionVisible })
+  }
   caption.addEventListener('change', commitCaption)
   caption.addEventListener('blur', commitCaption)
   caption.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commitCaption(); ed.commands.focus() } })
@@ -1057,6 +1140,8 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     ignoreMutation: () => true,
     destroy() {
       closeBarMenu()
+      if (mediaAltPanelEl === altPanel) closeMediaAltPanel()
+      renderVNode(null, altInputHost)
       if (node.attrs.uploadId) mediaCtx.views.delete(node.attrs.uploadId)
       mediaCtx.onRemoved(node.attrs)
     },
@@ -1071,7 +1156,7 @@ const RVMedia = Node.create({
   selectable: true,
   addAttributes() {
     return {
-      kind: { default: 'image' }, src: { default: null }, alt: { default: '' }, caption: { default: '' },
+      kind: { default: 'image' }, src: { default: null }, alt: { default: '' }, caption: { default: '' }, captionVisible: { default: true },
       width: { default: 100 }, height: { default: null }, align: { default: 'center' }, layout: { default: null },
       filename: { default: '' }, size: { default: 0 }, mime: { default: '' },
       status: { default: 'ready' }, uploadId: { default: null }, error: { default: '' },
@@ -1092,7 +1177,7 @@ const RVMedia = Node.create({
           const lay = el.getAttribute('data-layout')
           const media = el.querySelector('img,video,audio')
           return {
-            kind, src, alt: m?.getAttribute('alt') ?? '', caption: el.querySelector('figcaption')?.textContent ?? '',
+            kind, src, alt: m?.getAttribute('alt') ?? '', caption: el.querySelector('figcaption')?.textContent ?? '', captionVisible: el.getAttribute('data-caption') !== 'false',
             width: clampWidth(el.getAttribute('data-width')), align: ALIGNS.includes(al) ? al : 'center',
             layout: MEDIA_LAYOUTS.includes(lay) ? lay : null,
             height: pxValue(media?.getAttribute('style'), 'height'),
@@ -1113,6 +1198,7 @@ const RVMedia = Node.create({
     const wrap = { 'data-rv-media': KINDS.includes(a.kind) ? a.kind : 'image', 'data-align': ALIGNS.includes(a.align) ? a.align : 'center', 'data-width': pct, style }
     if (layout) wrap['data-layout'] = layout
     if (a.linked) wrap['data-linked'] = 'true'
+    if (a.captionVisible === false) wrap['data-caption'] = 'false'
     const out = ['figure', wrap]
     if (src) {
       if (a.kind === 'video') out.push(['video', { src, controls: '', preload: 'metadata' }])
@@ -1124,7 +1210,7 @@ const RVMedia = Node.create({
         out.push(['img', img])
       }
     }
-    if (a.caption) out.push(['figcaption', a.caption])
+    if (a.caption && a.captionVisible !== false) out.push(['figcaption', a.caption])
     return out
   },
   addNodeView() { return (p) => createMediaView(p) },
@@ -4425,7 +4511,18 @@ defineExpose({
   &:empty { display: none; }
 }
 .rv-media__figure:hover .rv-media__bar, .rv-media.is-selected .rv-media__bar { opacity: 1; }
+.rv-media[data-kind='file'] .rv-media__bar {
+  position: static;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin: 0 0 6px;
+  padding: 0;
+  background: transparent;
+  opacity: 1;
+}
+.rv-media[data-kind='file'] .rv-media__bar:empty { display: none; }
 .rv-media__btn {
+  position: relative;
   display: inline-grid;
   place-items: center;
   min-width: 26px;
@@ -4437,6 +4534,33 @@ defineExpose({
   border-radius: 4px;
   cursor: pointer;
   &:hover, &.is-active { background: color-mix(in srgb, var(--bg-content) 22%, transparent); }
+  &[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    z-index: 70;
+    padding: 4px 7px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--bg-content);
+    background: var(--color-w-b-1);
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 3px);
+    transition: opacity 120ms ease, transform 120ms ease;
+  }
+  &[data-tip]:hover::after, &[data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+}
+.rv-media[data-kind='file'] .rv-media__btn {
+  color: var(--c-muted);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-card);
+  &:hover, &.is-active { color: var(--color-w-b-1); background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-hover)); }
+  &[data-tip]::after { color: var(--color-w-b-1); background: var(--bg-content); border: 1px solid var(--border-card); }
 }
 .rv-media__state .rv-media__btn { color: var(--color-w-b-1); background: var(--bg-content); border: 1px solid var(--color-w-b-4); padding: 0 12px; }
 .rv-media__resize {
@@ -4498,6 +4622,31 @@ defineExpose({
   &:hover { background: var(--bg-hover); }
   &.is-active { color: var(--color-primary); font-weight: 600; }
 }
+.rv-media__alt-panel {
+  --color-bg: var(--bg-content);
+  --border-color: var(--border-card);
+  --text: var(--color-w-b-1);
+  --general-text-color: var(--c-muted);
+  --color-text-primary: var(--color-w-b-1);
+  --primary-color: var(--color-primary);
+  --muted: var(--c-muted);
+  position: fixed;
+  z-index: 61;
+  display: grid;
+  gap: 10px;
+  width: min(22rem, calc(100vw - 16px));
+  padding: 12px;
+  color: var(--color-w-b-1);
+  background: var(--bg-content);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 20%, transparent);
+}
+.rv-media__alt-head { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; }
+.rv-media__alt-body { display: grid; }
+.rv-media__alt-foot { display: flex; justify-content: flex-end; }
+.rv-media__alt-panel .rv-media__btn { color: var(--color-w-b-1); background: var(--bg-hover); border: 1px solid var(--border-card); }
+.rv-media__alt-panel .rv-media__btn.is-primary { color: var(--bg-content); background: var(--color-primary); border-color: var(--color-primary); }
 .rv-media__caption {
   display: block;
   width: 100%;
@@ -4512,6 +4661,7 @@ defineExpose({
   outline: none;
   &:placeholder-shown { height: 0; padding: 0; margin: 0; overflow: hidden; opacity: 0; }
   &:focus { color: var(--color-w-b-1); }
+  &[hidden] { display: none !important; }
 }
 .rv-media__figure:hover .rv-media__caption:placeholder-shown, .rv-media.is-selected .rv-media__caption:placeholder-shown { height: auto; padding: 2px 4px; margin-top: 6px; opacity: 1; }
 .rv-file {
