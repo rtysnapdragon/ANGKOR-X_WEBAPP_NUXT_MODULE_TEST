@@ -243,6 +243,14 @@ function onMouseLeave() {
   padding: 4px 10px !important;
 }
 
+:global(.rtoopip-bg) {
+  background: var(--bg-tertiary);
+  color: var(--color-tooltip-text);
+  border: 1px solid var(--color-tooltip-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding:5px 11px;
+}
+
 // .rt-popover-content {
 //   background: var(--bg-wrapper) !important;
 //   // background-color: var(--bg-tertiary) !important;

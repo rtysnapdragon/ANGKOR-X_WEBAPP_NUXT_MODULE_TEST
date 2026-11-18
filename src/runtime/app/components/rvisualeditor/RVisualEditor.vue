@@ -457,8 +457,9 @@ const toolbarRef = ref(null)
 const menuRoot = ref(null)
 const menuOpen = ref(null)
 const isFullscreen = ref(false)
-let pseudoFullscreen = false
+let fullscreenHome = null
 let previousBodyOverflow = ''
+let previousHtmlOverflow = ''
 const sourceOpen = ref(false)
 const sourceText = ref('')
 const findOpen = ref(false)
@@ -3432,43 +3433,52 @@ function runAccessibility() {
   })
   a11yResult.value = { images, emptyAlt, emptyHeadings, emptyLinks }
 }
-async function toggleFullscreen() {
+function moveToBodyFullscreen() {
   if (!import.meta.client) return
   const el = root.value
-  if (!el) return
-  if (isFullscreen.value) {
-    if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
-    pseudoFullscreen = false
-    isFullscreen.value = false
-    return
+  if (!el || isFullscreen.value) return
+  if (!fullscreenHome) {
+    const parent = el.parentNode
+    const anchor = parent ? document.createComment('rv-fullscreen-anchor') : null
+    if (parent && anchor) parent.insertBefore(anchor, el)
+    fullscreenHome = { parent, anchor }
   }
-  try {
-    if (!el.requestFullscreen) throw new Error('unsupported')
-    await el.requestFullscreen()
-    pseudoFullscreen = false
-  } catch {
-    pseudoFullscreen = true
-  }
+  if (el.parentNode !== document.body) document.body.appendChild(el)
   isFullscreen.value = true
 }
-function onFullscreenChange() {
-  if (pseudoFullscreen) return
-  isFullscreen.value = document.fullscreenElement === root.value
+function restoreFromBodyFullscreen() {
+  const el = root.value
+  const home = fullscreenHome
+  fullscreenHome = null
+  if (el && home?.parent) {
+    if (home.anchor?.parentNode === home.parent) home.parent.insertBefore(el, home.anchor)
+    else home.parent.appendChild(el)
+    home.anchor?.remove()
+  }
+  isFullscreen.value = false
+}
+function toggleFullscreen() {
+  if (!import.meta.client || !root.value) return
+  if (isFullscreen.value) restoreFromBodyFullscreen()
+  else moveToBodyFullscreen()
 }
 function onFullscreenKeydown(e) {
   if (e.key === 'Escape') tableDockGroup.value = null
-  if (e.key === 'Escape' && pseudoFullscreen && isFullscreen.value) {
+  if (e.key === 'Escape' && isFullscreen.value) {
     e.preventDefault()
-    void toggleFullscreen()
+    toggleFullscreen()
   }
 }
 watch(isFullscreen, (active) => {
   if (import.meta.client) {
     if (active) {
       previousBodyOverflow = document.body.style.overflow
+      previousHtmlOverflow = document.documentElement.style.overflow
       document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousHtmlOverflow
     }
   }
   emit('fullscreen', active)
@@ -3597,7 +3607,6 @@ onMounted(() => {
   window.addEventListener('pointerup', onWindowPointerUp)
   window.addEventListener('scroll', onWindowScroll, true)
   window.addEventListener('resize', onWindowScroll)
-  document.addEventListener('fullscreenchange', onFullscreenChange)
   document.addEventListener('keydown', onFullscreenKeydown)
 })
 onBeforeUnmount(() => {
@@ -3606,10 +3615,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onWindowPointerUp)
   window.removeEventListener('scroll', onWindowScroll, true)
   window.removeEventListener('resize', onWindowScroll)
-  document.removeEventListener('fullscreenchange', onFullscreenChange)
   document.removeEventListener('keydown', onFullscreenKeydown)
-  if (document.fullscreenElement === root.value) document.exitFullscreen().catch(() => {})
-  if (isFullscreen.value) document.body.style.overflow = previousBodyOverflow
+  fullscreenHome?.anchor?.remove()
+  fullscreenHome = null
+  if (isFullscreen.value) {
+    document.body.style.overflow = previousBodyOverflow
+    document.documentElement.style.overflow = previousHtmlOverflow
+  }
   cancelAnimationFrame(hoverRaf)
   cancelAnimationFrame(bubbleRaf)
 })
@@ -4228,10 +4240,13 @@ defineExpose({
 .rv-editor.is-fullscreen {
   position: fixed;
   inset: 0;
-  z-index: 2000;
-  width: 100%;
-  height: 100%;
+  z-index: 9999;
+  width: auto;
+  height: auto;
+  height: 100dvh;
   max-width: none !important;
+  max-height: none !important;
+  margin: 0;
   border: 0;
   border-radius: 0;
   background: var(--bg-content);
@@ -4240,12 +4255,14 @@ defineExpose({
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding-left: 0;
   padding-right: 0;
 }
 .rv-editor.is-fullscreen .rv-page {
   width: 100%;
   max-width: none !important;
+  min-height: 100%;
   margin: 0;
   padding: 32px 16px 64px;
   box-shadow: none;
