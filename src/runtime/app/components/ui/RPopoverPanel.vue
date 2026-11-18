@@ -125,6 +125,7 @@ defineExpose({ isOpen, open, close, toggle })
 
 // UPopover's own content shell — neutralised, .rpp-panel carries the surface
 .rpp-content {
+  z-index: 10300;
   padding: 0;
   background: transparent;
   border: 0;
