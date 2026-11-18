@@ -13,6 +13,10 @@ const cases = [
   { value: 'robust', label: 'Bad input safety', icon: 'i-lucide-shield-check' },
   { value: 'uploads', label: 'Drop files & uploads', icon: 'i-lucide-cloud-upload' },
   { value: 'uploadapi', label: 'Real upload endpoint', icon: 'i-lucide-server' },
+  { value: 'progress', label: 'Shared upload progress', icon: 'i-lucide-list-checks' },
+  { value: 'save', label: 'Deferred save + file IDs', icon: 'i-lucide-file-check-2' },
+  { value: 'design', label: 'Design canvas', icon: 'i-lucide-pen-tool' },
+  { value: 'novel', label: 'Novel chapter API', icon: 'i-lucide-book-open' },
   { value: 'basic', label: 'Basic v-model', icon: 'i-lucide-pencil' },
   { value: 'draft', label: 'Autosaved draft', icon: 'i-lucide-save' },
   { value: 'form', label: 'Form + validation', icon: 'i-lucide-clipboard-check' },
@@ -144,6 +148,114 @@ const uploadAPIExample = `<RVisualEditor
 
 // or bring your own transport:
 :uploader="async (file, { onProgress, signal }) => ({ url: await myUpload(file, onProgress, signal) })"`
+
+const progressStore = useUploadProgress()
+const progressDoc = ref(null)
+const progressEd = ref(null)
+const progressComplete = ref(null)
+function onProgressComplete(e) { progressComplete.value = e }
+
+const saveDoc = ref(null)
+const saveEd = ref(null)
+const saveUploads = ref([])
+const saveResult = ref('')
+const saveComplete = ref(null)
+const saveApi = { deferUpload: true, autoSave: false, save: { url: '/demo/deferred-save' } }
+function trackSaveUpload(e) {
+  if (e.phase !== 'success') return
+  saveUploads.value.push({ uploadId: e.uploadId, kind: e.kind, fileId: e.fileId, url: e.url })
+}
+function onSaveComplete(e) { saveComplete.value = e }
+function collectFileIds(uploads, group) {
+  return (uploads ?? [])
+    .filter((u) => (group === 'image' ? u.kind === 'image' : u.kind !== 'image') && u.fileId)
+    .map((u) => u.fileId)
+}
+async function waitForSaveUploads() {
+  if (!saveEd.value?.isUploading?.()) return
+  await new Promise((resolve) => {
+    const stop = watch(() => saveEd.value?.isUploading?.(), (busy) => {
+      if (!busy) { stop(); resolve() }
+    })
+  })
+}
+async function flushAndSave() {
+  await waitForSaveUploads()
+  const uploads = await saveEd.value?.flushPendingUploads?.() ?? []
+  const source = uploads.length ? uploads : saveUploads.value
+  saveResult.value = pretty({
+    json: saveEd.value?.getJSON?.(),
+    html: saveEd.value?.getHTML?.(),
+    imageFileIds: collectFileIds(source, 'image'),
+    attachmentFileIds: collectFileIds(source, 'attachment'),
+    uploadComplete: saveComplete.value,
+  })
+}
+
+const designDoc = ref(null)
+const designSaved = ref(null)
+const canvasOptions = { width: 1200, height: 675, background: '#ffffff' }
+function onDesignSaved(e) { designSaved.value = e }
+
+const novelRecipe = `<RVisualEditor
+  ref="editorRef"
+  v-model="editorValue"
+  :api="{
+    load: chapterId ? {
+      url: api.novels.chapters.get,
+      method: 'POST',
+      data: { Id: chapterId },
+      mapResponse: (res) => { applyChapter(res); return { json: res.EditorJson, html: res.Html } }
+    } : null,
+    save: {
+      url: chapterId ? api.novels.chapters.update : api.novels.chapters.create,
+      method: 'POST',
+      data: (context) => ({
+        ...(chapterId ? { Id: chapterId } : {}),
+        NovelId: novelId,
+        Code: formState.code,
+        Title: formState.title,
+        Slug: formState.slug,
+        Status: Number(formState.status),
+        ImageFileIds: collectFileIds(context.uploads, 'image'),
+        AttachmentFileIds: collectFileIds(context.uploads, 'attachment')
+      })
+    },
+    autoLoad: !!chapterId,
+    deferUpload: true
+  }"
+  :upload-api="uploadApi"
+  @upload="onUpload"
+  @save="onEditorSave"
+/>
+
+const uploadApi = {
+  url: api.fileExplorer.upload,
+  method: 'POST',
+  fieldName: 'File',
+  headers: () => ({
+    Authorization: loggedInTokenHeader(),
+    lang: 'en',
+    database: currentDatabase()
+  }),
+  body: { Provider: 'telegram', FolderId: null, MakePublic: true },
+  mapResponse: (res) => ({
+    url: res.Url ?? res.FullPath ?? res.data?.Url,
+    fileId: res.Id ?? res.id ?? res.data?.Id ?? null
+  })
+}
+
+function onUpload(event) {
+  if (event.phase !== 'success') return
+  uploadedFiles.push({ uploadId: event.uploadId, kind: event.kind, fileId: event.fileId })
+}
+
+function collectFileIds(uploads, group) {
+  return (uploads ?? [])
+    .filter((u) => group === 'image' ? u.kind === 'image' : u.kind !== 'image')
+    .map((u) => u.fileId)
+    .filter(Boolean)
+}`
 
 const basic = ref(clone(sampleEnvelope))
 
@@ -303,6 +415,38 @@ const roValue = ref(clone(sampleEnvelope))
           <section v-else-if="current === 'uploadapi'" class="demo__case">
             <p class="demo__note">Production wiring. The component never stores binaries in the document: it uploads, then keeps only the persistent URL returned by your server. Blob/data URLs are rejected unless <code>allowBlobUrls</code> is set (demos only). SVGs are sanitized client-side before upload; your server must still validate content and serve user files safely.</p>
             <pre class="demo__code">{{ uploadAPIExample }}</pre>
+          </section>
+
+          <section v-else-if="current === 'progress'" class="demo__case">
+            <p class="demo__note">Every editor upload is registered in the shared <code>useUploadProgress()</code> store, so the same <code>BtnShowUploadProcess</code> used across the app tracks files from this editor. The editor footer includes the same button automatically.</p>
+            <div class="demo__row">
+              <BtnShowUploadProcess />
+              <span class="demo__note">isUploading: {{ progressStore.isUploading }} · files: {{ progressStore.allFileMoreUpload.length }} · completed: {{ Object.keys(progressStore.fileCompleted).length }} · failed: {{ progressStore.fileError.length }}</span>
+            </div>
+            <RVisualEditor ref="progressEd" v-model="progressDoc" :uploader="demoUploader" :options="{ ...demoOptions, wordCount: true }" :min-height="320" @upload-complete="onProgressComplete" />
+            <pre class="demo__code">{{ pretty(progressComplete ?? { hint: 'Upload a file to update the shared progress store.' }) }}</pre>
+          </section>
+
+          <section v-else-if="current === 'save'" class="demo__case">
+            <p class="demo__note">With <code>deferUpload: true</code>, inserted media stays local until save. Call <code>flushPendingUploads()</code>, wait for uploads to settle, then persist <code>getJSON()</code> plus the <code>fileId</code> values collected from the <code>upload</code> event.</p>
+            <div class="demo__buttons">
+              <UButton size="sm" icon="i-lucide-cloud-upload" label="flushPendingUploads() + snapshot" :disabled="saveEd?.isUploading?.() ?? false" @click="flushAndSave" />
+              <UButton size="sm" color="neutral" :label="`isUploading(): ${saveEd?.isUploading?.() ?? false}`" />
+              <UButton size="sm" color="neutral" :label="`queue: ${saveEd?.getUploadQueue?.()?.length ?? 0}`" />
+            </div>
+            <RVisualEditor ref="saveEd" v-model="saveDoc" :api="saveApi" :uploader="demoUploader" :options="{ ...demoOptions, footer: false, wordCount: true }" :min-height="340" @upload="trackSaveUpload" @upload-complete="onSaveComplete" />
+            <pre class="demo__code">{{ saveResult || 'Upload a file, then click flush + snapshot.' }}</pre>
+          </section>
+
+          <section v-else-if="current === 'design'" class="demo__case">
+            <p class="demo__note">The Fabric design canvas is built in and loaded on first use. Enable <code>canvas</code> plus the related media flags, configure the default page with <code>canvasOptions</code>, and persist <code>design-saved</code> to reopen designs later.</p>
+            <RVisualEditor v-model="designDoc" :uploader="demoUploader" :canvas-options="canvasOptions" :options="{ ...demoOptions, appearance: 'paper', toolbarMode: 'ribbon', canvas: true, shapes: true, drawing: true, floatingMedia: true, wordCount: true }" :min-height="520" @design-saved="onDesignSaved" />
+            <pre class="demo__code">{{ designSaved ? pretty(designSaved) : 'Insert or edit an image with the Design tool.' }}</pre>
+          </section>
+
+          <section v-else-if="current === 'novel'" class="demo__case">
+            <p class="demo__note">The production recipe used by <code>NovelContentCreate.vue</code>: real file-explorer uploads, deferred chapter saves, and file IDs mapped into the chapter payload.</p>
+            <pre class="demo__code">{{ novelRecipe }}</pre>
           </section>
 
           <section v-else-if="current === 'basic'" class="demo__case">
