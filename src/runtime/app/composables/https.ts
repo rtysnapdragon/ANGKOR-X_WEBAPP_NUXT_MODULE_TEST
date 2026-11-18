@@ -40,9 +40,10 @@ export const useHttp = async (
     //   await useRefreshToken();
     // }
 
-    if (!userCatch && !options?.isLogin) {
+    if (!userCatch && !options?.isGlobal) {
       await useRefreshToken();
       userCatch.value = null;
+      toast.add({title:"Refresh Token start -"})
     }
     const httpConfig = useOptions(url, options);
 

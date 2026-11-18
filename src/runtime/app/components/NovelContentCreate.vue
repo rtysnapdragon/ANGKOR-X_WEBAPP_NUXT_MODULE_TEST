@@ -64,12 +64,14 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
+import { useCookie, useUserData } from '#imports'
 import { useI18n } from 'vue-i18n'
+import getDeviceId from '../utils/getDeviceId.js'
 
 const emit = defineEmits(['created', 'saved'])
 const { t } = useI18n()
 const toast = useToast()
-const { api } = helper()
+const { api, str } = helper()
 
 const query = queryParams() ?? {}
 const novelParam = query.novel ?? {}
@@ -77,11 +79,11 @@ const chapterParam = query.chapter ?? {}
 
 const novelId = ref(Number(novelParam.Id ?? novelParam.id) || 0)
 const chapterId = ref(Number(chapterParam.Id ?? chapterParam.id) || null)
+const uploadProvider = ref(String(query.provider ?? query.Provider ?? 'telegram'))
 const editorRef = ref(null)
 const editorValue = ref('')
 const submitting = ref(false)
-const uploadedUrl = ref(null)
-const uploadedId = ref(null)
+const uploadedFiles = ref([])
 
 const statusData = [
   { Value: 1, Name: 'Active' },
@@ -111,7 +113,19 @@ const formSchema = computed(() => [
 const uploadApi = {
   url: api.fileExplorer.upload,
   method: 'POST',
-  fieldName: 'file',
+  fieldName: 'File',
+  headers: () => {
+    const user = useUserData()?.value
+    const accessToken = useCookie(str.accessTokenKey).value ?? user?.access_token
+    const headers = {
+      lang: useCookie(str.langCode).value ?? 'en',
+      device_id: getDeviceId(),
+      database: useCookie(str.dbCode).value,
+    }
+    if (accessToken) headers.Authorization = `${user?.token_type ?? 'Bearer'} ${accessToken}`
+    return headers
+  },
+  body: { Provider: uploadProvider.value, FolderId: null, MakePublic: true },
   mapResponse: response => ({
     url: response?.Url ?? response?.url ?? response?.data?.Url ?? response?.data?.url,
     Id: response?.Id ?? response?.id ?? response?.data?.Id ?? response?.data?.id ?? null,
@@ -147,7 +161,7 @@ const editorApi = computed(() => ({
   save: {
     url: chapterId.value ? api.novels.chapters.update : api.novels.chapters.create,
     method: 'POST',
-    data: () => ({
+    data: context => ({
       ...(chapterId.value ? { Id: chapterId.value } : {}),
       NovelId: novelId.value,
       VolumeId: formState.volume_id ? Number(formState.volume_id) : null,
@@ -158,18 +172,40 @@ const editorApi = computed(() => ({
       Status: Number(formState.status),
       SortOrder: Number(formState.sort_order ?? 0),
       ChapterNumber: Number(formState.chapter_number ?? 0),
-      ImageFileIds: uploadedId.value ? [uploadedId.value] : [],
-      AttachmentFileIds: [],
+      ImageFileIds: collectFileIds(context?.uploads, 'image'),
+      AttachmentFileIds: collectFileIds(context?.uploads, 'attachment'),
     }),
   },
   autoLoad: !!chapterId.value,
   autoSave: false,
+  deferUpload: true,
 }))
+
+function collectFileIds(uploads, group) {
+  const source = Array.isArray(uploads) && uploads.length ? uploads : uploadedFiles.value
+  const ids = new Set()
+  for (const item of source) {
+    const id = item?.fileId ?? item?.Id ?? item?.id ?? item?.result?.Id ?? item?.result?.id ?? item?.result?.data?.Id ?? null
+    if (!id) continue
+    if (group === 'image' && item?.kind !== 'image') continue
+    if (group === 'attachment' && item?.kind === 'image') continue
+    ids.add(id)
+  }
+  return [...ids]
+}
 
 function onUpload(event) {
   if (event?.phase !== 'success') return
-  uploadedUrl.value = event.url ?? null
-  uploadedId.value = event.result?.Id ?? null
+  const upload = {
+    uploadId: event.uploadId ?? null,
+    kind: event.kind ?? event.result?.kind ?? null,
+    url: event.url ?? event.result?.url ?? event.result?.Url ?? null,
+    fileId: event.fileId ?? event.result?.Id ?? event.result?.id ?? event.result?.data?.Id ?? event.result?.data?.id ?? null,
+  }
+  if (!upload.fileId && !upload.url) return
+  if (!uploadedFiles.value.some(item => item.uploadId === upload.uploadId && item.uploadId != null)) {
+    uploadedFiles.value.push(upload)
+  }
 }
 
 function onEditorSave(result) {
@@ -212,8 +248,8 @@ function resetForm() {
   formState.volume_id = null
   chapterId.value = null
   editorValue.value = ''
-  uploadedUrl.value = null
-  uploadedId.value = null
+  uploadedFiles.value = []
+  editorRef.value?.clearPendingUploads()
   editorRef.value?.clearContent()
 }
 </script>

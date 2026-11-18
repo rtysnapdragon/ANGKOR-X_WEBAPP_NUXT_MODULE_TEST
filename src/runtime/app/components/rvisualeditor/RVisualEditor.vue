@@ -183,6 +183,30 @@ function safeUrl(value, allowTemp = false) {
   } catch { /* invalid */ }
   return null
 }
+function createObjectUrl(file) {
+  if (!import.meta.client || typeof URL.createObjectURL !== 'function') return null
+  try {
+    return URL.createObjectURL(file)
+  }
+  catch {
+    return null
+  }
+}
+function releaseObjectUrl(url) {
+  if (!import.meta.client || typeof URL.revokeObjectURL !== 'function' || !url) return
+  try {
+    URL.revokeObjectURL(url)
+  }
+  catch {
+    return
+  }
+}
+function uploadUrl(result) {
+  return result?.url ?? result?.Url ?? result?.URL ?? result?.location ?? result?.data?.url ?? result?.data?.Url ?? result?.data?.location ?? null
+}
+function uploadFileId(result) {
+  return result?.fileId ?? result?.FileId ?? result?.Id ?? result?.id ?? result?.data?.fileId ?? result?.data?.FileId ?? result?.data?.Id ?? result?.data?.id ?? null
+}
 
 let purify = null
 function getPurify() {
@@ -219,7 +243,9 @@ async function xhrUpload1(file, cfg, { onProgress, signal }) {
     xhr.open(cfg.method ?? 'POST', apiUrl)
     // xhr.open(cfg.method ?? 'POST', cfg.url)
     xhr.withCredentials = !!cfg.withCredentials
-    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
+    for (const [k, v] of Object.entries(headers)) {
+      if (v !== null && v !== undefined) xhr.setRequestHeader(k, String(v))
+    }
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total) }
     xhr.onerror = () => reject(new Error(t('rve_network_error', 'Network error while uploading.')))
     xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
@@ -228,13 +254,15 @@ async function xhrUpload1(file, cfg, { onProgress, signal }) {
       try {
         const json = JSON.parse(xhr.responseText)
         const mapped = cfg.mapResponse ? cfg.mapResponse(json) : json
-        resolve({ url: mapped?.url ?? mapped?.data?.url ?? mapped?.location, ...mapped })
+        resolve({ ...mapped, url: uploadUrl(mapped), fileId: uploadFileId(mapped) })
       } catch { reject(new Error(t('rve_upload_invalid_response', 'The upload endpoint returned an invalid response.'))) }
     }
     signal?.addEventListener('abort', () => xhr.abort())
     const form = new FormData()
     form.append(cfg.fieldName ?? 'file', file, file.name)
-    for (const [k, v] of Object.entries(cfg.body ?? {})) form.append(k, v)
+    for (const [k, v] of Object.entries(cfg.body ?? {})) {
+      if (v !== null && v !== undefined) form.append(k, v)
+    }
     xhr.send(form)
   })
 }
@@ -517,13 +545,27 @@ const RVCallout = Node.create({
 })
 
 // ---- media block: image | video | audio | file (one atom node, vanilla-DOM NodeView) -----------------
-const pending = new Map() // uploadId -> { file, kind, controller }
+const pending = new Map() // uploadId -> { file, kind, controller, localUrl, state }
+function releasePendingUpload(p) {
+  if (!p) return
+  p.controller?.abort()
+  releaseObjectUrl(p.localUrl)
+}
+function clearPendingUploads() {
+  pending.forEach(releasePendingUpload)
+  pending.clear()
+  mediaCtx.views.clear()
+}
 const mediaCtx = {
   views: new Map(), // uploadId -> { setProgress }
   onFiles: (files) => insertFiles(files),
   onRetry: (id) => retryUpload(id),
-  canRetry: (id) => pending.has(id),
-  onRemoved: (a) => { if (a.uploadId) { pending.get(a.uploadId)?.controller?.abort(); pending.delete(a.uploadId) } },
+  canRetry: id => pending.get(id)?.state === 'error',
+  onRemoved: (a) => {
+    if (!a.uploadId) return
+    releasePendingUpload(pending.get(a.uploadId))
+    pending.delete(a.uploadId)
+  },
   onSelect: (a) => emit('media-select', { kind: a.kind, src: a.src, alt: a.alt, caption: a.caption }),
 }
 
@@ -676,8 +718,22 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       const pos = getPos()
       if (typeof pos !== 'number') return
       const uploadId = uid()
-      ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, kind: v.kind, status: 'uploading', uploadId, filename: file.name, size: file.size, mime: v.type, error: '' }))
-      startUpload({ file, kind: v.kind, uploadId })
+      const defer = shouldDeferUpload.value
+      const localUrl = defer ? createObjectUrl(file) : null
+      if (node.attrs.uploadId) {
+        releasePendingUpload(pending.get(node.attrs.uploadId))
+        pending.delete(node.attrs.uploadId)
+      }
+      if (defer) {
+        pending.set(uploadId, { file, kind: v.kind, controller: null, localUrl, state: 'local' })
+        emit('upload', { phase: 'pending', file, uploadId })
+      }
+      ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, {
+        ...node.attrs, kind: v.kind, status: defer ? (localUrl ? 'ready' : 'error') : 'uploading', uploadId,
+        filename: file.name, size: file.size, mime: v.type, error: defer && !localUrl ? t('rve_this_file_not_available', 'This file is not available.') : '',
+        src: defer ? localUrl : null, draft: defer,
+      }))
+      if (!defer) startUpload({ file, kind: v.kind, uploadId })
     })
     input.click()
   }
@@ -1136,6 +1192,7 @@ function insertBlocks(nodes, at) {
 async function insertFiles(fileList, at) {
   if (!live() || !isEditable.value) return []
   const list = isFile(fileList) ? [fileList] : Array.from(fileList ?? []).filter(Boolean)
+  const defer = shouldDeferUpload.value
   const items = []
   for (const file of list) {
     const v = validateFile(file)
@@ -1144,15 +1201,31 @@ async function insertFiles(fileList, at) {
       emit('error', { source: 'media', code: v.code, file, error: new Error(v.error) })
       continue
     }
-    items.push({ file, kind: v.kind, mime: v.type, uploadId: uid() })
+    const item = { file, kind: v.kind, mime: v.type, uploadId: uid(), localUrl: defer ? createObjectUrl(file) : null }
+    items.push(item)
+    if (defer) {
+      pending.set(item.uploadId, { file: item.file, kind: item.kind, controller: null, localUrl: item.localUrl, state: 'local' })
+      emit('upload', { phase: 'pending', file: item.file, uploadId: item.uploadId })
+    }
   }
   if (!items.length) return []
-  insertBlocks(items.map((i) => ({
-    type: 'media',
-    attrs: { kind: i.kind, status: 'uploading', uploadId: i.uploadId, filename: i.file.name, size: i.file.size, mime: i.mime, alt: i.kind === 'image' ? stripExt(i.file.name) : '' },
-  })), at)
-  items.forEach(startUpload)
-  return items.map((i) => i.uploadId)
+  insertBlocks(items.map((i) => {
+    const attrs = {
+      kind: i.kind, status: defer ? 'ready' : 'uploading', uploadId: i.uploadId, filename: i.file.name,
+      size: i.file.size, mime: i.mime, alt: i.kind === 'image' ? stripExt(i.file.name) : '',
+    }
+    if (defer) {
+      attrs.src = i.localUrl
+      attrs.draft = true
+      if (!i.localUrl) {
+        attrs.status = 'error'
+        attrs.error = t('rve_this_file_not_available', 'This file is not available.')
+      }
+    }
+    return { type: 'media', attrs }
+  }), at)
+  if (!defer) items.forEach(startUpload)
+  return items.map(i => i.uploadId)
 }
 
 function patchMedia(uploadId, attrsPatch) {
@@ -1175,9 +1248,11 @@ async function runUploader(file, ctx) {
   throw new Error(t('rve_no_upload_endpoint', 'No upload endpoint configured (set the upload-api or uploader prop).'))
 }
 
-async function startUpload({ file, kind, uploadId }) {
-  const controller = new AbortController()
-  pending.set(uploadId, { file, kind, controller })
+async function performUpload(record) {
+  const { file, kind, uploadId } = record
+  const controller = record.controller ?? new AbortController()
+  const localUrl = record.localUrl ?? pending.get(uploadId)?.localUrl ?? null
+  pending.set(uploadId, { ...record, file, kind, controller, localUrl, state: 'uploading' })
   uploading.value++
   emit('upload', { phase: 'start', file, uploadId })
   try {
@@ -1186,24 +1261,42 @@ async function startUpload({ file, kind, uploadId }) {
       signal: controller.signal,
       onProgress: (p) => { mediaCtx.views.get(uploadId)?.setProgress(p); emit('upload', { phase: 'progress', file, uploadId, progress: p }) },
     })
-    const url = safeUrl(result?.url, opts.value.allowBlobUrls)
+    const url = safeUrl(uploadUrl(result), opts.value.allowBlobUrls)
     if (!url) throw new Error(t('rve_upload_no_url', 'The uploader did not return a persistent http(s) URL.'))
+    const fileId = uploadFileId(result)
     pending.delete(uploadId)
-    patchMedia(uploadId, { src: url, status: 'ready', uploadId: null, error: '' })
-    emit('upload', { phase: 'success', file, uploadId, url, result })
+    releaseObjectUrl(localUrl)
+    patchMedia(uploadId, { src: url, status: 'ready', uploadId: null, fileId, draft: false, error: '' })
+    const upload = { uploadId, file, kind, url, fileId, result }
+    emit('upload', { phase: 'success', file, uploadId, kind, url, fileId, result })
+    return { ok: true, ...upload }
   } catch (err) {
-    if (controller.signal.aborted) return // the block was removed
-    pending.set(uploadId, { file, kind, controller: null }) // keep the file so Retry works
-    patchMedia(uploadId, { status: 'error', error: err?.message || t('rve_upload_failed', 'Upload failed.') })
+    if (controller.signal.aborted) return { ok: false, aborted: true, uploadId, file, kind, error: err }
+    pending.set(uploadId, { ...record, file, kind, controller: null, localUrl, state: 'error' })
+    patchMedia(uploadId, { status: 'error', draft: !!localUrl, error: err?.message || t('rve_upload_failed', 'Upload failed.') })
+    const upload = { uploadId, file, kind, url: null, fileId: null, result: null }
     emit('upload', { phase: 'error', file, uploadId, error: err })
     emit('error', { source: 'upload', file, error: err })
+    return { ok: false, ...upload, error: err }
   } finally {
     uploading.value = Math.max(0, uploading.value - 1)
   }
 }
+async function startUpload(record) {
+  return performUpload({ ...record, controller: new AbortController() })
+}
 function retryUpload(uploadId) {
   const p = pending.get(uploadId)
-  if (p) startUpload({ file: p.file, kind: p.kind, uploadId })
+  if (!p || p.state === 'uploading') return Promise.resolve(null)
+  return performUpload({ ...p, uploadId, controller: new AbortController() })
+}
+async function flushPendingUploads() {
+  if (!shouldDeferUpload.value) return []
+  const records = [...pending.entries()]
+    .filter(([, p]) => p.state !== 'uploading')
+    .map(([uploadId, p]) => ({ ...p, uploadId }))
+  if (!records.length) return []
+  return Promise.all(records.map(record => performUpload({ ...record, controller: new AbortController() })))
 }
 
 function pickFiles(kind) {
@@ -2099,11 +2192,18 @@ async function insertDesign() {
 
     const pos = resolveTargetPos()
     const uploadId = uid()
+    const defer = shouldDeferUpload.value
+    const localUrl = defer ? createObjectUrl(file) : null
+    if (defer) {
+      pending.set(uploadId, { file, kind: 'image', controller: null, localUrl, state: 'local' })
+      emit('upload', { phase: 'pending', file, uploadId })
+    }
     patchAt(pos, {
-      draft: false, status: 'uploading', uploadId, design, kind: 'image',
+      draft: defer, status: defer ? 'ready' : 'uploading', uploadId, design, kind: 'image',
       filename: file.name, size: file.size, mime: 'image/png', error: '',
+      src: defer ? localUrl : null,
     })
-    startUpload({ file, kind: 'image', uploadId })
+    if (!defer) startUpload({ file, kind: 'image', uploadId })
     if (attach.length) insertFiles(attach, pos != null ? pos + 1 : undefined)
     emit('design-saved', { design, pos })
     closeDesign()
@@ -2157,6 +2257,7 @@ function scrubDoc(doc) {
       a.layout = MEDIA_LAYOUTS.includes(a.layout) ? a.layout : null
       a.height = Number.isFinite(Number(a.height)) && Number(a.height) > 0 ? Math.round(Number(a.height)) : null
       a.linked = a.linked === true
+      if (a.draft && pending.has(a.uploadId)) return
       a.src = safeUrl(a.src, allowTemp)
       if (a.status === 'uploading' && !pending.has(a.uploadId)) { a.status = 'error'; a.error = t('rve_upload_interrupted', 'Upload was interrupted.'); a.uploadId = null }
       else if (!a.src && a.status !== 'uploading') { a.status = 'error'; a.error = asStr(a.error) || t('rve_this_file_not_available', 'This file is not available.') }
@@ -2187,17 +2288,21 @@ function toEditorContent(value) {
 function buildEnvelope(ed) {
   const doc = ed.getJSON()
   const fonts = new Set()
+  const fileIds = new Set()
   let pendingUploads = 0
   const walk = (n) => {
     n.marks?.forEach((m) => { if (m.type === 'textStyle' && m.attrs?.fontFamily) fonts.add(m.attrs.fontFamily) })
-    if (n.type === 'media' && n.attrs?.status === 'uploading') pendingUploads++
+    if (n.type === 'media') {
+      if (n.attrs?.status === 'uploading') pendingUploads++
+      if (n.attrs?.fileId) fileIds.add(n.attrs.fileId)
+    }
     n.content?.forEach(walk)
   }
   walk(doc)
   return {
     schema: SCHEMA_ID, version: SCHEMA_VERSION, doc,
     fonts: [...fonts].sort().map((family) => ({ family, stack: (Array.isArray(opts.value.fonts) ? opts.value.fonts : []).find((f) => f.key === family)?.stack ?? null })),
-    meta: { pendingUploads },
+    meta: { pendingUploads, fileIds: [...fileIds] },
   }
 }
 
@@ -2214,7 +2319,7 @@ const apiConfig = computed(() => {
   const raw = props.api
   if (!raw) return null
   if (typeof raw === 'string') {
-    return { load: null, save: { url: raw, method: 'POST' }, autoLoad: false, autoSave: false, saveDebounce: 1000, where: null, data: null, mapPayload: null, mapResponse: null }
+    return { load: null, save: { url: raw, method: 'POST' }, autoLoad: false, autoSave: false, deferUpload: true, saveDebounce: 1000, where: null, data: null, mapPayload: null, mapResponse: null }
   }
   if (!isObj(raw)) return null
   const load = asApiEntry(raw.load || raw.get || raw.read || raw.fetch)
@@ -2225,6 +2330,7 @@ const apiConfig = computed(() => {
     save,
     autoLoad: raw.autoLoad ?? raw.loadOnMount ?? !!load,
     autoSave: raw.autoSave ?? false,
+    deferUpload: raw.deferUpload ?? true,
     saveDebounce: Number.isFinite(debounce) ? Math.max(0, debounce) : 1000,
     where: raw.where ?? null,
     data: raw.data ?? null,
@@ -2234,6 +2340,7 @@ const apiConfig = computed(() => {
 })
 const hasApiLoad = computed(() => !!apiConfig.value?.load?.url)
 const hasApiSave = computed(() => !!apiConfig.value?.save?.url)
+const shouldDeferUpload = computed(() => !!apiConfig.value?.save?.url && apiConfig.value.deferUpload !== false)
 const apiSignatureValue = (value, seen = new WeakSet()) => {
   if (typeof value === 'function') return `[fn ${value.name || ''}]`
   if (value === null || typeof value !== 'object') return value
@@ -2281,6 +2388,7 @@ const extractLoadedContent = (raw, entry, cfg) => {
   return value
 }
 function setApiContent(value) {
+  clearPendingUploads()
   clearTimeout(timer)
   timer = null
   dirty = false
@@ -2337,11 +2445,17 @@ async function saveToApi() {
   apiState.saving = true
   apiState.error = null
   try {
+    const uploads = await flushPendingUploads()
+    const failed = uploads.find(u => !u.ok && !u.aborted)
+    if (failed) throw failed.error
+    const uploadResults = uploads.map(u => u.result).filter(r => r != null)
+    const imageFileIds = uploads.filter(u => u.ok && u.kind === 'image' && u.fileId).map(u => u.fileId)
+    const attachmentFileIds = uploads.filter(u => u.ok && u.kind !== 'image' && u.fileId).map(u => u.fileId)
     const entry = cfg.save
     const envelope = buildEnvelope(ed)
     const html = sanitizeHTML(ed.getHTML())
     const value = props.output === 'html' ? html : props.output === 'both' ? { json: envelope, html } : envelope
-    const context = { phase: 'save', editor: ed, value, envelope, html }
+    const context = { phase: 'save', editor: ed, value, envelope, html, uploads: uploadResults, imageFileIds, attachmentFileIds }
     const extra = resolveApiData(entry.data ?? cfg.data, context)
     let payload = { Content: ed.getText(), Html: html, EditorJson: envelope }
     if (isObj(extra)) payload = { ...payload, ...extra }
@@ -2356,8 +2470,9 @@ async function saveToApi() {
     if (typeof entry.mapResponse === 'function') response = entry.mapResponse(response, payload)
     else if (typeof cfg.mapResponse === 'function') response = cfg.mapResponse(response, payload)
     apiState.loaded = true
-    emit('save', { payload, response, value })
-    return { payload, response, value }
+    const result = { payload, response, value, uploads: uploadResults }
+    emit('save', result)
+    return result
   } catch (err) {
     apiState.error = err
     emit('error', { source: 'api', phase: 'save', error: err })
@@ -2397,7 +2512,7 @@ onBeforeUnmount(() => {
   clearTimeout(apiSaveTimer)
   clearTimeout(noticeTimer)
   cancelAnimationFrame(bumpRaf)
-  pending.forEach((p) => p.controller?.abort())
+  pending.forEach(releasePendingUpload)
 })
 
 // =====================================================================================================
@@ -2750,7 +2865,26 @@ const counts = computed(() => {
   const s = any()?.storage?.characterCount
   return s ? { words: s.words(), characters: s.characters() } : null
 })
-const pageStyle = computed(() => ({ minHeight: cssSize(props.minHeight, '480px'), maxWidth: cssSize(props.maxWidth, '860px'), ...(zoom.value === 100 ? {} : { zoom: zoom.value / 100 }) }))
+// const pageStyle = computed(() => ({ minHeight: cssSize(props.minHeight, '480px'), maxWidth: cssSize(props.maxWidth, '860px'), ...(zoom.value === 100 ? {} : { zoom: zoom.value / 100 }) }))
+const pageStyle = computed(() => ({
+  minHeight: cssSize(props.minHeight, '480px'),
+  // Scales smoothly between 860px (standard laptop 90vw evaluates to ~1152px–1229px, ) and 1440px (Full HD), 
+  // leaving a comfortable margin (90% of viewport width)
+  // maxWidth: cssSize(props.maxWidth, 'clamp(860px, 90vw, 1440px)'),
+  maxWidth: cssSize(props.maxWidth, 'min(100vw, 1600px)'),
+  ...(zoom.value === 100 ? {} : { zoom: zoom.value / 100 })
+
+  // How clamp(860px, 90vw, 1440px) Works Across Screens
+  // • Standard Laptops (1280px – 1366px): 90vw evaluates to ~1152px–1229px, giving your content more breathing room than a fixed 860px while keeping side margins intact.
+// • Small / Split Windows (< 955px): 90vw drops below 860px, so clamp() stops shrinking at your 860px minimum (or set the first value to 100% if you want it responsive on mobile/tablets too).
+// Full HD Laptops (1920px): 90vw evaluates to 1728px, so clamp() caps the width at 1440px so lines of text or document pages don't stretch too wide.
+  // maxWidth: cssSize(props.maxWidth, 'min(92vw, 1600px)') //If you want the container to snap cleanly at specific laptop sizes rather than scaling fluidly with vw, pass a CSS min() expression instead:
+
+//   • On 1366px screens: Width becomes 1256px (92vw).
+// • On 1920px Full HD screens: Width caps cleanly at 1600px.
+
+}))
+
 const setZoom = (v) => { const n = Number(v); zoom.value = Number.isFinite(n) ? Math.min(200, Math.max(50, Math.round(n / 10) * 10)) : 100 }
 
 onMounted(() => {
@@ -2796,6 +2930,8 @@ defineExpose({
   pickFiles,
   loadFromApi: () => loadFromApi(),
   saveToApi: () => saveToApi(),
+  flushPendingUploads: () => flushPendingUploads(),
+  clearPendingUploads: () => clearPendingUploads(),
   reloadApi: () => loadFromApi(),
   apiState: () => ({ ...apiState }),
   isUploading: () => Array.from(pending.values()).some((p) => p.controller),
@@ -3171,8 +3307,8 @@ defineExpose({
   background: var(--bg-wrapper);
   border: 1px solid var(--border-card);
   border-radius: 12px;
-  .rv-body { padding: 28px 16px 40px; cursor: text; }
-  .rv-page { padding: 56px 62px; background: var(--bg-content); border-radius: 8px; box-shadow: var(--glass-shadow); }
+  .rv-body { padding: 28px 16px 40px; cursor: text; background:  var(--bg-content); }
+  .rv-page { padding: 56px 42px; background: var(--bg-content);}
   .rv-start { left: 72px; right: 72px; }
 }
 .rv-editor[data-rv-appearance='notion'] {
@@ -3180,7 +3316,7 @@ defineExpose({
   border: 1px solid var(--border-card);
   border-radius: 12px;
   .rv-body { padding: 16px 12px 24px; cursor: text; }
-  .rv-page { padding: 56px 96px; background: transparent; box-shadow: none; }
+  .rv-page { padding: 46px 16px; background: transparent; box-shadow: none; }
   .rv-start { left: 96px; right: 96px; }
 }
 .rv-editor[data-rv-compact='true'] {

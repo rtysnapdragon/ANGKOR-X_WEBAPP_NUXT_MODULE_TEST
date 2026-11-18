@@ -23,10 +23,11 @@ export default function useOptions(
     const val: any = useUserData().value;
     authorization = `${val.token_type} ${val.access_token}`;
   } else {
+    authorization = `basic ${config.basicKey}`;
     // Prefer JWT from access_token cookie (CEREMONY_WEBAPP_NUXT pattern);
     // fall back to basic key for other apps that don't use JWT cookies.
-    const jwtToken = useCookie(str.accessTokenKey).value;
-    authorization = jwtToken ? `${userCatch.token_type} ${jwtToken}` : `basic ${config.basicKey}`;
+    // const jwtToken = useCookie(str.accessTokenKey).value;
+    // authorization = jwtToken ? `${userCatch.token_type} ${jwtToken}` : `basic ${config.basicKey}`;
   }
   // const jwtToken = useCookie(str.accessTokenKey).value;
   // authorization = jwtToken ? `Bearer ${jwtToken}` : `basic ${config.basicKey}`;
