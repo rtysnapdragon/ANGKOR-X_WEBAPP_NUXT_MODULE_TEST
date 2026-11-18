@@ -1,5 +1,5 @@
 export const useRefreshToken = performRefreshToken;
-import { useUserData } from "#imports";
+import { useUserData,useToast } from "#imports";
 let isRefreshing = false;
 
 async function performRefreshToken(force) {
@@ -19,6 +19,7 @@ async function performRefreshToken(force) {
       const dif = rdate().diff(userData.created_at).seconds;
       const difSeconds = Math.round(dif + 300);
       const isExpired = difSeconds >= userData.expires_in;
+      useToast().add({title:"isExpired in refreshToken -- ",isExpired})
       if (!isExpired) return;
     }
 

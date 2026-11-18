@@ -24,7 +24,7 @@ import { useI18n } from 'vue-i18n'
 import RIcon from '../RIcon.vue'
 import RModal from '../RModal.vue'
 import RTooltip from '../RTooltip.vue'
-import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
+// import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
 import { useUploadProgress } from '../../stores/uploadProgress'
 import { useHttp } from '../../composables/https'
 
@@ -55,7 +55,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update:modelValue', 'update', 'change', 'save', 'error', 'focus', 'blur',
-  'upload', 'upload-complete', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved',
+  'upload', 'upload-complete', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved', 'fullscreen',
 ])
 
 // =====================================================================================================
@@ -278,16 +278,64 @@ const FEATURE_KEYS = [
   'indent', 'spacing', 'links', 'tables', 'codeBlock', 'divider', 'callout', 'typography',
   'slashMenu', 'bubbleMenu', 'blockHandle', 'dropFiles', 'media', 'images', 'videos', 'audio', 'files',
   'floatingMedia', 'shapes', 'drawing', 'canvas',
+  'inlineCode', 'pageBreak', 'emoji', 'specialCharacters', 'findReplace', 'source', 'accessibility', 'exportTools',
+  'linkFileActions', 'tableToolbar', 'menuBar', 'fullscreen',
 ]
 const PRESETS = {
   full: {},
   standard: { canvas: false, drawing: false, shapes: false, floatingMedia: false, typography: false },
   document: { canvas: false, drawing: false, shapes: false, floatingMedia: false, zoom: true, wordCount: true },
+  featureRich: {
+    toolbarMode: 'multiline', menuBar: true, tableToolbar: true, linkFileActions: true, inlineCode: true,
+    pageBreak: true, emoji: true, specialCharacters: true, findReplace: true, source: true,
+    accessibility: true, exportTools: true, zoom: true, wordCount: true, fullscreen: true,
+  },
+  article: {
+    toolbarMode: 'ribbon', tableToolbar: true, linkFileActions: true, inlineCode: true, pageBreak: true,
+    specialCharacters: true, exportTools: true, wordCount: true,
+  },
+  documentEditor: {
+    toolbarMode: 'ribbon', menuBar: true, tableToolbar: true, linkFileActions: true, inlineCode: true,
+    pageBreak: true, specialCharacters: true, exportTools: true, zoom: true, wordCount: true, fullscreen: true,
+  },
+  collaborativeArticle: {
+    toolbarMode: 'ribbon', menuBar: true, tableToolbar: true, linkFileActions: true, inlineCode: true,
+    pageBreak: true, specialCharacters: true, exportTools: true, accessibility: true, wordCount: true,
+  },
+  email: {
+    toolbarMode: 'ribbon', tableToolbar: true, inlineCode: true, floatingMedia: false, shapes: false,
+    drawing: false, canvas: false, typography: false, zoom: false, pageBreak: false, emoji: false,
+    specialCharacters: false, source: false, accessibility: false, exportTools: false,
+  },
+  notionLike: {
+    appearance: 'notion', toolbarMode: 'compact', tableToolbar: false, menuBar: false, inlineCode: true,
+    source: false, findReplace: false, accessibility: false, exportTools: false,
+  },
+  microeditor: {
+    history: true, textFormatting: true, links: false, lists: false, headings: false, alignment: false, colors: false,
+    fonts: false, spacing: false, indent: false, blockquote: false, tables: false, codeBlock: false, divider: false,
+    callout: false, typography: false, bubbleMenu: false, blockHandle: false, slashMenu: false, footer: false, wordCount: false,
+    zoom: false, dropFiles: false, media: false, images: false, videos: false, audio: false, files: false,
+    floatingMedia: false, shapes: false, drawing: false, canvas: false, inlineCode: false, pageBreak: false,
+    emoji: false, specialCharacters: false, findReplace: false, source: false, accessibility: false,
+    exportTools: false, linkFileActions: false, tableToolbar: false, menuBar: false,
+    appearance: 'notion', toolbarMode: 'compact',
+  },
+  classic: {
+    toolbarMode: 'ribbon', menuBar: false, tableToolbar: true, inlineCode: true, pageBreak: false,
+    emoji: false, specialCharacters: true, findReplace: false, source: false, accessibility: false, exportTools: false,
+  },
+  html: {
+    toolbarMode: 'multiline', menuBar: true, source: true, exportTools: true, inlineCode: true, codeBlock: true,
+    findReplace: true, accessibility: true, tableToolbar: true, fullscreen: true,
+  },
   comment: {
     footer: true, wordCount: false, zoom: false, fonts: false, colors: false, headings: false, alignment: false, lists: false,
     blockquote: false, indent: false, spacing: false, tables: false, codeBlock: false, divider: false, callout: false,
     typography: false, slashMenu: false, blockHandle: false, dropFiles: false, media: false, images: false, videos: false,
     audio: false, files: false, floatingMedia: false, shapes: false, drawing: false, canvas: false,
+    inlineCode: false, pageBreak: false, emoji: false, specialCharacters: false, findReplace: false, source: false,
+    accessibility: false, exportTools: false, linkFileActions: false, tableToolbar: false, menuBar: false,
     appearance: 'notion', toolbarMode: 'compact',
   },
   minimal: {
@@ -295,6 +343,8 @@ const PRESETS = {
     fonts: false, spacing: false, indent: false, blockquote: false, tables: false, codeBlock: false, divider: false,
     callout: false, typography: false, bubbleMenu: false, blockHandle: false, slashMenu: false, footer: false, wordCount: false,
     zoom: false, dropFiles: false, media: false, images: false, videos: false, audio: false, files: false,
+    inlineCode: false, pageBreak: false, emoji: false, specialCharacters: false, findReplace: false, source: false,
+    accessibility: false, exportTools: false, linkFileActions: false, tableToolbar: false, menuBar: false,
     appearance: 'notion', toolbarMode: 'compact',
   },
 }
@@ -305,7 +355,7 @@ const optShape = {
   preset: z.enum(PRESET_NAMES),
   theme: z.enum(['light', 'dark', 'system']),
   appearance: z.enum(['notion', 'paper']),
-  toolbarMode: z.enum(['ribbon', 'compact']), // ribbon = Word-style tabs; compact = single-row (UEditor-style)
+  toolbarMode: z.enum(['ribbon', 'compact', 'multiline']),
   editable: z.boolean(),
   emitDebounce: z.number().int().min(0).max(10000),
   allowBlobUrls: z.boolean(), // demos only: accept blob: URLs returned by an uploader
@@ -319,6 +369,18 @@ const OPT_DEFAULTS = {
   fonts: DEFAULT_FONTS, fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96],
   wordCount: true,
   zoom: false,
+  inlineCode: false,
+  pageBreak: false,
+  emoji: false,
+  specialCharacters: false,
+  findReplace: false,
+  source: false,
+  accessibility: false,
+  exportTools: false,
+  menuBar: false,
+  linkFileActions: true,
+  tableToolbar: true,
+  fullscreen: false,
 }
 const DEPENDS_ON = { images: 'media', videos: 'media', audio: 'media', files: 'media', dropFiles: 'media' }
 const inherit = (parent, child) => {
@@ -391,6 +453,26 @@ const globalUploadEntries = new Map()
 let globalActive = 0
 const globalUploading = computed(() => uploadProgress.isUploading)
 const toolbarRef = ref(null)
+const menuRoot = ref(null)
+const menuOpen = ref(null)
+const isFullscreen = ref(false)
+let pseudoFullscreen = false
+let previousBodyOverflow = ''
+const sourceOpen = ref(false)
+const sourceText = ref('')
+const findOpen = ref(false)
+const findQuery = ref('')
+const replaceQuery = ref('')
+const findMessage = ref('')
+const specialOpen = ref(false)
+const a11yResult = ref(null)
+const tableDockEl = ref(null)
+const tableDock = reactive({ visible: false, top: 0, left: 0, place: 'above' })
+const tableDockGroup = ref(null)
+const tableDockTarget = computed(() => (isFullscreen.value && root.value ? root.value : 'body'))
+onClickOutside(menuRoot, () => { menuOpen.value = null })
+onClickOutside(tableDockEl, () => { tableDockGroup.value = null })
+watch(() => tableDock.visible, (visible) => { if (!visible) tableDockGroup.value = null })
 const mounted = ref(false) // client-only values are computed after mount so SSR and hydration markup match
 const hostHasMode = ref(false)
 // The host may toggle dark/light by adding a class to <html> or <body> after mount; track it live so the
@@ -547,6 +629,20 @@ const RVCallout = Node.create({
   },
   renderHTML({ node }) {
     return ['div', { 'data-rv-callout': TONES.includes(node.attrs.tone) ? node.attrs.tone : 'info', class: 'rv-callout' }, 0]
+  },
+})
+
+const RVPageBreak = Node.create({
+  name: 'pageBreak',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  parseHTML() { return [{ tag: 'div[data-rv-page-break]' }] },
+  renderHTML() { return ['div', { 'data-rv-page-break': 'true', class: 'rv-page-break' }] },
+  addCommands() {
+    return {
+      insertPageBreak: () => ({ chain }) => chain().insertContent({ type: this.name }).run(),
+    }
   },
 })
 
@@ -1107,6 +1203,9 @@ function buildSlashItems() {
   const XK = 'rve_advanced'
   if (on('tables')) add('table', X, XK, 'Table', 'rve_table', 'Add a 3 × 3 table with a header row.', 'rve_table_hint', 'i-lucide-table', ['grid', 'spreadsheet'], (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())
   if (on('codeBlock')) add('code', X, XK, 'Code', 'rve_code', 'Capture a code snippet.', 'rve_code_hint', 'i-lucide-square-code', ['pre', 'snippet', 'code'], (e) => e.chain().focus().toggleCodeBlock().run())
+  if (on('pageBreak')) add('page-break', X, XK, 'Page break', 'rve_page_break', 'Start a new printed page.', 'rve_page_break_hint', 'i-lucide-scissors', ['page', 'break', 'print'], (e) => e.chain().focus().insertPageBreak().run())
+  if (on('emoji')) add('emoji', X, XK, 'Emoji', 'rve_emoji', 'Insert an emoji.', 'rve_emoji_hint', 'i-lucide-smile', ['emoji', 'smile'], (e) => e.chain().focus().insertContent('😊').run())
+  if (on('specialCharacters')) add('special-characters', X, XK, 'Special character', 'rve_special_character', 'Insert a symbol or special character.', 'rve_special_character_hint', 'i-lucide-type', ['symbol', 'character'], (e) => e.chain().focus().insertContent('©').run())
   add('date', X, XK, 'Date', 'rve_date', 'Insert today’s date.', 'rve_date_hint', 'i-lucide-calendar', ['today', 'time'], (e) => e.chain().focus().insertContent(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })).run())
   return list.map((it) => {
     const run = it.run
@@ -2602,7 +2701,7 @@ function buildExtensions() {
   const list = [
     StarterKit.configure({
       heading: cfg('headings', { levels: [1, 2, 3, 4, 5, 6] }),
-      bold: cfg('textFormatting'), italic: cfg('textFormatting'), strike: cfg('textFormatting'), underline: cfg('textFormatting'), code: cfg('textFormatting'),
+      bold: cfg('textFormatting'), italic: cfg('textFormatting'), strike: cfg('textFormatting'), underline: cfg('textFormatting'), code: (on('textFormatting') || on('inlineCode')) ? {} : false,
       blockquote: cfg('blockquote'),
       bulletList: cfg('lists'), orderedList: cfg('lists'), listItem: cfg('lists'), listKeymap: cfg('lists'),
       codeBlock: cfg('codeBlock'), horizontalRule: cfg('divider'),
@@ -2620,6 +2719,7 @@ function buildExtensions() {
   if (on('tables')) list.push(TableKit.configure({ table: { resizable: true } }))
   if (on('spacing') || on('indent')) list.push(RVBlockStyle)
   if (on('callout')) list.push(RVCallout)
+  if (on('pageBreak')) list.push(RVPageBreak)
   if (on('media')) list.push(RVMedia)
   if (on('typography')) list.push(Typography)
   if (on('slashMenu')) list.push(RVSlash)
@@ -2846,7 +2946,7 @@ function scheduleBubble() {
   bubbleRaf = requestAnimationFrame(() => { bubbleRaf = 0; updateBubble() })
 }
 const onWindowPointerUp = () => { if (selecting) { selecting = false; scheduleBubble() } }
-const onWindowScroll = () => { scheduleBubble(); refreshHandle(); if (slash.open) slash.rect = slash.rect && { ...slash.rect } }
+const onWindowScroll = () => { scheduleBubble(); refreshHandle(); updateTableDock(); if (slash.open) slash.rect = slash.rect && { ...slash.rect } }
 
 const bubbleBlockLabel = () => (act('heading') ? t(`rve_heading_${attrs('heading').level}`, `Heading ${attrs('heading').level}`) : act('bulletList') ? tl('Bulleted list') : act('orderedList') ? tl('Numbered list') : act('taskList') ? tl('To-do list') : act('blockquote') ? tl('Quote') : tl('Text'))
 const bubbleTurn = computed(() => {
@@ -2890,6 +2990,22 @@ function applyLink(raw) {
   else ed.chain().focus().extendMarkRange('link').setLink({ href }).run()
   return true
 }
+const FILE_LINK_RE = /\.(pdf|docx?|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z|mp3|wav|ogg|mp4|webm|png|jpe?g|gif|webp|svg|avif)(?:[?#]|$)/i
+function linkIsFile(raw) { return FILE_LINK_RE.test(String(raw ?? '').trim()) }
+function previewLink(raw) {
+  const href = normalizeUrl(raw)
+  if (href && import.meta.client) window.open(href, '_blank', 'noopener,noreferrer')
+}
+function downloadLink(raw) {
+  const href = normalizeUrl(raw)
+  if (!href || !import.meta.client) return
+  const a = document.createElement('a')
+  a.href = href
+  a.download = ''
+  a.rel = 'noopener noreferrer'
+  a.target = '_blank'
+  a.click()
+}
 function submitBubbleLink() {
   if (!applyLink(bubble.url)) { bubble.error = t('rve_enter_valid_link', 'Enter a valid http(s), mailto or tel link.'); return }
   closeBubble(true)
@@ -2928,8 +3044,287 @@ function onBodyMouseDown(event) {
 function onRootKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openLink() }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's' && hasApiSave.value) { e.preventDefault(); void saveToApi() }
-  if (e.key === 'Escape') blockMenu.open = false
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f' && vis('findReplace')) { e.preventDefault(); toggleFind() }
+  if (e.key === 'Escape') { blockMenu.open = false; menuOpen.value = null; sourceOpen.value = false; findOpen.value = false; specialOpen.value = false }
 }
+
+const TABLE_DOCK_TOOLS = [
+  { id: 'rowBefore', label: 'Row above', icon: 'i-lucide-between-horizontal-start', run: (e) => e.chain().focus().addRowBefore().run(), can: (e) => e.can().addRowBefore() },
+  { id: 'rowAfter', label: 'Row below', icon: 'i-lucide-between-horizontal-end', run: (e) => e.chain().focus().addRowAfter().run(), can: (e) => e.can().addRowAfter() },
+  { id: 'colBefore', label: 'Column left', icon: 'i-lucide-between-vertical-start', run: (e) => e.chain().focus().addColumnBefore().run(), can: (e) => e.can().addColumnBefore() },
+  { id: 'colAfter', label: 'Column right', icon: 'i-lucide-between-vertical-end', run: (e) => e.chain().focus().addColumnAfter().run(), can: (e) => e.can().addColumnAfter() },
+  { id: 'sep-1', label: '', icon: '', sep: true },
+  { id: 'deleteRow', label: 'Delete row', icon: 'i-lucide-rows-3', run: (e) => e.chain().focus().deleteRow().run(), can: (e) => e.can().deleteRow(), danger: true },
+  { id: 'deleteCol', label: 'Delete column', icon: 'i-lucide-columns-3', run: (e) => e.chain().focus().deleteColumn().run(), can: (e) => e.can().deleteColumn(), danger: true },
+  { id: 'merge', label: 'Merge cells', icon: 'i-lucide-table-cells-merge', run: (e) => e.chain().focus().mergeCells().run(), can: (e) => e.can().mergeCells() },
+  { id: 'split', label: 'Split cell', icon: 'i-lucide-table-cells-split', run: (e) => e.chain().focus().splitCell().run(), can: (e) => e.can().splitCell() },
+  { id: 'sep-2', label: '', icon: '', sep: true },
+  { id: 'headerRow', label: 'Header row', icon: 'i-lucide-table-properties', run: (e) => e.chain().focus().toggleHeaderRow().run(), can: (e) => e.can().toggleHeaderRow() },
+  { id: 'headerCol', label: 'Header column', icon: 'i-lucide-table-2', run: (e) => e.chain().focus().toggleHeaderColumn().run(), can: (e) => e.can().toggleHeaderColumn() },
+  { id: 'sep-3', label: '', icon: '', sep: true },
+  { id: 'alignLeft', label: 'Align cell left', icon: 'i-lucide-align-left', run: (e) => e.chain().focus().setTextAlign('left').run(), can: (e) => e.can().setTextAlign('left') },
+  { id: 'alignCenter', label: 'Align cell center', icon: 'i-lucide-align-center', run: (e) => e.chain().focus().setTextAlign('center').run(), can: (e) => e.can().setTextAlign('center') },
+  { id: 'alignRight', label: 'Align cell right', icon: 'i-lucide-align-right', run: (e) => e.chain().focus().setTextAlign('right').run(), can: (e) => e.can().setTextAlign('right') },
+  { id: 'sep-4', label: '', icon: '', sep: true },
+  { id: 'deleteTable', label: 'Delete table', icon: 'i-lucide-trash-2', run: (e) => e.chain().focus().deleteTable().run(), can: (e) => e.can().deleteTable(), danger: true },
+]
+const TABLE_DOCK_TOOL_MAP = Object.fromEntries(TABLE_DOCK_TOOLS.filter((t) => !t.sep).map((t) => [t.id, t]))
+const TABLE_DOCK_GROUPS = [
+  { id: 'insert', label: 'Insert row or column', icon: 'i-lucide-table-2', items: ['rowBefore', 'rowAfter', 'colBefore', 'colAfter'] },
+  { id: 'delete', label: 'Delete row, column or table', icon: 'i-lucide-trash-2', items: ['deleteRow', 'deleteCol', 'deleteTable'] },
+  { id: 'merge', label: 'Merge or split cells', icon: 'i-lucide-table-cells-merge', items: ['merge', 'split'] },
+  { id: 'header', label: 'Header row or column', icon: 'i-lucide-table-properties', items: ['headerRow', 'headerCol'] },
+  { id: 'align', label: 'Cell alignment', icon: 'i-lucide-align-left', items: ['alignLeft', 'alignCenter', 'alignRight'] },
+]
+function canTableTool(tool) {
+  if (tool.sep || !isEditable.value) return false
+  try { return !!live() && (!tool.can || tool.can(live())) } catch { return false }
+}
+const groupTools = (group) => group.items.map((id) => TABLE_DOCK_TOOL_MAP[id]).filter(Boolean)
+function canTableGroup(group) { return groupTools(group).some((tool) => canTableTool(tool)) }
+function toggleTableGroup(id) { tableDockGroup.value = tableDockGroup.value === id ? null : id }
+function runTableTool(tool) {
+  const e = live()
+  tableDockGroup.value = null
+  if (tool.sep || !e || !canTableTool(tool)) return
+  try { tool.run(e) } catch (err) { warn('Table tool failed:', err) }
+  updateTableDock()
+}
+function updateTableDock() {
+  if (!import.meta.client || !vis('tableToolbar') || !vis('tables') || !isEditable.value || !act('table')) { tableDock.visible = false; return }
+  const e = any()
+  if (!e) { tableDock.visible = false; return }
+  let table = null
+  try {
+    const node = e.view.domAtPos(e.state.selection.from).node
+    table = node?.nodeType === 1 ? node.closest?.('table') : node?.parentElement?.closest?.('table')
+  } catch { table = null }
+  if (!table) { tableDock.visible = false; return }
+  const rect = table.getBoundingClientRect()
+  const width = tableDockEl.value?.offsetWidth || 360
+  const height = tableDockEl.value?.offsetHeight || 40
+  let top = rect.top - height - 8
+  let place = 'above'
+  if (top < 8) { top = rect.bottom + 8; place = 'below' }
+  if (top + height > window.innerHeight - 8) top = Math.max(8, Math.min(rect.top + 8, window.innerHeight - height - 8))
+  const left = Math.max(8, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 8))
+  Object.assign(tableDock, { visible: true, top: Math.round(top), left: Math.round(left), place })
+}
+watch(() => tick.value, () => { updateTableDock() })
+
+const SPECIALS = ['©', '®', '™', '€', '£', '¥', '¢', '§', '¶', '•', '—', '–', '…', '°', '±', '×', '÷', '→', '←', '↑', '↓', '✓', '✗', '∞', '≠', '≤', '≥', 'α', 'β', 'π']
+function toggleSpecial() { specialOpen.value = !specialOpen.value; if (specialOpen.value) { findOpen.value = false; sourceOpen.value = false } }
+function insertSpecial(value) { chain().insertContent(value).run(); specialOpen.value = false }
+function currentHtml() { return any() ? sanitizeHTML(any().getHTML()) : '' }
+function currentJson() { return any() ? buildEnvelope(any()) : null }
+function downloadFile(name, content, type) {
+  if (!import.meta.client) return
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+function exportHtml() { downloadFile('document.html', currentHtml(), 'text/html;charset=utf-8') }
+function exportJson() { downloadFile('document.json', JSON.stringify(currentJson(), null, 2), 'application/json;charset=utf-8') }
+async function copyHtml() {
+  try { await navigator.clipboard.writeText(currentHtml()); showNotice(t('rve_html_copied', 'HTML copied to clipboard.')) }
+  catch { showNotice(t('rve_copy_link_failed', 'Could not copy the link.')) }
+}
+function printDocument() {
+  if (!import.meta.client) return
+  const win = window.open('', '_blank')
+  if (!win) return
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${t('rve_document', 'Document')}</title><style>body{font-family:system-ui,sans-serif;line-height:1.6;margin:48px;color:#111}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px 10px}</style></head><body>${currentHtml()}</body></html>`)
+  win.document.close()
+  setTimeout(() => win.print(), 300)
+}
+function toggleSource() {
+  sourceOpen.value = !sourceOpen.value
+  if (sourceOpen.value) { sourceText.value = currentHtml(); findOpen.value = false; specialOpen.value = false }
+}
+function applySource() { live()?.commands.setContent(sanitizeHTML(sourceText.value), { emitUpdate: true }); sourceOpen.value = false; showNotice(t('rve_source_applied', 'Source applied.')) }
+function toggleFind() { findOpen.value = !findOpen.value; if (findOpen.value) { sourceOpen.value = false; specialOpen.value = false; findMessage.value = '' } }
+function findMatches(query) {
+  const e = any()
+  const q = String(query ?? '').trim().toLowerCase()
+  const found = []
+  if (!e || !q) return found
+  e.state.doc.descendants((node, pos) => {
+    if (!node.isText) return
+    const text = (node.text ?? '').toLowerCase()
+    let from = 0
+    let at = text.indexOf(q, from)
+    while (at >= 0) { found.push({ from: pos + at, to: pos + at + q.length }); from = at + q.length; at = text.indexOf(q, from) }
+  })
+  return found
+}
+function findNext() {
+  const e = live()
+  const matches = findMatches(findQuery.value)
+  if (!e || !matches.length) { findMessage.value = t('rve_no_matches', 'No matches'); return }
+  const cursor = e.state.selection.from
+  const next = matches.find((m) => m.from > cursor) ?? matches[0]
+  const index = matches.indexOf(next)
+  e.chain().focus().setTextSelection({ from: next.from, to: next.to }).scrollIntoView().run()
+  findMessage.value = `${index + 1} / ${matches.length}`
+}
+function replaceCurrent() {
+  const e = live()
+  if (!e || e.state.selection.empty) { findNext(); return }
+  e.chain().focus().insertContentAt({ from: e.state.selection.from, to: e.state.selection.to }, replaceQuery.value).run()
+  findNext()
+}
+function replaceAll() {
+  const e = live()
+  const q = String(findQuery.value ?? '').trim()
+  if (!e || !q) return
+  const matches = findMatches(q)
+  for (let i = matches.length - 1; i >= 0; i--) e.chain().insertContentAt({ from: matches[i].from, to: matches[i].to }, replaceQuery.value).run()
+  findMessage.value = `${t('rve_replaced', 'Replaced')} ${matches.length}`
+}
+function runAccessibility() {
+  const e = any()
+  if (!e) return
+  let images = 0
+  let emptyAlt = 0
+  let emptyHeadings = 0
+  let emptyLinks = 0
+  e.state.doc.descendants((node) => {
+    if (node.type.name === 'media' && node.attrs.kind === 'image') { images++; if (!String(node.attrs.alt ?? '').trim()) emptyAlt++ }
+    if (node.type.name === 'heading' && !node.textContent.trim()) emptyHeadings++
+    if (node.type.name === 'link' && !node.textContent.trim()) emptyLinks++
+  })
+  a11yResult.value = { images, emptyAlt, emptyHeadings, emptyLinks }
+}
+async function toggleFullscreen() {
+  if (!import.meta.client) return
+  const el = root.value
+  if (!el) return
+  if (isFullscreen.value) {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
+    pseudoFullscreen = false
+    isFullscreen.value = false
+    return
+  }
+  try {
+    if (!el.requestFullscreen) throw new Error('unsupported')
+    await el.requestFullscreen()
+    pseudoFullscreen = false
+  } catch {
+    pseudoFullscreen = true
+  }
+  isFullscreen.value = true
+}
+function onFullscreenChange() {
+  if (pseudoFullscreen) return
+  isFullscreen.value = document.fullscreenElement === root.value
+}
+function onFullscreenKeydown(e) {
+  if (e.key === 'Escape') tableDockGroup.value = null
+  if (e.key === 'Escape' && pseudoFullscreen && isFullscreen.value) {
+    e.preventDefault()
+    void toggleFullscreen()
+  }
+}
+watch(isFullscreen, (active) => {
+  if (import.meta.client) {
+    if (active) {
+      previousBodyOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = previousBodyOverflow
+    }
+  }
+  emit('fullscreen', active)
+  nextTick(() => updateTableDock())
+})
+function toggleMenu(id) { menuOpen.value = menuOpen.value === id ? null : id }
+function runMenuItem(item) { menuOpen.value = null; if (typeof item?.run === 'function') item.run() }
+const linkActions = { isFile: linkIsFile, preview: previewLink, download: downloadLink }
+const toolbarActions = computed(() => [
+  {
+    id: 'fullscreen', label: isFullscreen.value ? 'Exit full screen' : 'Full screen',
+    icon: isFullscreen.value ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2',
+    active: isFullscreen.value, show: vis('fullscreen'), quick: true, run: () => void toggleFullscreen(),
+  },
+  { id: 'inline-code', label: 'Inline code', icon: 'i-lucide-code', show: vis('inlineCode'), run: () => chain().toggleCode().run() },
+  { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', show: vis('pageBreak'), run: () => chain().insertPageBreak().run() },
+  { id: 'emoji', label: 'Emoji', icon: 'i-lucide-smile', show: vis('emoji'), run: () => insertSpecial('😊') },
+  { id: 'special', label: 'Special characters', icon: 'i-lucide-type', show: vis('specialCharacters'), run: toggleSpecial },
+  { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: vis('findReplace'), run: toggleFind },
+  { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: vis('source'), run: toggleSource },
+  { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', show: vis('accessibility'), run: runAccessibility },
+  { id: 'download-html', label: 'Download HTML', icon: 'i-lucide-download', show: vis('exportTools'), run: exportHtml },
+  { id: 'download-json', label: 'Download JSON', icon: 'i-lucide-file-json-2', show: vis('exportTools'), run: exportJson },
+  { id: 'copy-html', label: 'Copy HTML', icon: 'i-lucide-copy', show: vis('exportTools'), run: () => void copyHtml() },
+  { id: 'print', label: 'Print', icon: 'i-lucide-printer', show: vis('exportTools'), run: printDocument },
+].filter((i) => i.show))
+const menuDefs = computed(() => [
+  {
+    id: 'file', label: 'File', icon: 'i-lucide-file',
+    items: [
+      { id: 'clear', label: 'New document', icon: 'i-lucide-file-plus', show: () => isEditable.value, run: () => clearContent() },
+      { id: 'load', label: 'Load from API', icon: 'i-lucide-cloud-download', show: () => hasApiLoad.value, run: () => void loadFromApi() },
+      { id: 'save', label: 'Save', icon: 'i-lucide-save', show: () => hasApiSave.value, run: () => void saveToApi() },
+      { id: 'download-html', label: 'Download HTML', icon: 'i-lucide-download', show: () => vis('exportTools'), run: exportHtml },
+      { id: 'download-json', label: 'Download JSON', icon: 'i-lucide-file-json-2', show: () => vis('exportTools'), run: exportJson },
+      { id: 'print', label: 'Print', icon: 'i-lucide-printer', show: () => vis('exportTools'), run: printDocument },
+    ],
+  },
+  {
+    id: 'edit', label: 'Edit', icon: 'i-lucide-pen-line',
+    items: [
+      { id: 'undo', label: 'Undo', icon: 'i-lucide-undo-2', show: () => usable('history'), run: () => chain().undo().run() },
+      { id: 'redo', label: 'Redo', icon: 'i-lucide-redo-2', show: () => usable('history'), run: () => chain().redo().run() },
+      { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: () => vis('findReplace'), run: toggleFind },
+      { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: () => vis('source'), run: toggleSource },
+      { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', show: () => vis('accessibility'), run: runAccessibility },
+    ],
+  },
+  {
+    id: 'insert', label: 'Insert', icon: 'i-lucide-plus',
+    items: [
+      { id: 'image', label: 'Image', icon: 'i-lucide-image', show: () => kindAllowed('image'), run: () => pickFiles('image') },
+      { id: 'video', label: 'Video', icon: 'i-lucide-video', show: () => kindAllowed('video'), run: () => pickFiles('video') },
+      { id: 'audio', label: 'Audio', icon: 'i-lucide-music', show: () => kindAllowed('audio'), run: () => pickFiles('audio') },
+      { id: 'file', label: 'File', icon: 'i-lucide-paperclip', show: () => kindAllowed('file'), run: () => pickFiles('file') },
+      { id: 'media-url', label: 'Media from URL', icon: 'i-lucide-link-2', show: () => KINDS.some((k) => kindAllowed(k)), run: openMediaUrl },
+      { id: 'table', label: 'Table', icon: 'i-lucide-table', show: () => usable('tables'), run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+      { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', show: () => vis('pageBreak'), run: () => chain().insertPageBreak().run() },
+      { id: 'emoji', label: 'Emoji', icon: 'i-lucide-smile', show: () => vis('emoji'), run: () => insertSpecial('😊') },
+      { id: 'special', label: 'Special characters', icon: 'i-lucide-type', show: () => vis('specialCharacters'), run: toggleSpecial },
+    ],
+  },
+  {
+    id: 'format', label: 'Format', icon: 'i-lucide-paintbrush',
+    items: [
+      { id: 'bold', label: 'Bold', icon: 'i-lucide-bold', show: () => usable('textFormatting'), run: () => chain().toggleBold().run() },
+      { id: 'italic', label: 'Italic', icon: 'i-lucide-italic', show: () => usable('textFormatting'), run: () => chain().toggleItalic().run() },
+      { id: 'code', label: 'Inline code', icon: 'i-lucide-code', show: () => usable('inlineCode'), run: () => chain().toggleCode().run() },
+      { id: 'clear', label: 'Clear formatting', icon: 'i-lucide-remove-formatting', show: () => usable('textFormatting'), run: () => chain().unsetAllMarks().run() },
+    ],
+  },
+  {
+    id: 'view', label: 'View', icon: 'i-lucide-eye',
+    items: [
+      {
+        id: 'fullscreen', label: isFullscreen.value ? 'Exit full screen' : 'Full screen',
+        icon: isFullscreen.value ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2',
+        show: () => vis('fullscreen'), run: () => void toggleFullscreen(),
+      },
+      { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: () => vis('source'), run: toggleSource },
+      { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: () => vis('findReplace'), run: toggleFind },
+      { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', show: () => vis('accessibility'), run: runAccessibility },
+    ],
+  },
+  {
+    id: 'table', label: 'Table', icon: 'i-lucide-table',
+    items: TABLE_DOCK_TOOLS.filter((t) => !t.sep).map((t) => ({ id: t.id, label: t.label, icon: t.icon, show: () => usable('tables'), run: () => runTableTool(t) })),
+  },
+].map((m) => ({ ...m, items: m.items.filter((i) => !i.show || i.show()) })).filter((m) => m.items.length))
 
 const showStart = computed(() => docEmpty.value && isEditable.value && on('slashMenu') && !slash.open)
 const START_IDS = ['heading-1', 'bullet-list', 'todo-list', 'table', 'image', 'video', 'audio', 'file', 'callout']
@@ -2969,6 +3364,8 @@ onMounted(() => {
   window.addEventListener('pointerup', onWindowPointerUp)
   window.addEventListener('scroll', onWindowScroll, true)
   window.addEventListener('resize', onWindowScroll)
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+  document.addEventListener('keydown', onFullscreenKeydown)
 })
 onBeforeUnmount(() => {
   hostModeObserver?.disconnect()
@@ -2976,6 +3373,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onWindowPointerUp)
   window.removeEventListener('scroll', onWindowScroll, true)
   window.removeEventListener('resize', onWindowScroll)
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  document.removeEventListener('keydown', onFullscreenKeydown)
+  if (document.fullscreenElement === root.value) document.exitFullscreen().catch(() => {})
+  if (isFullscreen.value) document.body.style.overflow = previousBodyOverflow
   cancelAnimationFrame(hoverRaf)
   cancelAnimationFrame(bubbleRaf)
 })
@@ -2995,6 +3396,8 @@ defineExpose({
   undo: () => live()?.commands.undo() ?? false,
   redo: () => live()?.commands.redo() ?? false,
   setEditable: (v) => { runtimeEditable.value = !!v },
+  toggleFullscreen: () => toggleFullscreen(),
+  isFullscreen: () => isFullscreen.value,
   destroy: () => { any()?.destroy() },
   insertFiles: (files) => insertFiles(files),
   insertImage: (fileOrUrl) => (typeof fileOrUrl === 'string' ? insertMediaUrl('image', fileOrUrl) : insertFiles([fileOrUrl])),
@@ -3020,6 +3423,8 @@ defineExpose({
   <div
     ref="root"
     class="rv-editor"
+    :class="{ 'is-fullscreen': isFullscreen }"
+    :data-rv-fullscreen="String(isFullscreen)"
     :data-rv-theme="opts.theme"
     :data-rv-appearance="opts.appearance"
     :data-rv-compact="compact"
@@ -3032,6 +3437,20 @@ defineExpose({
     @drop.capture="onDrop"
     @mouseleave="onRootLeave"
   >
+    <div v-if="editor && vis('menuBar')" ref="menuRoot" class="rv-menubar" role="menubar">
+      <div v-for="m in menuDefs" :key="m.id" class="rv-menubar__wrap">
+        <RTooltip :text="tl(m.label)" side="bottom">
+          <button type="button" class="rv-menubar__btn" :class="{ 'is-active': menuOpen === m.id }" role="menuitem" :aria-haspopup="true" :aria-expanded="menuOpen === m.id" @mousedown.prevent @click="toggleMenu(m.id)">{{ tl(m.label) }}</button>
+        </RTooltip>
+        <div v-if="menuOpen === m.id" class="rv-menubar__menu" role="menu">
+          <button v-for="item in m.items" :key="item.id" type="button" class="rv-menu__item" :class="{ 'rv-menu__item--danger': item.danger }" role="menuitem" @mousedown.prevent @click="runMenuItem(item)">
+            <RIcon v-if="item.icon" :name="item.icon" />
+            <span>{{ tl(item.label) }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ================= Toolbar (separate component: Word-style ribbon / compact row) ================= -->
     <RVToolbar
       v-if="editor && feat.toolbar.visible"
@@ -3047,9 +3466,61 @@ defineExpose({
       :text-colors="TEXT_COLORS"
       :highlights="HIGHLIGHTS"
       :apply-link="applyLink"
+      :toolbar-actions="toolbarActions"
+      :link-actions="linkActions"
       :tick="tick"
       :t="t"
     />
+
+    <div v-if="sourceOpen && vis('source')" class="rv-util-panel rv-util-panel--source" role="dialog" :aria-label="t('rve_source_editing', 'Source editing')">
+      <div class="rv-util-panel__head">
+        <strong><RIcon name="i-lucide-file-code-2" /> {{ t('rve_source_editing', 'Source editing') }}</strong>
+        <button type="button" class="rv-btn" :aria-label="t('rve_close', 'Close')" @click="sourceOpen = false"><UIcon name="i-lucide-x" /></button>
+      </div>
+      <textarea v-model="sourceText" class="rv-util-panel__code" spellcheck="false" :aria-label="t('rve_html_source', 'HTML source')" />
+      <div class="rv-util-panel__foot">
+        <button type="button" class="rv-pill" @click="sourceOpen = false">{{ t('rve_cancel', 'Cancel') }}</button>
+        <button type="button" class="rv-pill rv-pill--primary" @click="applySource">{{ t('rve_apply', 'Apply') }}</button>
+      </div>
+    </div>
+
+    <div v-if="findOpen && vis('findReplace')" class="rv-util-panel rv-util-panel--find" role="dialog" :aria-label="t('rve_find_replace', 'Find and replace')">
+      <div class="rv-util-panel__head">
+        <strong><RIcon name="i-lucide-search" /> {{ t('rve_find_replace', 'Find and replace') }}</strong>
+        <button type="button" class="rv-btn" :aria-label="t('rve_close', 'Close')" @click="findOpen = false"><UIcon name="i-lucide-x" /></button>
+      </div>
+      <div class="rv-util-panel__grid">
+        <input v-model="findQuery" class="rv-input" type="text" :placeholder="t('rve_find', 'Find')" :aria-label="t('rve_find', 'Find')" @keydown.enter.prevent="findNext">
+        <input v-model="replaceQuery" class="rv-input" type="text" :placeholder="t('rve_replace_with', 'Replace with')" :aria-label="t('rve_replace_with', 'Replace with')" @keydown.enter.prevent="replaceCurrent">
+      </div>
+      <div class="rv-util-panel__foot">
+        <button type="button" class="rv-pill" @click="findNext">{{ t('rve_find_next', 'Find next') }}</button>
+        <button type="button" class="rv-pill" @click="replaceCurrent">{{ t('rve_replace', 'Replace') }}</button>
+        <button type="button" class="rv-pill rv-pill--primary" @click="replaceAll">{{ t('rve_replace_all', 'Replace all') }}</button>
+        <span class="rv-util-panel__status">{{ findMessage }}</span>
+      </div>
+    </div>
+
+    <div v-if="specialOpen && vis('specialCharacters')" class="rv-util-panel rv-util-panel--special" role="dialog" :aria-label="t('rve_special_characters', 'Special characters')">
+      <div class="rv-util-panel__head">
+        <strong><RIcon name="i-lucide-type" /> {{ t('rve_special_characters', 'Special characters') }}</strong>
+        <button type="button" class="rv-btn" :aria-label="t('rve_close', 'Close')" @click="specialOpen = false"><UIcon name="i-lucide-x" /></button>
+      </div>
+      <div class="rv-util-panel__specials">
+        <button v-for="ch in SPECIALS" :key="ch" type="button" class="rv-special" @click="insertSpecial(ch)">{{ ch }}</button>
+      </div>
+    </div>
+
+    <div v-if="a11yResult && vis('accessibility')" class="rv-util-panel rv-util-panel--a11y" role="status" :aria-label="t('rve_accessibility_check', 'Accessibility check')">
+      <div class="rv-util-panel__head">
+        <strong><RIcon name="i-lucide-accessibility" /> {{ t('rve_accessibility_check', 'Accessibility check') }}</strong>
+        <button type="button" class="rv-btn" :aria-label="t('rve_close', 'Close')" @click="a11yResult = null"><UIcon name="i-lucide-x" /></button>
+      </div>
+      <p>{{ t('rve_a11y_images', 'Images') }}: {{ a11yResult.images }}</p>
+      <p>{{ t('rve_a11y_missing_alt', 'Missing alternative text') }}: {{ a11yResult.emptyAlt }}</p>
+      <p>{{ t('rve_a11y_empty_headings', 'Empty headings') }}: {{ a11yResult.emptyHeadings }}</p>
+      <p>{{ t('rve_a11y_empty_links', 'Empty links') }}: {{ a11yResult.emptyLinks }}</p>
+    </div>
 
     <!-- ================= Document ================= -->
     <div class="rv-body" @mousedown="onBodyMouseDown" @mousemove="onBodyMouseMove">
@@ -3142,6 +3613,34 @@ defineExpose({
       </template>
       <div v-else class="rv-slash__empty">{{ t('rve_no_results', 'No results') }}</div>
     </div>
+
+    <Teleport v-if="tableDock.visible" :to="tableDockTarget">
+      <div ref="tableDockEl" class="rv-table-dock" :class="`is-${tableDock.place}`" :style="{ top: `${tableDock.top}px`, left: `${tableDock.left}px` }" role="toolbar" :aria-label="t('rve_table_tools', 'Table tools')">
+        <template v-for="group in TABLE_DOCK_GROUPS" :key="group.id">
+          <div class="rv-table-dock__group">
+            <RTooltip class="rv-table-dock__tip" :text="tl(group.label)" side="top" is-popper :to="tableDockTarget">
+              <button type="button" class="rv-btn rv-table-dock__group-btn" :class="{ 'is-active': tableDockGroup === group.id }" :disabled="!canTableGroup(group)" :aria-label="tl(group.label)" :aria-haspopup="true" :aria-expanded="tableDockGroup === group.id" @mousedown.prevent @click="toggleTableGroup(group.id)">
+                <RIcon :name="group.icon" />
+                <RIcon name="i-lucide-chevron-down" class="rv-table-dock__chevron" />
+              </button>
+            </RTooltip>
+            <div v-if="tableDockGroup === group.id" class="rv-menu rv-table-dock__menu" :class="{ 'is-below': tableDock.place === 'below' }" role="menu">
+              <button v-for="tool in groupTools(group)" :key="tool.id" type="button" class="rv-menu__item" :class="{ 'rv-menu__item--danger': tool.danger }" :disabled="!canTableTool(tool)" role="menuitem" @mousedown.prevent @click="runTableTool(tool)">
+                <RIcon :name="tool.icon" />
+                <span>{{ tl(tool.label) }}</span>
+              </button>
+            </div>
+          </div>
+        </template>
+        <span class="rv-table-dock__sep" />
+        <template v-for="tool in TABLE_DOCK_TOOLS" :key="tool.id">
+          <span v-if="tool.sep" class="rv-table-dock__sep" />
+          <RTooltip v-else class="rv-table-dock__tip" :text="tl(tool.label)" side="top" is-popper :to="tableDockTarget">
+            <button type="button" class="rv-btn" :class="{ 'is-danger': tool.danger }" :disabled="!canTableTool(tool)" :aria-label="tl(tool.label)" @mousedown.prevent @click="runTableTool(tool)"><RIcon :name="tool.icon" /></button>
+          </RTooltip>
+        </template>
+      </div>
+    </Teleport>
 
     <!-- ================= Drop zone, notices, status ================= -->
     <div v-if="dropping" class="rv-drop" aria-hidden="true">
@@ -3296,7 +3795,7 @@ defineExpose({
         <span v-if="apiState.loading" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_loading', 'Loading') }}…</span>
         <span v-if="apiState.saving" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_saving', 'Saving') }}…</span>
         <span v-if="uploading > 0" class="rv-footer__busy" role="status"><UIcon name="i-lucide-loader-circle" class="rv-spin" /> {{ t('rve_uploading', 'Uploading') }} {{ uploading }} {{ uploading === 1 ? t('rve_file_singular', 'file') : t('rve_file_plural', 'files') }}…</span>
-        <span class="rv-footer__upload" :aria-label="t('rve_upload_progress', 'Upload progress')"><BtnShowUploadProcess /></span>
+        <!-- <span class="rv-footer__upload" :aria-label="t('rve_upload_progress', 'Upload progress')"><BtnShowUploadProcess /></span> -->
       </div>
       <div class="rv-footer__group">
         <button v-if="hasApiSave" type="button" class="rv-pill rv-pill--primary" :disabled="apiState.saving || uploading > 0 || globalUploading || !isEditable" @click="saveToApi()"><UIcon name="i-lucide-save" />{{ t('rve_save', 'Save') }}</button>
@@ -3363,6 +3862,162 @@ defineExpose({
   font-family: var(--font-400 , ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif) ;
   color: var(--color-w-b-1);
 }
+.rv-menubar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px 10px;
+  background: var(--bg-content);
+  border-bottom: 1px solid var(--border-card);
+}
+.rv-menubar__wrap { position: relative; display: inline-flex; }
+.rv-menubar__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 9px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-w-b-1);
+  border-radius: 6px;
+  cursor: pointer;
+  &:hover, &.is-active { background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); }
+  &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+}
+.rv-menubar__menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 15rem;
+  max-width: min(22rem, calc(100vw - 24px));
+  max-height: min(28rem, calc(100vh - 96px));
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-content);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: var(--glass-shadow);
+}
+.rv-util-panel {
+  position: absolute;
+  z-index: 48;
+  top: 84px;
+  left: 50%;
+  width: min(42rem, calc(100% - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  color: var(--color-w-b-1);
+  background: var(--bg-content);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: var(--glass-shadow);
+  transform: translateX(-50%);
+}
+.rv-util-panel--source { width: min(52rem, calc(100% - 32px)); }
+.rv-util-panel--special { width: min(24rem, calc(100% - 32px)); }
+.rv-util-panel--a11y { width: min(26rem, calc(100% - 32px)); }
+.rv-util-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
+.rv-util-panel__head strong { display: inline-flex; align-items: center; gap: 8px; }
+.rv-util-panel__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rv-util-panel__foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.rv-util-panel__status { margin-left: auto; font-size: 0.75rem; color: var(--c-muted); }
+.rv-util-panel__code {
+  width: 100%;
+  min-height: 14rem;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-w-b-1);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  resize: vertical;
+}
+.rv-util-panel__specials { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.rv-special {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  font-size: 1rem;
+  color: var(--color-w-b-1);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  cursor: pointer;
+  &:hover { background: color-mix(in srgb, var(--color-primary) 11%, transparent); color: var(--color-primary); }
+}
+.rv-util-panel--a11y p { margin: 0; font-size: 0.8125rem; }
+.rv-table-dock {
+  position: fixed;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100vw - 16px);
+  padding: 5px;
+  background: var(--bg-content);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: var(--glass-shadow);
+}
+.rv-table-dock__sep { width: 1px; height: 20px; margin: 0 3px; background: var(--border-card); }
+.rv-table-dock__group { position: relative; display: inline-flex; }
+.rv-table-dock__tip { flex: 0 0 auto; }
+.rv-table-dock__tip > div { width: auto !important; }
+.rv-table-dock__group-btn { width: 42px; gap: 2px; grid-auto-flow: column; }
+.rv-table-dock__chevron { font-size: 0.65rem; }
+.rv-table-dock__menu {
+  position: absolute;
+  z-index: 2101;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 13rem;
+  padding: 6px;
+}
+.rv-table-dock__menu.is-below { top: auto; bottom: calc(100% + 6px); }
+.rv-table-dock__menu .rv-menu__item:disabled { opacity: 0.38; cursor: not-allowed; }
+.rv-btn.is-danger { color: var(--r-c-danger); }
+.rv-page-break {
+  height: 0;
+  margin: 16px 0;
+  border-top: 2px dashed var(--color-w-b-4);
+  page-break-after: always;
+  break-after: page;
+}
+.rv-editor.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  width: 100%;
+  height: 100%;
+  max-width: none !important;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-content);
+}
+.rv-editor.is-fullscreen .rv-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+.rv-editor.is-fullscreen .rv-page {
+  width: 100%;
+  max-width: none !important;
+  margin: 0;
+  padding: 32px 16px 64px;
+  box-shadow: none;
+}
+.rv-editor.is-fullscreen .rv-table-dock { z-index: 2100; }
 // // theme="light" inside a dark host: re-state the light values of the _color.scss tokens used here (mirrors its :root).
 // .dark .rv-editor[data-rv-theme='light']:not(.dark) {
 //   --bg-tertiary: #f1f3f6;

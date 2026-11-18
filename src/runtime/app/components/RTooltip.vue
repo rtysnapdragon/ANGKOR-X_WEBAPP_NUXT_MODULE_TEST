@@ -2,7 +2,7 @@
   <div>
     <div v-if="isPopper" ref="trigger" :class="ui.wrapper" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
       <slot :open="open"> Hover </slot>
-      <Teleport to="body">
+      <Teleport :to="to">
         <div v-if="open && !prevent && isVisible && !isGlobal" ref="container" :class="[ui.container, ui.width, 'z-10']">
           <Transition appear v-bind="ui.transition">
             <div class="w-fit">
@@ -58,6 +58,7 @@ const props = defineProps([
   "locked",
   "isPopper",
   'isGlobal',
+  'to',
 
   // UPopover
   'side',
@@ -84,6 +85,7 @@ const align = computed(() => props.align ?? 'center') // start , center , end
 const modal = computed(() => props.modal ?? false)
 const noClose = computed(() => props.noClose ?? false)
 const isPopper = computed(() => props.isPopper ?? false)
+const to = computed(() => props.to ?? 'body')
 
 const popper = computed(() => ({
     placement: props.placement ?? "bottom",

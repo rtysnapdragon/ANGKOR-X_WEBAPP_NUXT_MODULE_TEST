@@ -15,12 +15,14 @@ const props = defineProps({
   fonts: { type: Array, default: () => [] }, // [{ key }]
   fontSizes: { type: Array, default: () => [] }, // [number]
   editable: { type: Boolean, default: true },
-  mode: { type: String, default: 'ribbon', validator: (v) => ['ribbon', 'compact'].includes(v) },
+  mode: { type: String, default: 'ribbon', validator: (v) => ['ribbon', 'compact', 'multiline'].includes(v) },
   compact: { type: Boolean, default: false }, // narrow container
   insertItems: { type: Array, default: () => [] }, // [{ group, title, hint, icon, run(editor) }]
   textColors: { type: Array, default: () => [] }, // [{ name, value }]
   highlights: { type: Array, default: () => [] },
   applyLink: { type: Function, default: null }, // (url) => boolean
+  toolbarActions: { type: Array, default: () => [] }, // [{ id, label, icon, run() }]
+  linkActions: { type: Object, default: () => ({}) }, // { isFile(url), preview(url), download(url) }
   tick: { type: Number, default: 0 }, // bumped by the parent on every editor transaction
   t: { type: Function, default: (key, fallback) => fallback ?? key }, // (key, fallback) => string
 })
@@ -102,6 +104,7 @@ const G = {
 
 // ---- tabs -------------------------------------------------------------------------------------------------------
 const ribbon = computed(() => props.mode === 'ribbon')
+const multiline = computed(() => props.mode === 'multiline')
 const activeTab = ref('home')
 const collapsed = ref(false)
 const tableActive = ref(false)
@@ -119,7 +122,7 @@ const tabs = computed(() => {
   return acc
 })
 watch(tabs, (t) => { if (!t.some((x) => x.id === activeTab.value)) activeTab.value = 'home' })
-const isShown = (id) => (ribbon.value ? activeTab.value === id : id === 'home' || (id === 'insert' && hasInsert()) || (id === 'table' && tableActive.value))
+const isShown = (id) => (ribbon.value ? activeTab.value === id : multiline.value ? true : id === 'home' || (id === 'insert' && hasInsert()) || (id === 'table' && tableActive.value))
 function selectTab(id) {
   activeTab.value = id
   collapsed.value = false
@@ -232,6 +235,16 @@ function submitLink() {
   closePop()
 }
 function removeLink() { chain().extendMarkRange('link').unsetLink().run(); closePop() }
+const linkIsFile = () => {
+  try { return typeof props.linkActions?.isFile === 'function' && props.linkActions.isFile(linkUrl.value) } catch { return false }
+}
+const previewLinkFile = () => { try { props.linkActions?.preview?.(linkUrl.value) } catch {} }
+const downloadLinkFile = () => { try { props.linkActions?.download?.(linkUrl.value) } catch {} }
+
+const toolbarActionList = computed(() => list(props.toolbarActions).filter((i) => i && typeof i.run === 'function'))
+const quickActions = computed(() => toolbarActionList.value.filter((i) => i.quick === true))
+const panelActions = computed(() => toolbarActionList.value.filter((i) => i.quick !== true))
+function runTool(item) { try { item.run() } catch {} closePop() }
 
 const GRID_ROWS = 6
 const GRID_COLS = 8
@@ -280,6 +293,9 @@ onBeforeUnmount(() => { pop.value = null })
         </template>
       </RTabs>
       <span class="rv-tb__grow" />
+      <RTooltip v-for="item in quickActions" :key="item.id || item.label" :text="tl(item.label)">
+        <button type="button" class="rv-btn" :class="{ 'is-active': item.active === true }" :aria-label="tl(item.label)" :aria-pressed="item.active === true" @mousedown.prevent @click="runTool(item)"><RIcon :name="item.icon" /></button>
+      </RTooltip>
       <RTooltip v-if="ribbon" :text="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')">
         <button type="button" class="rv-btn" :aria-label="collapsed ? tr('rve_expand_ribbon', 'Expand the ribbon') : tr('rve_collapse_ribbon', 'Collapse the ribbon')" :aria-expanded="!collapsed" @click="collapsed = !collapsed"><RIcon :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'" /></button>
       </RTooltip>
@@ -363,6 +379,15 @@ onBeforeUnmount(() => { pop.value = null })
           </div>
           <span class="rv-rg__label">{{ tr('rve_paragraph', 'Paragraph') }}</span>
         </section>
+
+        <section v-if="panelActions.length" class="rv-rg" :aria-label="tr('rve_more_tools', 'More tools')">
+          <div class="rv-rg__body">
+            <RTooltip v-for="item in panelActions" :key="item.id || item.label" :text="tl(item.label)">
+              <button type="button" class="rv-btn" :aria-label="tl(item.label)" @mousedown.prevent @click="runTool(item)"><RIcon :name="item.icon" /></button>
+            </RTooltip>
+          </div>
+          <span class="rv-rg__label">{{ tr('rve_more_tools', 'More tools') }}</span>
+        </section>
       </template>
 
       <!-- INSERT -->
@@ -404,6 +429,10 @@ onBeforeUnmount(() => { pop.value = null })
               <div v-if="pop === 'link'" ref="popEl" class="rv-pop rv-pop--link" :class="{ 'rv-pop--up': popUp, 'rv-pop--end': popAlign === 'end' }" role="dialog" :aria-label="tr('rve_link', 'Link')">
                 <input ref="linkInput" v-model="linkUrl" class="rv-input" type="text" :placeholder="tr('rve_paste_link', 'Paste a link…')" :aria-label="tr('rve_link_url', 'Link URL')" @keydown.enter.prevent="submitLink" @keydown.esc.prevent="pop = null">
                 <p v-if="linkError" class="rv-pop__error" role="alert">{{ linkError }}</p>
+                <div v-if="linkIsFile()" class="rv-pop__actions">
+                  <button type="button" class="rv-pill" @click="previewLinkFile"><RIcon name="i-lucide-eye" />{{ tr('rve_preview', 'Preview') }}</button>
+                  <button type="button" class="rv-pill" @click="downloadLinkFile"><RIcon name="i-lucide-download" />{{ tr('rve_download', 'Download') }}</button>
+                </div>
                 <div class="rv-pop__actions">
                   <button type="button" class="rv-pill rv-pill--primary" @click="submitLink">{{ tr('rve_apply', 'Apply') }}</button>
                   <button type="button" class="rv-pill" :disabled="!act('link')" @click="removeLink">{{ tr('rve_remove', 'Remove') }}</button>
@@ -534,6 +563,9 @@ onBeforeUnmount(() => { pop.value = null })
   padding: 10px 12px;
   background: var(--bg-hover);
 }
+.rv-tb[data-mode='multiline'] .rv-tb__strip { padding: 6px 10px; }
+.rv-tb[data-mode='multiline'] .rv-tb__panel { gap: 6px; padding: 8px 10px; }
+.rv-tb[data-mode='multiline'] .rv-rg { padding: 6px 8px; border-radius: 10px; }
 .rv-rg {
   display: flex;
   flex-direction: column;

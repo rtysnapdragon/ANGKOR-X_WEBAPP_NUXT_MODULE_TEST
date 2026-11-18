@@ -17,6 +17,8 @@ const cases = [
   { value: 'save', label: 'Deferred save + file IDs', icon: 'i-lucide-file-check-2' },
   { value: 'design', label: 'Design canvas', icon: 'i-lucide-pen-tool' },
   { value: 'novel', label: 'Novel chapter API', icon: 'i-lucide-book-open' },
+  { value: 'featureRich', label: 'Feature-rich builder', icon: 'i-lucide-wand-sparkles' },
+  { value: 'fullscreen', label: 'Full screen option', icon: 'i-lucide-maximize-2' },
   { value: 'basic', label: 'Basic v-model', icon: 'i-lucide-pencil' },
   { value: 'draft', label: 'Autosaved draft', icon: 'i-lucide-save' },
   { value: 'form', label: 'Form + validation', icon: 'i-lucide-clipboard-check' },
@@ -257,6 +259,16 @@ function collectFileIds(uploads, group) {
     .filter(Boolean)
 }`
 
+const featureRichDoc = ref(clone(sampleEnvelope))
+featureRichDoc.value.doc.content.push({
+  type: 'paragraph',
+  content: [t('File link: '), t('sample.pdf', [{ type: 'link', attrs: { href: '/sample.pdf' } }])],
+})
+
+const fullscreenDoc = ref(clone(sampleEnvelope))
+const fullscreenEd = ref(null)
+const fullscreenActive = ref(false)
+
 const basic = ref(clone(sampleEnvelope))
 
 const draft = useStorage('rv-demo-draft', null, undefined, { serializer: StorageSerializers.object, initOnMounted: true })
@@ -447,6 +459,20 @@ const roValue = ref(clone(sampleEnvelope))
           <section v-else-if="current === 'novel'" class="demo__case">
             <p class="demo__note">The production recipe used by <code>NovelContentCreate.vue</code>: real file-explorer uploads, deferred chapter saves, and file IDs mapped into the chapter payload.</p>
             <pre class="demo__code">{{ novelRecipe }}</pre>
+          </section>
+
+          <section v-else-if="current === 'featureRich'" class="demo__case">
+            <p class="demo__note"><strong>Feature-rich builder preset:</strong> grouped menu bar, multiline toolbar, more tools, source editing, find/replace, accessibility check, export tools, file-link preview/download, and a floating table dock that moves above or below the table depending on viewport space. Open the Link tool on <code>sample.pdf</code> to try the file actions.</p>
+            <RVisualEditor v-model="featureRichDoc" :uploader="demoUploader" :options="{ ...demoOptions, preset: 'featureRich' }" :min-height="560" />
+          </section>
+
+          <section v-else-if="current === 'fullscreen'" class="demo__case">
+            <p class="demo__note">Enable the full-screen button with <code>options.fullscreen: true</code>. It appears at the top-right of the toolbar, also lives under <b>View → Full screen</b>, and can be controlled from the exposed <code>toggleFullscreen()</code> / <code>isFullscreen()</code> API. The component uses the native Fullscreen API with a fixed-position fallback when unsupported.</p>
+            <div class="demo__buttons">
+              <UButton size="sm" icon="i-lucide-maximize-2" label="toggleFullscreen()" @click="fullscreenEd?.toggleFullscreen?.()" />
+              <UButton size="sm" color="neutral" :label="`isFullscreen(): ${fullscreenActive}`" />
+            </div>
+            <RVisualEditor ref="fullscreenEd" v-model="fullscreenDoc" :uploader="demoUploader" :options="{ ...demoOptions, fullscreen: true }" :min-height="480" @fullscreen="(active) => fullscreenActive = active" />
           </section>
 
           <section v-else-if="current === 'basic'" class="demo__case">

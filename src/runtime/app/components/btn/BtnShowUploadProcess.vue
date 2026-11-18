@@ -1,5 +1,5 @@
 <template>
-  <UPopover
+  <RPopoverPanel
     :ui="{
       background: 'color-bg-content',
       rounded: 'rty-rounded',
@@ -62,7 +62,7 @@
               >
                 <ProgressCircle
                   :percentage="fileData.progress"
-                ></ProgressCircle>
+                >----------------</ProgressCircle>
               </div>
               <div v-else-if="fileData.status === 'completed'">
                 <UIcon name="i-lucide-circle-check" class="text-green-500 text-[20px]" />
@@ -101,10 +101,12 @@
         </div>
       </div>
     </template>
-  </UPopover>
+  </RPopoverPanel>
 </template>
 
 <script setup>
+import RPopoverPanel from '../ui/RPopoverPanel.vue';
+
 const { t } = useI18n();
 const getFile = useUploadProgress();
 const dataCompleted = ref([]);
