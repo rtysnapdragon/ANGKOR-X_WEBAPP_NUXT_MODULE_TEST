@@ -1,8 +1,30 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { createEngine } from '../Editor/Canvaas/RCanvasEngine'
 import { FONTS, LINES, SHAPES, TEXT_ALIGNS, TEXT_PRESETS } from '../Editor/Canvaas/RCanvasData'
 import '../Editor/Canvaas/RCanvas.css'
+
+let i18n = null
+try {
+  i18n = useI18n()
+}
+catch {
+  i18n = null
+}
+const t = (key, fallback) => {
+  try {
+    if (i18n && typeof i18n.te === 'function' && i18n.te(key)) return i18n.t(key)
+    if (i18n && typeof i18n.t === 'function') {
+      const v = i18n.t(key)
+      if (v && v !== key) return v
+    }
+  }
+  catch { /* not translated */ }
+  return fallback
+}
+const tKey = label => `rve_${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+const tl = label => t(tKey(label), label)
 
 const props = defineProps({
   document: { type: [Object, String], default: null },
@@ -23,12 +45,12 @@ const FX = [
 ]
 
 const ALIGN = [
-  ['left', 'align-start-vertical', 'Align left'],
-  ['center', 'align-center-vertical', 'Align center'],
-  ['right', 'align-end-vertical', 'Align right'],
-  ['top', 'align-start-horizontal', 'Align top'],
-  ['middle', 'align-center-horizontal', 'Align middle'],
-  ['bottom', 'align-end-horizontal', 'Align bottom'],
+  ['left', 'align-start-vertical'],
+  ['center', 'align-center-vertical'],
+  ['right', 'align-end-vertical'],
+  ['top', 'align-start-horizontal'],
+  ['middle', 'align-center-horizontal'],
+  ['bottom', 'align-end-horizontal'],
 ]
 
 const state = reactive({
@@ -81,13 +103,13 @@ const api = new Proxy({}, {
 const selLabel = computed(() => {
   const value = state.sel
   if (!value) return ''
-  if (value.kind === 'multi') return `${value.count} elements`
-  return value.kind.charAt(0).toUpperCase() + value.kind.slice(1)
+  if (value.kind === 'multi') return `${value.count} ${t('rve_elements', 'elements')}`
+  return tl(value.kind.charAt(0).toUpperCase() + value.kind.slice(1))
 })
 
 const applyLabel = computed(() => {
-  if (saving.value) return 'Saving...'
-  if (uploading.value > 0) return 'Uploading...'
+  if (saving.value) return t('rve_saving', 'Saving...')
+  if (uploading.value > 0) return `${t('rve_uploading', 'Uploading')}...`
   return props.saveLabel
 })
 
@@ -108,7 +130,7 @@ watch(() => [state.width, state.height], ([width, height]) => {
 })
 
 function fail(error) {
-  state.error = error?.message || String(error || 'Something went wrong')
+  state.error = error?.message || String(error || t('rve_something_wrong', 'Something went wrong'))
 }
 
 function parseDocument(value) {
@@ -398,7 +420,7 @@ async function addUrl() {
 }
 
 function baseName() {
-  const value = (props.title || 'design').trim()
+  const value = (props.title || t('rve_design', 'Design')).trim()
     .replace(/[\\/:*?"<>|]+/g, '-')
     .replace(/\s+/g, '-')
     .replace(/\.(?:png|jpe?g|webp|gif|avif)$/i, '')
@@ -414,10 +436,10 @@ async function save() {
   try {
     const blob = await eng.exportBlob({ format: 'png', scale: 1 })
     if (unmounted) return
-    if (!blob) throw new Error('Could not export the design.')
+    if (!blob) throw new Error(t('rve_could_not_export_the_design', 'Could not export the design.'))
     const design = eng.getDocument()
     if (unmounted) return
-    if (!design) throw new Error('Could not read the design.')
+    if (!design) throw new Error(t('rve_could_not_read_the_design', 'Could not read the design.'))
     const file = new File([blob], `${baseName()}.png`, {
       type: blob.type || 'image/png',
       lastModified: Date.now(),
@@ -504,7 +526,7 @@ defineExpose({
         <button
           type="button"
           class="rc-btn rc-btn--sm"
-          title="Undo (Ctrl+Z)"
+          :title="t('rve_undo_shortcut', 'Undo (Ctrl+Z)')"
           :disabled="!state.canUndo || saving"
           @click="api.undo()"
         >
@@ -516,7 +538,7 @@ defineExpose({
         <button
           type="button"
           class="rc-btn rc-btn--sm"
-          title="Redo (Ctrl+Shift+Z)"
+          :title="t('rve_redo_shortcut', 'Redo (Ctrl+Shift+Z)')"
           :disabled="!state.canRedo || saving"
           @click="api.redo()"
         >
@@ -526,7 +548,7 @@ defineExpose({
           />
         </button>
         <span class="rc-sep" />
-        <span class="rc-top__title">{{ title || 'Untitled design' }}</span>
+        <span class="rc-top__title">{{ title || t('rve_untitled_design', 'Untitled design') }}</span>
         <span class="rc-top__dim">{{ state.width }} x {{ state.height }}</span>
       </div>
 
@@ -534,7 +556,7 @@ defineExpose({
         <button
           type="button"
           class="rc-btn rc-btn--sm"
-          title="Zoom out"
+          :title="t('rve_zoom_out', 'Zoom out')"
           :disabled="!state.ready || saving"
           @click="api.zoomBy(1 / 1.2)"
         >
@@ -547,7 +569,7 @@ defineExpose({
         <button
           type="button"
           class="rc-btn rc-btn--sm"
-          title="Zoom in"
+          :title="t('rve_zoom_in', 'Zoom in')"
           :disabled="!state.ready || saving"
           @click="api.zoomBy(1.2)"
         >
@@ -559,7 +581,7 @@ defineExpose({
         <button
           type="button"
           class="rc-btn rc-btn--sm"
-          title="Fit"
+          :title="t('rve_fit', 'Fit')"
           :disabled="!state.ready || saving"
           @click="api.fit()"
         >
@@ -575,7 +597,7 @@ defineExpose({
           :disabled="saving"
           @click="emit('cancel')"
         >
-          Cancel
+          {{ t('rve_cancel', 'Cancel') }}
         </button>
         <button
           type="button"
@@ -601,7 +623,7 @@ defineExpose({
             :class="{ 'is-on': activeLeft === 'layers' }"
             @click="activeLeft = 'layers'"
           >
-            Layers
+            {{ t('rve_layers', 'Layers') }}
           </button>
           <button
             type="button"
@@ -609,7 +631,7 @@ defineExpose({
             :class="{ 'is-on': activeLeft === 'insert' }"
             @click="activeLeft = 'insert'"
           >
-            Insert
+            {{ t('rve_insert', 'Insert') }}
           </button>
         </div>
 
@@ -618,13 +640,13 @@ defineExpose({
           class="rv-raw__panel"
         >
           <div class="rv-raw__title">
-            Layers ({{ state.layers.length }})
+            {{ t('rve_layers', 'Layers') }} ({{ state.layers.length }})
           </div>
           <p
             v-if="!state.layers.length"
             class="rc-hint"
           >
-            Nothing on this canvas yet.
+            {{ t('rve_nothing_on_this_canvas_yet', 'Nothing on this canvas yet.') }}
           </p>
           <ul
             v-else
@@ -666,7 +688,7 @@ defineExpose({
                 <button
                   type="button"
                   class="rc-btn rc-btn--sm"
-                  :title="layer.visible ? 'Hide' : 'Show'"
+                  :title="layer.visible ? t('rve_hide', 'Hide') : t('rve_show', 'Show')"
                   @click.stop="api.toggleVisible(layer.id)"
                 >
                   <UIcon
@@ -677,7 +699,7 @@ defineExpose({
                 <button
                   type="button"
                   class="rc-btn rc-btn--sm"
-                  :title="layer.locked ? 'Unlock' : 'Lock'"
+                  :title="layer.locked ? t('rve_unlock', 'Unlock') : t('rve_lock', 'Lock')"
                   @click.stop="api.toggleLock(layer.id)"
                 >
                   <UIcon
@@ -695,7 +717,7 @@ defineExpose({
           class="rv-raw__panel"
         >
           <div class="rv-raw__title">
-            Text
+            {{ t('rve_text', 'Text') }}
           </div>
           <button
             v-for="preset in TEXT_PRESETS"
@@ -704,11 +726,11 @@ defineExpose({
             class="rc-text-preset"
             @click="api.addText(preset.id)"
           >
-            {{ preset.label }}
+            {{ tl(preset.label) }}
           </button>
 
           <div class="rv-raw__title">
-            Shapes
+            {{ t('rve_shapes', 'Shapes') }}
           </div>
           <div class="rc-shapes">
             <button
@@ -716,7 +738,7 @@ defineExpose({
               :key="shape.id"
               type="button"
               class="rc-shapes__item"
-              :title="shape.label"
+              :title="tl(shape.label)"
               @click="api.addShape(shape.id)"
             >
               <svg
@@ -732,7 +754,7 @@ defineExpose({
           </div>
 
           <div class="rv-raw__title">
-            Lines
+            {{ t('rve_lines', 'Lines') }}
           </div>
           <div class="rv-raw__actions">
             <button
@@ -742,12 +764,12 @@ defineExpose({
               class="rc-btn rc-btn--solid"
               @click="api.addLine(line.id)"
             >
-              {{ line.label }}
+              {{ tl(line.label) }}
             </button>
           </div>
 
           <div class="rv-raw__title">
-            Images
+            {{ t('rve_images', 'Images') }}
           </div>
           <button
             type="button"
@@ -758,8 +780,8 @@ defineExpose({
               name="i-lucide-upload"
               class="rc-ico rc-ico--lg"
             />
-            <span>Upload image</span>
-            <small>or drop a file on the canvas</small>
+            <span>{{ t('rve_upload_image', 'Upload image') }}</span>
+            <small>{{ t('rve_or_drop_a_file_on_the_canvas', 'or drop a file on the canvas') }}</small>
           </button>
           <div class="rc-row rc-row--gap">
             <input
@@ -775,14 +797,14 @@ defineExpose({
               :disabled="!imageUrl.trim()"
               @click="addUrl"
             >
-              Add
+              {{ t('rve_add', 'Add') }}
             </button>
           </div>
           <p
             v-if="mediaLoading"
             class="rc-hint"
           >
-            Loading media...
+            {{ t('rve_loading_media', 'Loading media...') }}
           </p>
           <div
             v-else-if="mediaItems.length"
@@ -793,7 +815,7 @@ defineExpose({
               :key="item.id || item.url || item.src"
               type="button"
               class="rc-media__item"
-              :title="item.name || 'Add image'"
+              :title="item.name || t('rve_add_image', 'Add image')"
               @click="addMediaImage(item)"
             >
               <img
@@ -822,7 +844,7 @@ defineExpose({
           role="status"
         >
           <span class="rc-spinner" />
-          <span>Loading design...</span>
+          <span>{{ t('rve_loading_design', 'Loading design...') }}</span>
         </div>
         <div
           v-if="state.error"
@@ -836,7 +858,7 @@ defineExpose({
           <span>{{ state.error }}</span>
           <button
             type="button"
-            aria-label="Dismiss"
+            :aria-label="t('rve_dismiss', 'Dismiss')"
             @click="state.error = ''"
           >
             x
@@ -856,7 +878,7 @@ defineExpose({
               type="button"
               class="rc-btn rc-btn--sm"
               :class="{ 'is-on': state.sel.locked }"
-              :title="state.sel.locked ? 'Unlock' : 'Lock'"
+              :title="state.sel.locked ? t('rve_unlock', 'Unlock') : t('rve_lock', 'Lock')"
               @click="api.setLocked(!state.sel.locked)"
             >
               <UIcon
@@ -868,7 +890,7 @@ defineExpose({
 
           <section class="rv-raw__section">
             <div class="rv-raw__title">
-              Transform
+              {{ t('rve_transform', 'Transform') }}
             </div>
             <div class="rv-raw__grid">
               <label class="rv-raw__field">X
@@ -905,7 +927,7 @@ defineExpose({
                   @change="applySize('h', $event.target.value)"
                 >
               </label>
-              <label class="rv-raw__field">Rotate
+              <label class="rv-raw__field">{{ t('rve_rotate', 'Rotate') }}
                 <input
                   class="rc-input"
                   type="number"
@@ -913,7 +935,7 @@ defineExpose({
                   @change="applyAngle($event.target.value)"
                 >
               </label>
-              <label class="rv-raw__field">Opacity
+              <label class="rv-raw__field">{{ t('rve_opacity', 'Opacity') }}
                 <input
                   type="range"
                   min="0"
@@ -927,12 +949,12 @@ defineExpose({
 
           <section class="rv-raw__section">
             <div class="rv-raw__title">
-              Appearance
+              {{ t('rve_appearance', 'Appearance') }}
             </div>
             <label
               v-if="showFill"
               class="rv-raw__field"
-            >Fill
+            >{{ t('rve_fill', 'Fill') }}
               <div class="rv-raw__color">
                 <input
                   type="color"
@@ -951,7 +973,7 @@ defineExpose({
             <label
               v-if="showBorder"
               class="rv-raw__field"
-            >{{ isLine ? 'Line color' : 'Border' }}
+            >{{ isLine ? t('rve_line_color', 'Line color') : t('rve_border', 'Border') }}
               <div class="rv-raw__color">
                 <input
                   type="color"
@@ -970,7 +992,7 @@ defineExpose({
             <label
               v-if="showBorder"
               class="rv-raw__field"
-            >{{ isLine ? 'Line weight' : 'Border width' }}
+            >{{ isLine ? t('rve_line_weight', 'Line weight') : t('rve_border_width', 'Border width') }}
               <input
                 type="range"
                 :min="isLine ? 1 : 0"
@@ -983,7 +1005,7 @@ defineExpose({
             <label
               v-if="showRadius"
               class="rv-raw__field"
-            >Corner radius
+            >{{ t('rve_corner_radius', 'Corner radius') }}
               <input
                 type="range"
                 min="0"
@@ -998,7 +1020,7 @@ defineExpose({
                 type="button"
                 class="rc-btn rc-btn--solid"
                 :class="{ 'is-on': state.sel.shadow }"
-                title="Toggle shadow"
+                :title="t('rve_toggle_shadow', 'Toggle shadow')"
                 @click="api.setShadow(!state.sel.shadow)"
               >
                 <UIcon
@@ -1009,7 +1031,7 @@ defineExpose({
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Flip horizontal"
+                :title="t('rve_flip_horizontal', 'Flip horizontal')"
                 @click="api.flip('x')"
               >
                 <UIcon
@@ -1020,7 +1042,7 @@ defineExpose({
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Flip vertical"
+                :title="t('rve_flip_vertical', 'Flip vertical')"
                 @click="api.flip('y')"
               >
                 <UIcon
@@ -1036,9 +1058,9 @@ defineExpose({
             class="rv-raw__section"
           >
             <div class="rv-raw__title">
-              Text
+              {{ t('rve_text', 'Text') }}
             </div>
-            <label class="rv-raw__field">Font
+            <label class="rv-raw__field">{{ t('rve_font', 'Font') }}
               <select
                 class="rc-select"
                 :value="state.sel.fontFamily"
@@ -1052,7 +1074,7 @@ defineExpose({
               </select>
             </label>
             <div class="rv-raw__grid">
-              <label class="rv-raw__field">Size
+              <label class="rv-raw__field">{{ t('rve_size', 'Size') }}
                 <input
                   class="rc-input"
                   type="number"
@@ -1062,7 +1084,7 @@ defineExpose({
                   @change="api.setFontSize(Number($event.target.value))"
                 >
               </label>
-              <label class="rv-raw__field">Line height
+              <label class="rv-raw__field">{{ t('rve_line_height', 'Line height') }}
                 <input
                   type="range"
                   min="0.8"
@@ -1078,7 +1100,7 @@ defineExpose({
                 type="button"
                 class="rc-btn rc-btn--solid"
                 :class="{ 'is-on': state.sel.bold }"
-                title="Bold"
+                :title="t('rve_bold', 'Bold')"
                 @click="api.toggleBold()"
               >
                 <UIcon
@@ -1090,7 +1112,7 @@ defineExpose({
                 type="button"
                 class="rc-btn rc-btn--solid"
                 :class="{ 'is-on': state.sel.italic }"
-                title="Italic"
+                :title="t('rve_italic', 'Italic')"
                 @click="api.toggleItalic()"
               >
                 <UIcon
@@ -1102,7 +1124,7 @@ defineExpose({
                 type="button"
                 class="rc-btn rc-btn--solid"
                 :class="{ 'is-on': state.sel.underline }"
-                title="Underline"
+                :title="t('rve_underline', 'Underline')"
                 @click="api.toggleUnderline()"
               >
                 <UIcon
@@ -1114,7 +1136,7 @@ defineExpose({
                 type="button"
                 class="rc-btn rc-btn--solid"
                 :class="{ 'is-on': state.sel.linethrough }"
-                title="Strikethrough"
+                :title="t('rve_strikethrough', 'Strikethrough')"
                 @click="api.toggleStrike()"
               >
                 <UIcon
@@ -1130,7 +1152,7 @@ defineExpose({
                 type="button"
                 class="rc-btn rc-btn--solid"
                 :class="{ 'is-on': state.sel.textAlign === align }"
-                :title="`Align ${align}`"
+                :title="`${t('rve_align', 'Align')} ${t('rve_align_' + align, align)}`"
                 @click="api.setAlign(align)"
               >
                 <UIcon
@@ -1139,7 +1161,7 @@ defineExpose({
                 />
               </button>
             </div>
-            <label class="rv-raw__field">Letter spacing
+            <label class="rv-raw__field">{{ t('rve_letter_spacing', 'Letter spacing') }}
               <input
                 type="range"
                 min="-100"
@@ -1156,7 +1178,7 @@ defineExpose({
             class="rv-raw__section"
           >
             <div class="rv-raw__title">
-              Image
+              {{ t('rve_image', 'Image') }}
             </div>
             <button
               type="button"
@@ -1167,13 +1189,13 @@ defineExpose({
                 name="i-lucide-refresh-cw"
                 class="rc-ico"
               />
-              Replace image
+              {{ t('rve_replace_image', 'Replace image') }}
             </button>
             <label
               v-for="fx in FX"
               :key="fx.key"
               class="rv-raw__field"
-            >{{ fx.label }}
+            >{{ tl(fx.label) }}
               <input
                 type="range"
                 :min="fx.min"
@@ -1187,13 +1209,13 @@ defineExpose({
 
           <section class="rv-raw__section">
             <div class="rv-raw__title">
-              Arrange
+              {{ t('rve_arrange', 'Arrange') }}
             </div>
             <div class="rv-raw__actions">
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Bring to front"
+                :title="t('rve_bring_to_front', 'Bring to front')"
                 @click="api.order('front')"
               >
                 <UIcon
@@ -1204,7 +1226,7 @@ defineExpose({
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Bring forward"
+                :title="t('rve_bring_forward', 'Bring forward')"
                 @click="api.order('forward')"
               >
                 <UIcon
@@ -1215,7 +1237,7 @@ defineExpose({
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Send backward"
+                :title="t('rve_send_backward', 'Send backward')"
                 @click="api.order('backward')"
               >
                 <UIcon
@@ -1226,7 +1248,7 @@ defineExpose({
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Send to back"
+                :title="t('rve_send_to_back', 'Send to back')"
                 @click="api.order('back')"
               >
                 <UIcon
@@ -1241,7 +1263,7 @@ defineExpose({
                 :key="item[0]"
                 type="button"
                 class="rc-btn rc-btn--solid"
-                :title="item[2]"
+                :title="`${t('rve_align', 'Align')} ${t('rve_align_' + item[0], item[0])}`"
                 @click="api.align(item[0])"
               >
                 <UIcon
@@ -1261,7 +1283,7 @@ defineExpose({
                   name="i-lucide-group"
                   class="rc-ico"
                 />
-                Group
+                {{ t('rve_group', 'Group') }}
               </button>
               <button
                 v-if="state.sel.kind === 'group'"
@@ -1273,12 +1295,12 @@ defineExpose({
                   name="i-lucide-ungroup"
                   class="rc-ico"
                 />
-                Ungroup
+                {{ t('rve_ungroup', 'Ungroup') }}
               </button>
               <button
                 type="button"
                 class="rc-btn rc-btn--solid"
-                title="Duplicate"
+                :title="t('rve_duplicate', 'Duplicate')"
                 @click="api.duplicate()"
               >
                 <UIcon
@@ -1289,7 +1311,7 @@ defineExpose({
               <button
                 type="button"
                 class="rc-btn rc-btn--solid rc-btn--danger"
-                title="Delete"
+                :title="t('rve_delete', 'Delete')"
                 @click="api.remove()"
               >
                 <UIcon
@@ -1303,11 +1325,11 @@ defineExpose({
 
         <div v-else>
           <div class="rv-raw__title">
-            Canvas
+            {{ t('rve_canvas', 'Canvas') }}
           </div>
           <section class="rv-raw__section">
             <div class="rv-raw__grid">
-              <label class="rv-raw__field">Width
+              <label class="rv-raw__field">{{ t('rve_width', 'Width') }}
                 <input
                   v-model.number="canvasW"
                   class="rc-input"
@@ -1316,7 +1338,7 @@ defineExpose({
                   max="8000"
                 >
               </label>
-              <label class="rv-raw__field">Height
+              <label class="rv-raw__field">{{ t('rve_height', 'Height') }}
                 <input
                   v-model.number="canvasH"
                   class="rc-input"
@@ -1331,12 +1353,12 @@ defineExpose({
               class="rc-btn rc-btn--solid rv-raw__wide"
               @click="applyCanvasSize"
             >
-              Resize canvas
+              {{ t('rve_resize_canvas', 'Resize canvas') }}
             </button>
           </section>
           <section class="rv-raw__section">
             <div class="rv-raw__title">
-              Background
+              {{ t('rve_background', 'Background') }}
             </div>
             <div class="rv-raw__color">
               <input
@@ -1359,10 +1381,10 @@ defineExpose({
                 v-model="state.snap"
                 type="checkbox"
               >
-              Smart guides and snapping
+              {{ t('rve_smart_guides_and_snapping', 'Smart guides and snapping') }}
             </label>
             <p class="rc-hint">
-              Select an element to edit its properties. Drag layers to reorder them.
+              {{ t('rve_canvas_hint', 'Select an element to edit its properties. Drag layers to reorder them.') }}
             </p>
           </section>
         </div>

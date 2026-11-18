@@ -1150,8 +1150,17 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       }))
     }
     if (a.kind === 'image' && on('canvas')) {
-      const editWithEditor = () => { const p = getPos(); if (typeof p === 'number') openEditorDesign({ pos: p }) }
-      const editDesign = () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }
+      const editWithEditor = () => {
+        const p = getPos()
+        if (typeof p === 'number') openEditorDesign({ pos: p })
+      }
+      const editDesign = () => {
+        const p = getPos()
+        if (typeof p !== 'number') return
+        const node = live()?.state.doc.nodeAt(p)
+        if (node?.attrs?.editorDesign || designFor(node)) openEditorDesign({ pos: p })
+        else openDesign({ pos: p })
+      }
       nodes.push(h('div', { class: 'rv-media__group' }, [
         barButton({
           icon: ICONS.editor,
@@ -1976,7 +1985,27 @@ function insertDesignPlaceholder(w, h, bg) {
   const pos = findPosByFileId(fileId)
   return pos != null ? { pos, fileId } : null
 }
-const designFor = (node) => node?.attrs?.design ?? props.designs?.[node?.attrs?.src] ?? null
+const designFor = node => node?.attrs?.design ?? props.designs?.[node?.attrs?.src] ?? null
+
+function legacyEditorDoc(design) {
+  if (!design || design.pages) return design
+  let json = design.json ?? (design.objects ? design : { objects: [] })
+  if (typeof json === 'string') {
+    try {
+      json = JSON.parse(json)
+    }
+    catch {
+      json = { objects: [] }
+    }
+  }
+  const bg = design.bg || design.background || '#ffffff'
+  return {
+    width: Math.max(50, Math.round(Number(design.w ?? design.width) || 1200)),
+    height: Math.max(50, Math.round(Number(design.h ?? design.height) || 675)),
+    current: 0,
+    pages: [{ id: 'page-1', name: 'Page 1', json: { ...json, background: json.background ?? bg } }],
+  }
+}
 
 // =====================================================================================================
 // RCanvas design builder (drawer)
@@ -2004,7 +2033,7 @@ function openEditorDesign({ pos = null } = {}) {
   if (!ed || node?.type.name !== 'media' || node.attrs.kind !== 'image') return
   const raw = node.attrs.src || ''
   const src = safeUrl(raw, opts.value.allowBlobUrls) || (/^data:image\/(?:png|jpe?g|webp|gif|avif);base64,/i.test(raw) ? raw : '')
-  const designDoc = node.attrs.editorDesign ?? null
+  const designDoc = node.attrs.editorDesign ?? legacyEditorDoc(designFor(node))
   if (!src && !designDoc) {
     showNotice(t('rve_this_file_not_available', 'This file is not available.'))
     return

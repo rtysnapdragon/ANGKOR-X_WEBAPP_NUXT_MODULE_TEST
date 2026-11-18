@@ -333,3 +333,7 @@ Edit saved `RVisualEditor` designs in a standalone Figma-like side editor instea
 - Image FX/replace controls now show only for a single image selection, matching RCanvas; a multi-selection no longer replaces only the first image.
 - Space pan now releases on a window-level `keyup` (and on window `blur`), so the canvas does not stay stuck in pan mode if focus leaves the editor while Space is held.
 - `npm run dev:build` passes after the final raw-editor changes.
+- Saved designs now route to `RVisualEditorRawEditor`: the media “Edit design” action calls `openEditorDesign` when `editorDesign` or a legacy `design` exists; plain images still fall back to `openDesign`/RCanvas.
+- `openEditorDesign` converts the legacy `{ w, h, bg, json }` design shape into the engine document shape so old saved designs open in the raw editor too.
+- `RVisualEditorRawEditor` now uses the same `useI18n` + `t(key, fallback)`/`tl(label)` pattern as `RVisualEditor`; raw-editor labels, titles, hints, errors, and status text are translatable. New `rve_*` keys were added to `en.json` and `km.json`.
+- Targeted ESLint passes for `RVisualEditorRawEditor.vue`; `npm run dev:build` passes after the routing and i18n changes.
