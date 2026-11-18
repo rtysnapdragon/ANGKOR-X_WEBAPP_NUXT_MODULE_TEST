@@ -268,6 +268,11 @@ featureRichDoc.value.doc.content.push({
 const fullscreenDoc = ref(clone(sampleEnvelope))
 const fullscreenEd = ref(null)
 const fullscreenActive = ref(false)
+const fullscreenMode = ref('body')
+const fullscreenModeItems = [
+  { label: 'Body layout (default)', value: 'body' },
+  { label: 'Browser window', value: 'window' },
+]
 
 const basic = ref(clone(sampleEnvelope))
 
@@ -467,12 +472,13 @@ const roValue = ref(clone(sampleEnvelope))
           </section>
 
           <section v-else-if="current === 'fullscreen'" class="demo__case">
-            <p class="demo__note">Enable the full-screen button with <code>options.fullscreen: true</code>. It appears at the top-right of the toolbar, also lives under <b>View → Full screen</b>, and can be controlled from the exposed <code>toggleFullscreen()</code> / <code>isFullscreen()</code> API. The component uses the native Fullscreen API with a fixed-position fallback when unsupported.</p>
+            <p class="demo__note">Enable the full-screen button with <code>options.fullscreen: true</code>. Choose <code>options.fullscreenMode: 'body'</code> (default) to fill the browser body like CKEditor, or <code>'window'</code> to use the native Fullscreen API. It also lives under <b>View → Full screen</b> and can be controlled from the exposed <code>toggleFullscreen()</code> / <code>isFullscreen()</code> API.</p>
             <div class="demo__buttons">
+              <USelect v-model="fullscreenMode" :items="fullscreenModeItems" class="demo__select" aria-label="Fullscreen mode" />
               <UButton size="sm" icon="i-lucide-maximize-2" label="toggleFullscreen()" @click="fullscreenEd?.toggleFullscreen?.()" />
               <UButton size="sm" color="neutral" :label="`isFullscreen(): ${fullscreenActive}`" />
             </div>
-            <RVisualEditor ref="fullscreenEd" v-model="fullscreenDoc" :uploader="demoUploader" :options="{ ...demoOptions, fullscreen: true }" :min-height="480" @fullscreen="(active) => fullscreenActive = active" />
+            <RVisualEditor ref="fullscreenEd" v-model="fullscreenDoc" :uploader="demoUploader" :options="{ ...demoOptions, fullscreen: true, fullscreenMode }" :min-height="480" @fullscreen="(active) => fullscreenActive = active" />
           </section>
 
           <section v-else-if="current === 'basic'" class="demo__case">

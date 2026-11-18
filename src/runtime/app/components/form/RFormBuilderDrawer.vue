@@ -3,10 +3,10 @@
     v-model="show"
     :ui="{
       base: isNotEmpty(inForm?.width)
-        ? `max-w-[${inForm.width}px]`
+        ? `max-w-[${inForm?.width}px]`
         : `max-w-[320px]`,
     }"
-    :class="inForm.width"
+    :class="inForm?.width"
     @closed="closeForm"
     prevent-close
   >

@@ -357,6 +357,7 @@ const optShape = {
   theme: z.enum(['light', 'dark', 'system']),
   appearance: z.enum(['notion', 'paper']),
   toolbarMode: z.enum(['ribbon', 'compact', 'multiline']),
+  fullscreenMode: z.enum(['body', 'window']),
   editable: z.boolean(),
   emitDebounce: z.number().int().min(0).max(10000),
   allowBlobUrls: z.boolean(), // demos only: accept blob: URLs returned by an uploader
@@ -366,7 +367,7 @@ const optShape = {
 }
 const OPT_DEFAULTS = {
   ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, true])),
-  preset: 'full', theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', editable: true, emitDebounce: 300, allowBlobUrls: false,
+  preset: 'full', theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', fullscreenMode: 'body', editable: true, emitDebounce: 300, allowBlobUrls: false,
   fonts: DEFAULT_FONTS, fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96],
   wordCount: true,
   zoom: false,
@@ -457,6 +458,8 @@ const toolbarRef = ref(null)
 const menuRoot = ref(null)
 const menuOpen = ref(null)
 const isFullscreen = ref(false)
+const fullscreenMode = computed(() => opts.value.fullscreenMode)
+let activeFullscreenMode = null
 let fullscreenHome = null
 let previousBodyOverflow = ''
 let previousHtmlOverflow = ''
@@ -3444,6 +3447,7 @@ function moveToBodyFullscreen() {
     fullscreenHome = { parent, anchor }
   }
   if (el.parentNode !== document.body) document.body.appendChild(el)
+  activeFullscreenMode = 'body'
   isFullscreen.value = true
 }
 function restoreFromBodyFullscreen() {
@@ -3455,18 +3459,52 @@ function restoreFromBodyFullscreen() {
     else home.parent.appendChild(el)
     home.anchor?.remove()
   }
+  activeFullscreenMode = null
   isFullscreen.value = false
 }
-function toggleFullscreen() {
+async function enterWindowFullscreen() {
+  const el = root.value
+  if (!el) return
+  if (!el.requestFullscreen) {
+    moveToBodyFullscreen()
+    return
+  }
+  activeFullscreenMode = 'window'
+  try {
+    await el.requestFullscreen()
+    isFullscreen.value = true
+  } catch {
+    activeFullscreenMode = null
+    moveToBodyFullscreen()
+  }
+}
+async function exitWindowFullscreen() {
+  if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
+  activeFullscreenMode = null
+  isFullscreen.value = false
+}
+function onFullscreenChange() {
+  if (activeFullscreenMode === 'body') return
+  const active = document.fullscreenElement === root.value
+  if (active) activeFullscreenMode = 'window'
+  else if (activeFullscreenMode === 'window') activeFullscreenMode = null
+  isFullscreen.value = active
+}
+async function toggleFullscreen() {
   if (!import.meta.client || !root.value) return
-  if (isFullscreen.value) restoreFromBodyFullscreen()
+  if (isFullscreen.value) {
+    if (activeFullscreenMode === 'window') await exitWindowFullscreen()
+    else restoreFromBodyFullscreen()
+    return
+  }
+  if (fullscreenMode.value === 'window') await enterWindowFullscreen()
   else moveToBodyFullscreen()
 }
 function onFullscreenKeydown(e) {
   if (e.key === 'Escape') tableDockGroup.value = null
-  if (e.key === 'Escape' && isFullscreen.value) {
+  if (e.key === 'Escape' && isFullscreen.value && activeFullscreenMode === 'body') {
     e.preventDefault()
-    toggleFullscreen()
+    void toggleFullscreen()
   }
 }
 watch(isFullscreen, (active) => {
@@ -3607,6 +3645,7 @@ onMounted(() => {
   window.addEventListener('pointerup', onWindowPointerUp)
   window.addEventListener('scroll', onWindowScroll, true)
   window.addEventListener('resize', onWindowScroll)
+  document.addEventListener('fullscreenchange', onFullscreenChange)
   document.addEventListener('keydown', onFullscreenKeydown)
 })
 onBeforeUnmount(() => {
@@ -3615,9 +3654,12 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onWindowPointerUp)
   window.removeEventListener('scroll', onWindowScroll, true)
   window.removeEventListener('resize', onWindowScroll)
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
   document.removeEventListener('keydown', onFullscreenKeydown)
   fullscreenHome?.anchor?.remove()
   fullscreenHome = null
+  if (activeFullscreenMode === 'window' && document.fullscreenElement === root.value) document.exitFullscreen?.().catch(() => {})
+  activeFullscreenMode = null
   if (isFullscreen.value) {
     document.body.style.overflow = previousBodyOverflow
     document.documentElement.style.overflow = previousHtmlOverflow

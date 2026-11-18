@@ -243,7 +243,7 @@ function onMouseLeave() {
   padding: 4px 10px !important;
 }
 
-:global(.rtoopip-bg) {
+:global(.rtoopip-bg) { // using in RVisualEditor
   background: var(--bg-tertiary);
   color: var(--color-tooltip-text);
   border: 1px solid var(--color-tooltip-border);
