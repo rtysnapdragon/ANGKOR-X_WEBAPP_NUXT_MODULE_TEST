@@ -40,6 +40,8 @@
 </template>
 
 <script setup>
+import RTooltip from '../RTooltip.vue'
+
 // Listeners such as @click have to land on the <button>, not on RTooltip,
 // so attrs are forwarded by hand with v-bind="$attrs".
 defineOptions({ inheritAttrs: false })

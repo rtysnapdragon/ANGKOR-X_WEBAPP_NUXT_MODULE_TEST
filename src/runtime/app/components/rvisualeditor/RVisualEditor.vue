@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { h, Fragment, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, render as renderVNode, getCurrentInstance } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { Extension, Node } from '@tiptap/core'

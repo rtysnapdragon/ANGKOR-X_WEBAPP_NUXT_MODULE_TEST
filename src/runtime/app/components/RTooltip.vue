@@ -361,6 +361,7 @@ function onMouseLeave() {
 
 
 :global(.rt-popover-content) {
+  z-index: 5555555 !important;
   overflow: visible !important;
   transform-origin: var(--reka-popover-content-transform-origin);
 }

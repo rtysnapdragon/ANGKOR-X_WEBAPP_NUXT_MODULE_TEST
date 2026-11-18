@@ -3,6 +3,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useI18n } from 'vue-i18n'
 import { useRVisualEditorEngine } from '../../composables/useRVisualEditorEngine'
 import { FONTS, LINES, SHAPES, TEXT_ALIGNS, TEXT_PRESETS } from '../Editor/Canvaas/RCanvasData'
+import RTooltip from '../RTooltip.vue'
+import RBtnExCol from '../btn/RBtnExCol.vue'
 
 let i18n = null
 try {
