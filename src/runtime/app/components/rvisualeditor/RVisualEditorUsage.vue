@@ -369,7 +369,7 @@ const roValue = ref(clone(sampleEnvelope))
       <main class="demo__main">
           <section v-if="current === 'notion'" class="demo__case">
             <p class="demo__note"><strong>Notion mode:</strong> no toolbar, seamless page. Click the page and press <kbd>/</kbd> — every tool appears instantly. Hover a block for <b>+</b> and the drag grip; select text for the floating toolbar; drag files from your desktop onto the page.</p>
-            <RVisualEditor v-model="notion" :uploader="demoUploader" :options="{ ...demoOptions, toolbar: false, footer: false, appearance: 'notion' }" :min-height="520" />
+            <RVisualEditor v-model="notion" :uploader="demoUploader" :options="{ ...demoOptions, toolbar: false, footer: false, appearance: 'notion' ,fullscreen: true}" :min-height="520" />
           </section>
 
           <section v-else-if="current === 'ribbon'" class="demo__case">

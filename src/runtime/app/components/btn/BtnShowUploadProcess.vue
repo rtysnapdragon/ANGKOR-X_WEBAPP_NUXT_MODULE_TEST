@@ -62,7 +62,7 @@
               >
                 <ProgressCircle
                   :percentage="fileData.progress"
-                >----------------</ProgressCircle>
+                ></ProgressCircle>
               </div>
               <div v-else-if="fileData.status === 'completed'">
                 <UIcon name="i-lucide-circle-check" class="text-green-500 text-[20px]" />

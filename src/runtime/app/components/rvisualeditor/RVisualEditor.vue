@@ -22,6 +22,7 @@ import { useI18n } from 'vue-i18n'
 import RIcon from '../RIcon.vue'
 import RModal from '../RModal.vue'
 import RTooltip from '../RTooltip.vue'
+import RVisualEditorDesignBuilder from './RVisualEditorDesignBuilder.vue'
 // import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
 import { useUploadProgress } from '../../stores/uploadProgress'
 import { useHttp } from '../../composables/https'
@@ -691,6 +692,8 @@ const ICONS = {
   alert: svg('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
   retry: svg('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'),
   design: svg('<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.7-1.7h2C18.6 16.4 21 14 21 11c0-5-4.5-9-9-9Z"/>'),
+  editor: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+  chevronDown: svg('<path d="m6 9 6 6 6-6"/>'),
   floatLeft: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>'),
   floatRight: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>'),
   size: svg('<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M14 15H9v-5"/><path d="M16 3h5v5"/><path d="M21 3l-7 7"/>'),
@@ -1016,7 +1019,7 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       ed.view.dispatch(ed.state.tr.setNodeMarkup(pos, undefined, {
         ...node.attrs, kind: v.kind, status: defer ? (localUrl ? 'ready' : 'error') : 'uploading', uploadId,
         filename: file.name, size: file.size, mime: v.type, error: defer && !localUrl ? t('rve_this_file_not_available', 'This file is not available.') : '',
-        src: defer ? localUrl : null, draft: defer,
+        src: defer ? localUrl : null, draft: defer, design: null, editorDesign: null,
       }))
       if (!defer) startUpload({ file, kind: v.kind, uploadId })
     })
@@ -1147,11 +1150,24 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       }))
     }
     if (a.kind === 'image' && on('canvas')) {
-      nodes.push(barButton({
-        icon: ICONS.design,
-        label: t('rve_edit_design', 'Edit design'),
-        onClick: () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) },
-      }))
+      const editWithEditor = () => { const p = getPos(); if (typeof p === 'number') openEditorDesign({ pos: p }) }
+      const editDesign = () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }
+      nodes.push(h('div', { class: 'rv-media__group' }, [
+        barButton({
+          icon: ICONS.editor,
+          label: t('rve_edit_with_editor', 'Edit with editor'),
+          onClick: editWithEditor,
+        }),
+        barButton({
+          icon: ICONS.chevronDown,
+          label: t('rve_more_edit_options', 'More edit options'),
+          className: 'rv-media__caret',
+          onClick: anchor => openBarMenu(anchor, [
+            { label: t('rve_edit_with_editor', 'Edit with editor'), onClick: editWithEditor },
+            { label: t('rve_edit_design', 'Edit design'), onClick: editDesign },
+          ]),
+        }),
+      ]))
     }
     if (a.kind === 'image') {
       nodes.push(barButton({
@@ -1311,7 +1327,7 @@ const RVMedia = Node.create({
       width: { default: 100 }, height: { default: null }, align: { default: 'center' }, layout: { default: null },
       filename: { default: '' }, size: { default: 0 }, mime: { default: '' },
       status: { default: 'ready' }, uploadId: { default: null }, error: { default: '' },
-      fileId: { default: null }, draft: { default: false }, design: { default: null }, linked: { default: false },
+      fileId: { default: null }, draft: { default: false }, design: { default: null }, editorDesign: { default: null }, linked: { default: false },
     }
   },
   parseHTML() {
@@ -1835,6 +1851,7 @@ const EXT_COLORS = {
 }
 
 const canvasEnabled = computed(() => on('canvas') && isEditable.value)
+const hasUploadEndpoint = computed(() => typeof props.uploader === 'function' || (isObj(props.uploadApi) && !!asStr(props.uploadApi.url).trim()))
 
 const designOpen = ref(false)
 const designDoc = ref(null) // saved design to reopen
@@ -1852,6 +1869,11 @@ const designUi = reactive({
 // Screen rectangle of the image being edited (the canvas is drawn exactly over it).
 const designRect = reactive({ left: 0, top: 0, width: 0, height: 0 })
 const designPlaceholder = ref(null) // marker of the blank image inserted for a brand-new design
+const editorDesignOpen = ref(false)
+const editorDesignTarget = ref(null) // { pos, src, fileId }
+const editorDesignImage = ref('')
+const editorDesignDoc = ref(null)
+const editorDesignTitle = ref('')
 let rafId = 0
 const designSel = reactive({ n: 0, kind: '', x: 0, y: 0, w: 0, h: 0, fill: '#8c52ff', opacity: 100, lock: true, hasFill: false })
 
@@ -1955,6 +1977,117 @@ function insertDesignPlaceholder(w, h, bg) {
   return pos != null ? { pos, fileId } : null
 }
 const designFor = (node) => node?.attrs?.design ?? props.designs?.[node?.attrs?.src] ?? null
+
+// =====================================================================================================
+// RCanvas design builder (drawer)
+// =====================================================================================================
+function resolveEditorDesignPos() {
+  const ed = live()
+  const tgt = editorDesignTarget.value
+  if (!ed || !tgt) return null
+  const hit = n => n?.type.name === 'media' && (tgt.fileId ? n.attrs.fileId === tgt.fileId : n.attrs.src === tgt.src)
+  if (hit(ed.state.doc.nodeAt(tgt.pos))) return tgt.pos
+  let found = null
+  ed.state.doc.descendants((n, p) => {
+    if (found != null) return false
+    if (hit(n)) { found = p; return false }
+    return true
+  })
+  if (found != null) tgt.pos = found
+  return found
+}
+
+function openEditorDesign({ pos = null } = {}) {
+  if (!canvasEnabled.value || editorDesignOpen.value || pos == null) return
+  const ed = live()
+  const node = ed?.state.doc.nodeAt(pos)
+  if (!ed || node?.type.name !== 'media' || node.attrs.kind !== 'image') return
+  const raw = node.attrs.src || ''
+  const src = safeUrl(raw, opts.value.allowBlobUrls) || (/^data:image\/(?:png|jpe?g|webp|gif|avif);base64,/i.test(raw) ? raw : '')
+  if (!src) {
+    showNotice(t('rve_this_file_not_available', 'This file is not available.'))
+    return
+  }
+  editorDesignTarget.value = { pos, src: node.attrs.src, fileId: node.attrs.fileId }
+  editorDesignImage.value = src
+  editorDesignDoc.value = node.attrs.editorDesign ?? null
+  editorDesignTitle.value = node.attrs.filename || t('rve_design_builder', 'Design builder')
+  editorDesignOpen.value = true
+}
+
+function closeEditorDesign() {
+  editorDesignOpen.value = false
+  editorDesignTarget.value = null
+  editorDesignImage.value = ''
+  editorDesignDoc.value = null
+  editorDesignTitle.value = ''
+}
+
+async function uploadEditorDesignImage(file) {
+  const result = await runUploader(file, { onProgress: () => {}, signal: undefined })
+  const url = safeUrl(uploadUrl(result), opts.value.allowBlobUrls)
+  if (!url) throw new Error(t('rve_upload_no_url', 'The upload endpoint did not return a usable URL.'))
+  return { url, fileId: uploadFileId(result) }
+}
+
+function onEditorDesignSave({ file, design } = {}) {
+  const pos = resolveEditorDesignPos()
+  if (pos == null || !file) {
+    closeEditorDesign()
+    return
+  }
+  const problem = validateFile(file)
+  if (problem.error) {
+    showNotice(problem.error)
+    emit('error', { source: 'design', code: problem.code, file, error: new Error(problem.error) })
+    closeEditorDesign()
+    return
+  }
+  const node = live()?.state.doc.nodeAt(pos)
+  if (!node) {
+    closeEditorDesign()
+    return
+  }
+  const uploadId = uid()
+  const defer = shouldDeferUpload.value
+  const localUrl = defer ? createObjectUrl(file) : null
+  trackGlobalUpload(file, uploadId)
+  if (node.attrs.uploadId) {
+    releasePendingUpload(pending.get(node.attrs.uploadId), node.attrs.uploadId)
+    pending.delete(node.attrs.uploadId)
+  }
+  if (defer) {
+    pending.set(uploadId, { file, kind: 'image', controller: null, localUrl, state: 'local' })
+    emit('upload', { phase: 'pending', file, uploadId })
+  }
+  const ok = patchAt(pos, {
+    kind: 'image', status: defer ? (localUrl ? 'ready' : 'error') : 'uploading', uploadId,
+    filename: file.name, size: file.size, mime: file.type || 'image/png',
+    error: defer && !localUrl ? t('rve_this_file_not_available', 'This file is not available.') : '',
+    src: defer ? localUrl : null, draft: defer, editorDesign: design, design: null,
+    width: 100, height: null,
+  })
+  if (!ok) {
+    if (defer) {
+      releasePendingUpload(pending.get(uploadId), uploadId)
+      pending.delete(uploadId)
+    }
+    showNotice(t('rve_this_file_not_available', 'This file is not available.'))
+    closeEditorDesign()
+    return
+  }
+  if (!defer) startUpload({ file, kind: 'image', uploadId })
+  emit('design-saved', { design, pos })
+  closeEditorDesign()
+}
+
+watch(editorDesignOpen, (open) => {
+  if (open) return
+  editorDesignTarget.value = null
+  editorDesignImage.value = ''
+  editorDesignDoc.value = null
+  editorDesignTitle.value = ''
+})
 
 // ── Open / close ─────────────────────────────────────────────────────────
 // The canvas opens IN PLACE: it is drawn exactly over the image in the article
@@ -2610,7 +2743,7 @@ async function insertDesign() {
       emit('upload', { phase: 'pending', file, uploadId })
     }
     patchAt(pos, {
-      draft: defer, status: defer ? 'ready' : 'uploading', uploadId, design, kind: 'image',
+      draft: defer, status: defer ? 'ready' : 'uploading', uploadId, design, editorDesign: null, kind: 'image',
       filename: file.name, size: file.size, mime: 'image/png', error: '',
       src: defer ? localUrl : null,
     })
@@ -4074,6 +4207,17 @@ defineExpose({
       </div>
     </Teleport>
 
+    <RVisualEditorDesignBuilder
+      v-model="editorDesignOpen"
+      :initial-image="editorDesignImage"
+      :document="editorDesignDoc"
+      :title="editorDesignTitle"
+      :save-label="t('rve_apply', 'Apply')"
+      :upload-handler="hasUploadEndpoint ? uploadEditorDesignImage : null"
+      @save="onEditorDesignSave"
+      @cancel="closeEditorDesign"
+    />
+
     <div v-if="notice" class="rv-notice" role="status"><UIcon name="i-lucide-info" />{{ notice }}</div>
     <!-- ================= Footer (optional: options.footer) ================= -->
     <footer v-if="editor && feat.footer.visible" class="rv-footer" role="contentinfo">
@@ -4720,6 +4864,17 @@ defineExpose({
 .rv-editor.is-fullscreen .rv-media__bar { z-index: 2100; }
 .rv-media__tip { display: inline-flex; flex: 0 0 auto; }
 .rv-media__tip > div { display: inline-flex; width: auto !important; }
+.rv-media__group {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+  border-radius: 7px;
+}
+.rv-media__group .rv-media__btn { border-radius: 0; }
+.rv-media__group > .rv-media__tip:first-child .rv-media__btn { border-radius: 6px 0 0 6px; }
+.rv-media__group > .rv-media__tip:last-child .rv-media__btn { border-left: 1px solid var(--border-card); border-radius: 0 6px 6px 0; }
+.rv-media__group .rv-media__caret { min-width: 20px; padding: 0 3px; }
 .rv-media__btn {
   display: inline-grid;
   place-items: center;
