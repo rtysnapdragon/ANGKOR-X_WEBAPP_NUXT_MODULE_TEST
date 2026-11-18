@@ -1,8 +1,5 @@
 <script setup>
-import { createVNode,computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch,render as renderVNode,getCurrentInstance } from 'vue'
-import FloatingInput from '../input/FloatingInput.vue'
-
-const appContext = getCurrentInstance()?.appContext
+import { h, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, render as renderVNode, getCurrentInstance } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { Extension, Node } from '@tiptap/core'
 import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state'
@@ -28,6 +25,9 @@ import RTooltip from '../RTooltip.vue'
 // import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
 import { useUploadProgress } from '../../stores/uploadProgress'
 import { useHttp } from '../../composables/https'
+import FloatingInput from '../input/FloatingInput.vue'
+
+const appContext = getCurrentInstance()?.appContext
 
 defineOptions({ name: 'RVisualEditor' })
 
@@ -691,6 +691,7 @@ const ICONS = {
   floatRight: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>'),
   size: svg('<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M14 15H9v-5"/><path d="M16 3h5v5"/><path d="M21 3l-7 7"/>'),
   caption: svg('<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/>'),
+  alt: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 15h8"/><path d="M12 9v6"/>'),
   back: svg('<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'),
   check: svg('<polyline points="20 6 9 17 4 12"/>'),
 }
@@ -704,10 +705,24 @@ const pxValue = (style, prop) => {
   const m = typeof style === 'string' ? style.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)px`)) : null
   return m ? Math.round(Number(m[1])) : null
 }
+function getMediaOverlayHost() { return isFullscreen.value && root.value ? root.value : document.body }
+const mediaOverlayTarget = computed(() => {
+  const host = getMediaOverlayHost()
+  return host === document.body ? 'body' : host
+})
+
+const mediaBarRefreshers = new Set()
+function registerMediaBarRefresher(fn) {
+  mediaBarRefreshers.add(fn)
+  return () => mediaBarRefreshers.delete(fn)
+}
+function refreshMediaBars() { for (const fn of mediaBarRefreshers) fn() }
+
 // A single floating menu shared by every media bar (only one open at a time).
 let barMenuEl = null
 function closeBarMenu() {
   if (!barMenuEl) return
+  renderVNode(null, barMenuEl)
   barMenuEl.remove()
   barMenuEl = null
   document.removeEventListener('pointerdown', onBarMenuOutside, true)
@@ -716,15 +731,18 @@ function closeBarMenu() {
 function onBarMenuOutside(e) { if (barMenuEl && !barMenuEl.contains(e.target)) closeBarMenu() }
 function openBarMenu(anchor, items) {
   closeBarMenu()
-  const menu = h('div', 'rv-media__menu', { role: 'menu' })
-  for (const it of items) {
-    const btn = h('button', 'rv-media__menu-item', { type: 'button', role: 'menuitem', title: it.label })
-    btn.textContent = it.label
-    if (it.active) btn.classList.add('is-active')
-    btn.addEventListener('click', () => { closeBarMenu(); it.onClick() })
-    menu.append(btn)
-  }
-  document.body.append(menu)
+  const menu = el('div', 'rv-media__menu', { role: 'menu' })
+  const nodes = items.map((it) => tooltipButtonVNode({
+    text: it.label,
+    label: it.label,
+    side: 'right',
+    buttonClass: 'rv-media__menu-item',
+    role: 'menuitem',
+    active: !!it.active,
+    onClick: () => { closeBarMenu(); it.onClick() },
+  }))
+  renderVNode(h('div', { class: 'rv-media__menu-list' }, nodes), menu)
+  getMediaOverlayHost().append(menu)
   const r = anchor.getBoundingClientRect()
   menu.style.top = `${r.bottom + 4}px`
   menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`
@@ -747,7 +765,7 @@ function onMediaAltPanelOutside(e) {
 }
 function openMediaAltPanel(el, anchor) {
   closeMediaAltPanel()
-  const host = isFullscreen.value && root.value ? root.value : document.body
+  const host = getMediaOverlayHost()
   host.append(el)
   const r = anchor.getBoundingClientRect()
   const width = el.offsetWidth
@@ -763,27 +781,116 @@ function openMediaAltPanel(el, anchor) {
   window.addEventListener('resize', closeMediaAltPanel)
 }
 
-const h = (tag, cls, attrsObj = {}) => {
+const el = (tag, cls, attrsObj = {}) => {
   const n = document.createElement(tag)
   if (cls) n.className = cls
   for (const [k, v] of Object.entries(attrsObj || {})) n.setAttribute(k, v)
   return n
 }
 
+function tooltipButtonVNode(options) {
+  const {
+    icon = '',
+    text = '',
+    label = '',
+    onClick = () => {},
+    className = '',
+    active = false,
+    side = 'top',
+    buttonClass = 'rv-media__btn',
+    role,
+  } = options
+  const child = text ? text : h('span', { class: 'rv-media__icon', innerHTML: icon })
+  const vnode = h(RTooltip, {
+    text: label,
+    side,
+    isPopper: true,
+    to: mediaOverlayTarget,
+  }, {
+    default: () => [
+      h('button', {
+        type: 'button',
+        role,
+        class: [buttonClass, active && 'is-active', className].filter(Boolean),
+        'aria-label': label,
+        onMousedown: (e) => e.preventDefault(),
+        onClick: (e) => { e.stopPropagation(); onClick(e.currentTarget) },
+      }, child),
+    ],
+  })
+  if (appContext) vnode.appContext = appContext
+  return vnode
+}
+function renderTooltipButton(host, options) {
+  renderVNode(tooltipButtonVNode(options), host)
+}
+function tooltipButton(options) {
+  const host = el('div', 'rv-media__tip')
+  renderTooltipButton(host, options)
+  return host
+}
+
 function createMediaView({ node: initial, getPos, editor: ed }) {
   let node = initial
-  const dom = h('div', 'rv-media')
-  const figure = h('figure', 'rv-media__figure')
-  const body = h('div', 'rv-media__body')
-  const bar = h('div', 'rv-media__bar', { 'data-rv-interactive': '', role: 'toolbar', 'aria-label': t('rve_media_options', 'Media options') })
-  const caption = h('input', 'rv-media__caption', { type: 'text', placeholder: t('rve_write_caption', 'Write a caption…'), 'aria-label': t('rve_caption', 'Caption'), 'data-rv-interactive': '' })
-  const badge = h('div', 'rv-media__badge', { 'aria-hidden': 'true' })
+  const dom = el('div', 'rv-media')
+  const figure = el('figure', 'rv-media__figure')
+  const body = el('div', 'rv-media__body')
+  const bar = el('div', 'rv-media__bar', { 'data-rv-interactive': '', role: 'toolbar', 'aria-label': t('rve_media_options', 'Media options') })
+  bar.hidden = true
+  const caption = el('input', 'rv-media__caption', { type: 'text', placeholder: t('rve_write_caption', 'Write a caption…'), 'aria-label': t('rve_caption', 'Caption'), 'data-rv-interactive': '' })
+  const badge = el('div', 'rv-media__badge', { 'aria-hidden': 'true' })
   const handles = {}
-  for (const dir of RESIZE_DIRS) handles[dir] = h('div', `rv-media__resize rv-media__resize--${dir}`, { 'data-rv-interactive': '', 'aria-hidden': 'true', 'data-dir': dir })
-  figure.append(bar, body, badge, ...RESIZE_DIRS.map((d) => handles[d]), caption)
+  for (const dir of RESIZE_DIRS) handles[dir] = el('div', `rv-media__resize rv-media__resize--${dir}`, { 'data-rv-interactive': '', 'aria-hidden': 'true', 'data-dir': dir })
+  figure.append(body, badge, ...RESIZE_DIRS.map((d) => handles[d]), caption)
   dom.append(figure)
+
+  let barDomHover = false
+  let barHover = false
+  let barSelected = false
+  let barVisible = false
+  let barTooltipHosts = []
+  function updateMediaBarPosition() {
+    if (!barVisible) return
+    const r = dom.getBoundingClientRect()
+    if (r.bottom < 0 || r.top > window.innerHeight) { hideMediaBar(); return }
+    const width = bar.offsetWidth
+    const height = bar.offsetHeight
+    let top = r.top - height - 8
+    let place = 'above'
+    if (top < 8) { top = r.bottom + 8; place = 'below' }
+    if (top + height > window.innerHeight - 8) top = Math.max(8, Math.min(r.top + 8, window.innerHeight - height - 8))
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - width / 2, window.innerWidth - width - 8))
+    bar.style.top = `${Math.round(top)}px`
+    bar.style.left = `${Math.round(left)}px`
+    bar.dataset.place = place
+  }
+  function showMediaBar() {
+    const host = getMediaOverlayHost()
+    if (bar.parentElement !== host) host.append(bar)
+    bar.hidden = false
+    barVisible = true
+    updateMediaBarPosition()
+  }
+  function hideMediaBar() {
+    barVisible = false
+    bar.hidden = true
+  }
+  function syncMediaBarVisibility() {
+    if ((barDomHover || barHover || barSelected) && ed.isEditable && node.attrs.status === 'ready' && bar.childElementCount) showMediaBar()
+    else hideMediaBar()
+  }
+  const unregisterBarRefresher = registerMediaBarRefresher(() => {
+    const host = getMediaOverlayHost()
+    if (bar.parentElement !== host) host.append(bar)
+    updateMediaBarPosition()
+  })
+  dom.addEventListener('mouseenter', () => { barDomHover = true; syncMediaBarVisibility() })
+  dom.addEventListener('mouseleave', () => { barDomHover = false; syncMediaBarVisibility() })
+  bar.addEventListener('mouseenter', () => { barHover = true; syncMediaBarVisibility() })
+  bar.addEventListener('mouseleave', () => { barHover = false; syncMediaBarVisibility() })
   let progressEl = null
   let progressLabel = null
+  let stateTooltipHosts = []
 
   const patch = (a) => {
     const pos = getPos()
@@ -794,30 +901,32 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     const pos = getPos()
     if (typeof pos === 'number') ed.view.dispatch(ed.state.tr.delete(pos, pos + node.nodeSize))
   }
-  const button = (icon, label, onClick, text) => {
-    const b = h('button', 'rv-media__btn', { type: 'button', title: label, 'aria-label': label, 'data-tip': label })
-    if (text) b.textContent = text
-    else b.innerHTML = icon
-    b.addEventListener('mousedown', (e) => e.preventDefault())
-    b.addEventListener('click', (e) => { e.stopPropagation(); onClick() })
-    return b
+  function clearBarTooltipHosts() {
+    for (const host of barTooltipHosts) renderVNode(null, host)
+    barTooltipHosts = []
+  }
+  function barButton(options) {
+    const host = tooltipButton(options)
+    barTooltipHosts.push(host)
+    return host
   }
 
   let altDraft = ''
-  const altPanel = h('div', 'rv-media__alt-panel', { 'data-rv-interactive': '', role: 'dialog', 'aria-label': t('rve_alt_text', 'Alternative text') })
-  const altInputHost = h('div', 'rv-media__alt-input')
-  const altHead = h('div', 'rv-media__alt-head')
-  const altTitle = h('strong')
+  const altTooltipHosts = []
+  const altPanel = el('div', 'rv-media__alt-panel', { 'data-rv-interactive': '', role: 'dialog', 'aria-label': t('rve_alt_text', 'Alternative text') })
+  const altInputHost = el('div', 'rv-media__alt-input')
+  const altHead = el('div', 'rv-media__alt-head')
+  const altTitle = el('strong')
   altTitle.textContent = t('rve_alt_text', 'Alternative text')
-  const altFoot = h('div', 'rv-media__alt-foot')
-  const backBtn = button(ICONS.back, t('rve_back', 'Back'), () => closeMediaAltPanel())
-  const saveBtn = button(ICONS.check, t('rve_save', 'Save'), () => saveAlt(), t('rve_save', 'Save'))
-  saveBtn.classList.add('is-primary')
+  const altFoot = el('div', 'rv-media__alt-foot')
+  const backBtn = tooltipButton({ icon: ICONS.back, label: t('rve_back', 'Back'), onClick: () => closeMediaAltPanel() })
+  const saveBtn = tooltipButton({ text: t('rve_save', 'Save'), label: t('rve_save', 'Save'), className: 'is-primary', onClick: () => saveAlt() })
+  altTooltipHosts.push(backBtn, saveBtn)
   altHead.append(backBtn, altTitle)
   altFoot.append(saveBtn)
   altPanel.append(altHead, altInputHost, altFoot)
   function renderAltInput() {
-    const vnode = createVNode(FloatingInput, {
+    const vnode = h(FloatingInput, {
       label: t('rve_alt_text', 'Alternative text'),
       modelValue: altDraft,
       placeholder: t('rve_alt_description', 'Describe the image'),
@@ -927,17 +1036,19 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
 
   function renderBody() {
     const a = node.attrs
+    for (const host of stateTooltipHosts) renderVNode(null, host)
+    stateTooltipHosts = []
     body.replaceChildren()
     progressEl = progressLabel = null
     if (a.status === 'uploading') {
-      const box = h('div', 'rv-media__state')
-      const label = h('div', 'rv-media__label')
+      const box = el('div', 'rv-media__state')
+      const label = el('div', 'rv-media__label')
       label.textContent = `${t('rve_uploading', 'Uploading')} ${a.filename || kindLabel(a.kind).toLowerCase() || t('rve_file_singular', 'file')}…`
-      progressLabel = h('span', 'rv-media__pct')
+      progressLabel = el('span', 'rv-media__pct')
       progressLabel.textContent = '0%'
       label.append(progressLabel)
-      const track = h('div', 'rv-media__progress', { role: 'progressbar', 'aria-label': t('rve_upload_progress', 'Upload progress') })
-      progressEl = h('span')
+      const track = el('div', 'rv-media__progress', { role: 'progressbar', 'aria-label': t('rve_upload_progress', 'Upload progress') })
+      progressEl = el('span')
       progressEl.style.width = '0%'
       track.append(progressEl)
       box.append(label, track)
@@ -946,48 +1057,58 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
     }
     const src = a.draft ? (a.src || null) : safeUrl(a.src, opts.value.allowBlobUrls)
     if (a.status === 'error' || !src) {
-      const box = h('div', 'rv-media__state rv-media__state--error')
-      const msg = h('div', 'rv-media__label')
+      const box = el('div', 'rv-media__state rv-media__state--error')
+      const msg = el('div', 'rv-media__label')
       msg.innerHTML = ICONS.alert
-      const text = h('span')
+      const text = el('span')
       text.textContent = a.error || t('rve_this_file_not_available', 'This file is not available.')
       msg.append(text)
-      const row = h('div', 'rv-media__actions', { 'data-rv-interactive': '' })
-      if (a.uploadId && mediaCtx.canRetry(a.uploadId)) row.append(button(ICONS.retry, t('rve_retry_upload', 'Retry upload'), () => { patch({ status: 'uploading', error: '' }); mediaCtx.onRetry(a.uploadId) }, t('rve_retry', 'Retry')))
-      row.append(button(ICONS.trash, t('rve_remove', 'Remove'), remove, t('rve_remove', 'Remove')))
+      const row = el('div', 'rv-media__actions', { 'data-rv-interactive': '' })
+      if (a.uploadId && mediaCtx.canRetry(a.uploadId)) {
+        const retryBtn = tooltipButton({
+          text: t('rve_retry', 'Retry'),
+          label: t('rve_retry_upload', 'Retry upload'),
+          onClick: () => { patch({ status: 'uploading', error: '' }); mediaCtx.onRetry(a.uploadId) },
+        })
+        stateTooltipHosts.push(retryBtn)
+        row.append(retryBtn)
+      }
+      const removeBtn = tooltipButton({ text: t('rve_remove', 'Remove'), label: t('rve_remove', 'Remove'), onClick: remove })
+      stateTooltipHosts.push(removeBtn)
+      row.append(removeBtn)
       box.append(msg, row)
       body.append(box)
       return
     }
     if (a.kind === 'image') {
-      const img = h('img', 'rv-media__img', { loading: 'lazy', decoding: 'async', draggable: 'false' })
+      const img = el('img', 'rv-media__img', { loading: 'lazy', decoding: 'async', draggable: 'false' })
       img.alt = a.alt || ''
       img.src = src
       if (a.height) { img.style.height = `${Math.round(a.height)}px`; img.style.objectFit = 'fill' }
-      img.addEventListener('error', () => { img.replaceWith(Object.assign(h('div', 'rv-media__state rv-media__state--error'), { textContent: t('rve_image_load_error', 'The image could not be loaded.') })) })
+      img.addEventListener('error', () => { img.replaceWith(Object.assign(el('div', 'rv-media__state rv-media__state--error'), { textContent: t('rve_image_load_error', 'The image could not be loaded.') })) })
       body.append(img)
     } else if (a.kind === 'video') {
-      const v = h('video', 'rv-media__video', { controls: '', preload: 'metadata', playsinline: '' })
+      const v = el('video', 'rv-media__video', { controls: '', preload: 'metadata', playsinline: '' })
       v.src = src
       body.append(v)
     } else if (a.kind === 'audio') {
-      const au = h('audio', 'rv-media__audio', { controls: '', preload: 'metadata' })
+      const au = el('audio', 'rv-media__audio', { controls: '', preload: 'metadata' })
       au.src = src
       body.append(au)
     } else {
-      const link = h('a', 'rv-file', { target: '_blank', rel: 'noopener noreferrer', 'data-rv-interactive': '' })
+      const link = el('a', 'rv-file', { target: '_blank', rel: 'noopener noreferrer', 'data-rv-interactive': '' })
       link.href = src
       if (a.filename) link.setAttribute('download', a.filename)
-      const icon = h('span', 'rv-file__icon')
+      const icon = el('span', 'rv-file__icon')
       icon.innerHTML = ICONS.file
-      const meta = h('span', 'rv-file__meta')
-      const name = h('strong')
+      const meta = el('span', 'rv-file__meta')
+      const name = el('strong')
       name.textContent = a.filename || t('rve_attachment', 'Attachment')
-      const sub = h('small')
+      const sub = el('small')
       const ext = /\.([^.]+)$/.test(a.filename || '') ? a.filename.split('.').pop().toUpperCase() : ''
       sub.textContent = [ext, fmtBytes(a.size)].filter(Boolean).join(' · ')
       meta.append(name, sub)
-      const dl = h('span', 'rv-file__dl')
+      const dl = el('span', 'rv-file__dl')
       dl.innerHTML = ICONS.download
       link.append(icon, meta, dl)
       body.append(link)
@@ -996,41 +1117,65 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
 
   function renderBar() {
     const a = node.attrs
+    clearBarTooltipHosts()
     bar.replaceChildren()
-    if (a.status !== 'ready') return
+    if (a.status !== 'ready') { syncMediaBarVisibility(); return }
     const floated = MEDIA_LAYOUTS.includes(a.layout)
     if (a.kind !== 'audio' && !floated) {
       for (const al of ALIGNS) {
-        const b = button(ICONS[al], `${t('rve_align', 'Align')} ${t(`rve_align_${al}`, al)}`, () => patch({ align: al }))
-        if (a.align === al) b.classList.add('is-active')
-        bar.append(b)
+        bar.append(barButton({
+          icon: ICONS[al],
+          label: `${t('rve_align', 'Align')} ${t(`rve_align_${al}`, al)}`,
+          active: a.align === al,
+          onClick: () => patch({ align: al }),
+        }))
       }
     }
     if (a.kind === 'image' || a.kind === 'video') {
       for (const [val, icon] of [['float-left', ICONS.floatLeft], ['float-right', ICONS.floatRight]]) {
-        const b = button(icon, t(`rve_${val.replace('-', '_')}`, val === 'float-left' ? 'Float left' : 'Float right'), () => patch({ layout: a.layout === val ? null : val }))
-        if (a.layout === val) b.classList.add('is-active')
-        bar.append(b)
+        bar.append(barButton({
+          icon,
+          label: t(`rve_${val.replace('-', '_')}`, val === 'float-left' ? 'Float left' : 'Float right'),
+          active: a.layout === val,
+          onClick: () => patch({ layout: a.layout === val ? null : val }),
+        }))
       }
-      const sb = button(ICONS.size, t('rve_size', 'Size'), () => {})
-      sb.addEventListener('click', () => openBarMenu(sb, sizeItems()))
-      bar.append(sb)
+      bar.append(barButton({
+        icon: ICONS.size,
+        label: t('rve_size', 'Size'),
+        onClick: (anchor) => openBarMenu(anchor, sizeItems()),
+      }))
     }
-    if (a.kind === 'image' && on('canvas')) bar.append(button(ICONS.design, t('rve_edit_design', 'Edit design'), () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) }))
+    if (a.kind === 'image' && on('canvas')) {
+      bar.append(barButton({
+        icon: ICONS.design,
+        label: t('rve_edit_design', 'Edit design'),
+        onClick: () => { const p = getPos(); if (typeof p === 'number') openDesign({ pos: p }) },
+      }))
+    }
     if (a.kind === 'image') {
-      const altBtn = button('', t('rve_alt_text', 'Alternative text'), () => openAltPanel(altBtn), t('rve_alt', 'Alt'))
-      altBtn.classList.add('rv-media__alt-trigger')
-      bar.append(altBtn)
+      bar.append(barButton({
+        icon: ICONS.alt,
+        label: t('rve_alt_text', 'Alternative text'),
+        className: 'rv-media__alt-trigger',
+        onClick: (anchor) => openAltPanel(anchor),
+      }))
     }
-    const capBtn = button(ICONS.caption, t('rve_toggle_caption', 'Toggle caption'), () => patch({ captionVisible: a.captionVisible === false }), t('rve_caption', 'Caption'))
-    if (a.captionVisible !== false) capBtn.classList.add('is-active')
-    bar.append(capBtn)
-    if (a.linked || a.kind === 'file') bar.append(button(ICONS.preview, t('rve_preview', 'Preview'), previewMedia))
-    if (a.linked || a.kind === 'file') bar.append(button(ICONS.download, t('rve_download', 'Download'), downloadMedia))
-    if (a.linked || a.kind === 'file') bar.append(button(ICONS.copy, t('rve_copy_link', 'Copy link'), copyMediaLink))
-    if (a.kind === 'file') bar.append(button(ICONS.rename, t('rve_rename', 'Rename'), renameMedia))
-    bar.append(button(ICONS.retry, t('rve_replace', 'Replace'), replaceMedia))
-    bar.append(button(ICONS.trash, t('rve_delete', 'Delete'), remove))
+    bar.append(barButton({
+      icon: ICONS.caption,
+      label: t('rve_toggle_caption', 'Toggle caption'),
+      active: a.captionVisible !== false,
+      onClick: () => patch({ captionVisible: a.captionVisible === false }),
+    }))
+    if (a.linked || a.kind === 'file') {
+      bar.append(barButton({ icon: ICONS.preview, label: t('rve_preview', 'Preview'), onClick: previewMedia }))
+      bar.append(barButton({ icon: ICONS.download, label: t('rve_download', 'Download'), onClick: downloadMedia }))
+      bar.append(barButton({ icon: ICONS.copy, label: t('rve_copy_link', 'Copy link'), onClick: copyMediaLink }))
+    }
+    if (a.kind === 'file') bar.append(barButton({ icon: ICONS.rename, label: t('rve_rename', 'Rename'), onClick: renameMedia }))
+    bar.append(barButton({ icon: ICONS.retry, label: t('rve_replace', 'Replace'), onClick: replaceMedia }))
+    bar.append(barButton({ icon: ICONS.trash, label: t('rve_delete', 'Delete'), onClick: remove }))
+    syncMediaBarVisibility()
   }
 
   function render() {
@@ -1134,13 +1279,18 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       render()
       return true
     },
-    selectNode() { dom.classList.add('is-selected'); mediaCtx.onSelect(node.attrs) },
-    deselectNode() { dom.classList.remove('is-selected') },
+    selectNode() { dom.classList.add('is-selected'); barSelected = true; syncMediaBarVisibility(); mediaCtx.onSelect(node.attrs) },
+    deselectNode() { dom.classList.remove('is-selected'); barSelected = false; syncMediaBarVisibility() },
     stopEvent: (event) => !!event.target?.closest?.('[data-rv-interactive]'),
     ignoreMutation: () => true,
     destroy() {
       closeBarMenu()
       if (mediaAltPanelEl === altPanel) closeMediaAltPanel()
+      clearBarTooltipHosts()
+      for (const host of altTooltipHosts) renderVNode(null, host)
+      for (const host of stateTooltipHosts) renderVNode(null, host)
+      unregisterBarRefresher()
+      bar.remove()
       renderVNode(null, altInputHost)
       if (node.attrs.uploadId) mediaCtx.views.delete(node.attrs.uploadId)
       mediaCtx.onRemoved(node.attrs)
@@ -2317,7 +2467,7 @@ function videoFrame(file) {
 
 // Light client-side image compression (skips GIF/SVG, never returns a bigger file).
 async function compressImageLocal(file, { quality = 0.86, maxPx = 2000 } = {}) {
-  if (!file.type.startsWith('image/') || /gif|svg/.test(file.type)) return file
+  if (!file.type.startsWitel('image/') || /gif|svg/.test(file.type)) return file
   const bitmap = await createImageBitmap(file)
   const ratio = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height))
   const w = Math.round(bitmap.width * ratio)
@@ -2342,7 +2492,7 @@ function fileCard(file) {
   const name = file.name.length > 28 ? `${file.name.slice(0, 25)}…` : file.name
   const card = new F.Rect({ ...ORIGIN, left: 0, top: 0, width: 300, height: 92, rx: 14, ry: 14, fill: '#ffffff', stroke: '#e5e7eb', strokeWidth: 1 })
   const badge = new F.Rect({ ...ORIGIN, left: 14, top: 14, width: 52, height: 64, rx: 8, ry: 8, fill: color })
-  const glyph = new F.Path('M0 0h14l6 6v18H0z M14 0v6h6', {
+  const glyph = new F.Patel('M0 0h14l6 6v18H0z M14 0v6h6', {
     ...ORIGIN, left: 30, top: 20, fill: 'rgba(255,255,255,.92)', stroke: color, strokeWidth: 1,
   })
   const tag = new F.Textbox(ext, { ...ORIGIN, left: 14, top: 54, width: 52, fontSize: 13, fontWeight: 700, fill: '#ffffff', textAlign: 'center', fontFamily: DESIGN_FONT })
@@ -2424,7 +2574,7 @@ function onDesignKey(e) {
   else if (mod && k === 'a') { e.preventDefault(); designSelectAll() }
   else if (k === 'delete' || k === 'backspace') { e.preventDefault(); removeSelected() }
   else if (k === 'escape') { fc.discardActiveObject(); fc.requestRenderAll() }
-  else if (k.startsWith('arrow')) {
+  else if (k.startsWitel('arrow')) {
     e.preventDefault()
     const s = e.shiftKey ? 10 : 1
     designNudge({ arrowleft: -s, arrowright: s }[k] ?? 0, { arrowup: -s, arrowdown: s }[k] ?? 0)
@@ -3032,7 +3182,7 @@ function scheduleBubble() {
   bubbleRaf = requestAnimationFrame(() => { bubbleRaf = 0; updateBubble() })
 }
 const onWindowPointerUp = () => { if (selecting) { selecting = false; scheduleBubble() } }
-const onWindowScroll = () => { scheduleBubble(); refreshHandle(); updateTableDock(); if (slash.open) slash.rect = slash.rect && { ...slash.rect } }
+const onWindowScroll = () => { scheduleBubble(); refreshHandle(); updateTableDock(); refreshMediaBars(); if (slash.open) slash.rect = slash.rect && { ...slash.rect } }
 
 const bubbleBlockLabel = () => (act('heading') ? t(`rve_heading_${attrs('heading').level}`, `Heading ${attrs('heading').level}`) : act('bulletList') ? tl('Bulleted list') : act('orderedList') ? tl('Numbered list') : act('taskList') ? tl('To-do list') : act('blockquote') ? tl('Quote') : tl('Text'))
 const bubbleTurn = computed(() => {
@@ -3064,7 +3214,7 @@ function normalizeUrl(raw) {
   if (!v) return null
   let candidate = v
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) candidate = `mailto:${v}`
-  else if (!/^[a-z][a-z0-9+.-]*:/i.test(v) && !v.startsWith('/') && !v.startsWith('#')) candidate = `https://${v}`
+  else if (!/^[a-z][a-z0-9+.-]*:/i.test(v) && !v.startsWitel('/') && !v.startsWitel('#')) candidate = `https://${v}`
   try { return ALLOWED_PROTOCOLS.has(new URL(candidate, 'https://placeholder.invalid').protocol) ? candidate : null } catch { return null }
 }
 function applyLink(raw) {
@@ -3325,7 +3475,7 @@ watch(isFullscreen, (active) => {
     }
   }
   emit('fullscreen', active)
-  nextTick(() => updateTableDock())
+  nextTick(() => { updateTableDock(); refreshMediaBars() })
 })
 function toggleMenu(id) { menuOpen.value = menuOpen.value === id ? null : id }
 function runMenuItem(item) { menuOpen.value = null; if (typeof item?.run === 'function') item.run() }
@@ -4497,70 +4647,35 @@ defineExpose({
 .rv-media__progress { height: 6px; overflow: hidden; background: var(--border-card); border-radius: 999px; span { display: block; height: 100%; background: var(--color-primary); transition: width 160ms linear; } }
 .rv-media__actions { display: flex; gap: 8px; }
 .rv-media__bar {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 3;
+  position: fixed;
+  z-index: 2000;
   display: flex;
+  align-items: center;
   gap: 2px;
-  padding: 3px;
-  background: color-mix(in srgb, var(--color-w-b-1) 85%, transparent);
-  border-radius: 6px;
-  opacity: 0;
-  transition: opacity 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  max-width: calc(100vw - 16px);
+  padding: 5px;
+  background: var(--bg-content);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: var(--glass-shadow);
+  &[hidden] { display: none; }
   &:empty { display: none; }
 }
-.rv-media__figure:hover .rv-media__bar, .rv-media.is-selected .rv-media__bar { opacity: 1; }
-.rv-media[data-kind='file'] .rv-media__bar {
-  position: static;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  margin: 0 0 6px;
-  padding: 0;
-  background: transparent;
-  opacity: 1;
-}
-.rv-media[data-kind='file'] .rv-media__bar:empty { display: none; }
+.rv-editor.is-fullscreen .rv-media__bar { z-index: 2100; }
+.rv-media__tip { display: inline-flex; flex: 0 0 auto; }
+.rv-media__tip > div { display: inline-flex; width: auto !important; }
 .rv-media__btn {
-  position: relative;
   display: inline-grid;
   place-items: center;
-  min-width: 26px;
-  height: 26px;
+  min-width: 28px;
+  height: 28px;
   padding: 0 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--bg-content);
-  border-radius: 4px;
+  color: var(--color-w-b-1);
+  border-radius: 6px;
   cursor: pointer;
-  &:hover, &.is-active { background: color-mix(in srgb, var(--bg-content) 22%, transparent); }
-  &[data-tip]::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    z-index: 70;
-    padding: 4px 7px;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    line-height: 1.2;
-    white-space: nowrap;
-    color: var(--bg-content);
-    background: var(--color-w-b-1);
-    border-radius: 4px;
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 3px);
-    transition: opacity 120ms ease, transform 120ms ease;
-  }
-  &[data-tip]:hover::after, &[data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
-}
-.rv-media[data-kind='file'] .rv-media__btn {
-  color: var(--c-muted);
-  background: var(--bg-hover);
-  border: 1px solid var(--border-card);
-  &:hover, &.is-active { color: var(--color-w-b-1); background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-hover)); }
-  &[data-tip]::after { color: var(--color-w-b-1); background: var(--bg-content); border: 1px solid var(--border-card); }
+  &:hover, &.is-active { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 11%, transparent); }
 }
 .rv-media__state .rv-media__btn { color: var(--color-w-b-1); background: var(--bg-content); border: 1px solid var(--color-w-b-4); padding: 0 12px; }
 .rv-media__resize {
@@ -4608,6 +4723,9 @@ defineExpose({
   border-radius: 8px;
   box-shadow: 0 8px 24px color-mix(in srgb, #000 18%, transparent);
 }
+.rv-media__menu-list { display: grid; gap: 2px; }
+.rv-media__menu .rv-media__tip { display: flex; width: 100%; }
+.rv-media__menu .rv-media__tip > div { width: 100% !important; }
 .rv-media__menu-item {
   display: block;
   width: 100%;

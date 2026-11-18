@@ -46,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref, computed, useSlots } from "vue";
+import { ref, computed, useSlots, unref } from "vue";
 // import { usePopper } from "@vueuse/popper";
 import { usePopper } from '../composables/usePopper'
 const props = defineProps([
@@ -85,7 +85,7 @@ const align = computed(() => props.align ?? 'center') // start , center , end
 const modal = computed(() => props.modal ?? false)
 const noClose = computed(() => props.noClose ?? false)
 const isPopper = computed(() => props.isPopper ?? false)
-const to = computed(() => props.to ?? 'body')
+const to = computed(() => unref(props.to) ?? 'body')
 
 const popper = computed(() => ({
     placement: props.placement ?? "bottom",

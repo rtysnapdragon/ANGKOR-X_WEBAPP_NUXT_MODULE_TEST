@@ -10,6 +10,26 @@ const props = defineProps({
 })
 
 const isHtml = computed(() => /<[a-z][\s\S]*>/i.test(props.name))
+// const isHtml = computed(() => /<[a-z][\s\S]*>/i.test(props.name))
+const __isHtml = computed(() => {
+  if (typeof props.name !== 'string') return false
+  return /<\/?[a-z][^>]*>/i.test(props.name)
+})
+const _isHtml = computed(() => {
+  return typeof props.name === 'string' &&
+    /<\/?[a-z][^>]*>/i.test(props.name)
+})
+/*
+isHtml detects
+'<i class="ri-line-chart-line"></i>' // true
+'<i class="ri-home-line"></i>'       // true
+'<b>Hello</b>'                       // true
+'<svg><path d="..."/></svg>'       // true
+'<img src="image.png">'              // true
+'Hello World'                        // false
+'ri-line-chart-line'                 // false
+*/
+
 const isRemix = computed(() => props.name.trim().startsWith('ri-'))
 const style = computed(() => {
   if (props.size === null || props.size === undefined || props.size === '') return undefined
