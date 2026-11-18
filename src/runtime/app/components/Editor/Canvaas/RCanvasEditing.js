@@ -86,6 +86,62 @@ export function installEditing(ctx) {
 
   const addShape = (id, opts) => place(buildShape(id, opts))
 
+  function placeAt(o, { left = 0, top = 0 } = {}) {
+    if (canvas.isDrawingMode) { canvas.isDrawingMode = false; state.tool = 'select' }
+    o.set({ left, top })
+    o.setCoords()
+    canvas.add(o)
+    canvas.setActiveObject(o)
+    canvas.requestRenderAll()
+    refresh()
+    commit(true)
+    return o
+  }
+
+  function addShapeAt(id, { left = 0, top = 0, width, height, fill, name, rcFrame } = {}) {
+    const shape = buildShape(id, { width, height, fill })
+    if (name) shape.set({ name })
+    if (rcFrame) shape.rcFrame = true
+    return placeAt(shape, { left, top })
+  }
+
+  function addTextAt(presetId = 'body', { left = 0, top = 0, width } = {}) {
+    const p = TEXT_PRESETS.find(x => x.id === presetId) ?? TEXT_PRESETS[2]
+    const { W } = ctx.size()
+    const t = new Textbox(p.sample, {
+      width: width || Math.min(W * 0.7, Math.max(260, p.sample.length * p.fontSize * 0.62)),
+      fontSize: p.fontSize,
+      fontWeight: p.fontWeight,
+      fontFamily: state.defaultFont || 'Inter',
+      fill: '#1f2937',
+      textAlign: 'left',
+      splitByGrapheme: true,
+      lineHeight: 1.16,
+    })
+    placeAt(t, { left, top })
+    try {
+      t.enterEditing()
+      t.selectAll()
+    }
+    catch {
+      return t
+    }
+    return t
+  }
+
+  function addLineAt({ left = 0, top = 0, width = 200, height = 0, id = 'line' } = {}) {
+    const def = LINES.find(l => l.id === id) ?? LINES[0]
+    const line = new FabricLine([0, 0, width, height], {
+      stroke: '#1f2937',
+      strokeWidth: 6,
+      strokeDashArray: def.dash,
+      strokeLineCap: 'round',
+      strokeUniform: true,
+      name: def.label,
+    })
+    return placeAt(line, { left, top })
+  }
+
   function addLine(id = 'line') {
     const def = LINES.find(l => l.id === id) ?? LINES[0]
     const { W } = ctx.size()
@@ -128,6 +184,16 @@ export function installEditing(ctx) {
     center(img)
     canvas.add(img)
     return img
+  }
+
+  async function addImageAt(url, { left = 0, top = 0, width, height } = {}) {
+    const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' })
+    const { W, H } = ctx.size()
+    const s = width || height
+      ? Math.min(width ? width / img.width : Infinity, height ? height / img.height : Infinity)
+      : Math.min(1, (W * 0.6) / img.width, (H * 0.6) / img.height)
+    img.set({ scaleX: s, scaleY: s })
+    return placeAt(img, { left, top })
   }
 
   async function replaceImage(url) {
@@ -636,7 +702,7 @@ export function installEditing(ctx) {
 
   return {
     // add
-    addText, addShape, addLine, addImage, replaceImage, applyTemplate,
+    addText, addTextAt, addShape, addShapeAt, addLine, addLineAt, addImage, addImageAt, replaceImage, applyTemplate,
     // text
     setFont, setFontSize, toggleBold, toggleItalic, toggleUnderline, toggleStrike, setAlign, setLineHeight, setCharSpacing,
     // style

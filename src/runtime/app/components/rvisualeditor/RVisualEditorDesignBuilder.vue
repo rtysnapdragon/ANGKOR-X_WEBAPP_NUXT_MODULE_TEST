@@ -1,6 +1,5 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import RCanvas from '../Editor/Canvaas/RCanvas.vue'
 import RDialog from '../RDialog.vue'
 import RModal from '../RModal.vue'
 import RSlider from '../RSlider.vue'
@@ -24,7 +23,6 @@ const open = computed({
   set: value => emit('update:modelValue', value),
 })
 
-const doc = ref(null)
 const docVersion = ref(0)
 const confirmOpen = ref(false)
 const discardOpen = ref(false)
@@ -36,13 +34,11 @@ const fileNameInput = ref(null)
 const canvasRef = ref(null)
 
 watch(() => [props.document, props.initialImage], () => {
-  doc.value = props.document ?? null
   docVersion.value += 1
   dirty.value = false
 }, { immediate: true })
 
 const canvasKey = computed(() => `${props.document ? 'doc' : 'image'}:${docVersion.value}`)
-const hasSavedDesign = computed(() => !!props.document)
 
 const canConfirm = computed(() => !!(pendingSave.value?.file || pendingSave.value?.blob))
 const previewAlt = computed(() => fileName.value || 'Design preview')
@@ -201,25 +197,10 @@ onBeforeUnmount(clearPendingSave)
   >
     <div class="rv-design-builder">
       <RVisualEditorRawEditor
-        v-if="open && hasSavedDesign"
+        v-if="open"
         ref="canvasRef"
         :key="canvasKey"
         :document="document"
-        :title="title"
-        :save-label="saveLabel"
-        :media-items="mediaItems"
-        :media-loading="mediaLoading"
-        :upload-handler="uploadHandler"
-        @change="onCanvasChange"
-        @ready="onCanvasReady"
-        @save="onSave"
-        @cancel="requestCancel"
-      />
-      <RCanvas
-        v-else-if="open"
-        ref="canvasRef"
-        :key="canvasKey"
-        v-model="doc"
         :initial-image="initialImage"
         :title="title"
         :save-label="saveLabel"

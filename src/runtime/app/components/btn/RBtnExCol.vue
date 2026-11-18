@@ -12,8 +12,8 @@
         arrow  : points LEFT at rest, flips to RIGHT on hover / focus
     On touch screens there is no hover, so the arrow shows the action direction at rest.
   -->
-  <RTooltip :text="label" side="right" :sideOffset="sideOffset" open-delay="300" close-delay="400">
-    <button type="button" class="r-btn-excol" :class="[`r-btn-excol--${size}`, { 'is-collapsed': collapsed }]"
+  <RTooltip :text="label" :side="side" :sideOffset="sideOffset" open-delay="300" close-delay="400">
+    <button type="button" class="r-btn-excol" :class="[`r-btn-excol--${size}`, { 'is-collapsed': collapsed, 'is-mirrored': mirror }]"
       :aria-label="label || undefined"
       :aria-expanded="!collapsed"
       :aria-controls="controls || undefined"
@@ -53,6 +53,10 @@ defineProps({
   /** id of the sidebar this button controls (aria-controls) */
   controls: { type: String, default: '' },
   sideOffset: { type: Number, default: 8 },
+  /** tooltip side, e.g. "right" for a left sidebar or "left" for a right sidebar */
+  side: { type: String, default: 'right' },
+  /** mirror the icon for a right-side sidebar */
+  mirror: { type: Boolean, default: false },
 })
 </script>
 
@@ -137,6 +141,10 @@ $dur: 0.22s;
     width: 18px;
     height: 18px;
     overflow: visible;
+  }
+
+  &.is-mirrored &__svg {
+    transform: scaleX(-1);
   }
 
   // panel and divider mirror around the vertical centre of the 24x24 viewBox

@@ -1,9 +1,8 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { createEngine } from '../Editor/Canvaas/RCanvasEngine'
+import { useRVisualEditorEngine } from '../../composables/useRVisualEditorEngine'
 import { FONTS, LINES, SHAPES, TEXT_ALIGNS, TEXT_PRESETS } from '../Editor/Canvaas/RCanvasData'
-import '../Editor/Canvaas/RCanvas.css'
 
 let i18n = null
 try {
@@ -28,11 +27,24 @@ const tl = label => t(tKey(label), label)
 
 const props = defineProps({
   document: { type: [Object, String], default: null },
+  initialImage: { type: String, default: '' },
   title: { type: String, default: 'Design builder' },
   saveLabel: { type: String, default: 'Apply' },
   mediaItems: { type: Array, default: () => [] },
   mediaLoading: { type: Boolean, default: false },
   uploadHandler: { type: Function, default: null },
+  toolsVisible: { type: Boolean, default: true },
+  toolsPosition: {
+    type: String,
+    default: 'bottom',
+    validator: value => ['top', 'bottom', 'left', 'right'].includes(value),
+  },
+  toolsOrientation: {
+    type: String,
+    default: 'auto',
+    validator: value => ['auto', 'horizontal', 'vertical'].includes(value),
+  },
+  toolsOffset: { type: [Number, String], default: 16 },
 })
 
 const emit = defineEmits(['change', 'ready', 'save', 'cancel'])
@@ -52,6 +64,20 @@ const ALIGN = [
   ['middle', 'align-center-horizontal'],
   ['bottom', 'align-end-horizontal'],
 ]
+
+const TOOLS = [
+  { id: 'move', key: 'v', icon: 'i-lucide-mouse-pointer-2', label: 'Move' },
+  { id: 'hand', key: 'h', icon: 'i-lucide-hand', label: 'Hand' },
+  { id: 'frame', key: 'f', icon: 'i-lucide-frame', label: 'Frame' },
+  { id: 'text', key: 't', icon: 'i-lucide-type', label: 'Text' },
+  { id: 'rect', key: 'r', icon: 'i-lucide-square', label: 'Rectangle' },
+  { id: 'ellipse', key: 'o', icon: 'i-lucide-circle', label: 'Ellipse' },
+  { id: 'line', key: 'l', icon: 'i-lucide-minus', label: 'Line' },
+  { id: 'pen', key: 'p', icon: 'i-lucide-pen-tool', label: 'Pen' },
+  { id: 'image', key: 'i', icon: 'i-lucide-image-plus', label: 'Image' },
+]
+
+const TOOL_KEYS = { v: 'move', h: 'hand', f: 'frame', t: 'text', r: 'rect', o: 'ellipse', l: 'line', p: 'pen', i: 'image' }
 
 const state = reactive({
   ready: false,
@@ -75,7 +101,7 @@ const state = reactive({
   pen: { color: '#1f2937', width: 8 },
 })
 
-const engine = shallowRef(null)
+const { engine, createEngine, pointFromClient, dispose: disposeEngine } = useRVisualEditorEngine()
 const stageRef = ref(null)
 const canvasEl = ref(null)
 const addFileInput = ref(null)
@@ -83,6 +109,11 @@ const replaceFileInput = ref(null)
 const saving = ref(false)
 const uploading = ref(0)
 const activeLeft = ref('layers')
+const activeTool = ref('move')
+const leftCollapsed = ref(false)
+const rightCollapsed = ref(false)
+const toolDrag = reactive({ active: false, left: 0, top: 0, width: 0, height: 0, startX: 0, startY: 0 })
+const pendingImagePoint = ref(null)
 const imageUrl = ref('')
 const dragId = ref(null)
 const renaming = ref(null)
@@ -112,6 +143,50 @@ const applyLabel = computed(() => {
   if (uploading.value > 0) return `${t('rve_uploading', 'Uploading')}...`
   return props.saveLabel
 })
+
+const isCreateTool = computed(() => ['text', 'frame', 'rect', 'ellipse', 'line', 'image'].includes(activeTool.value))
+const marqueeStyle = computed(() => ({
+  left: `${toolDrag.left}px`,
+  top: `${toolDrag.top}px`,
+  width: `${toolDrag.width}px`,
+  height: `${toolDrag.height}px`,
+}))
+const stageClass = computed(() => ({
+  'is-tool-hand': activeTool.value === 'hand',
+  'is-tool-draw': activeTool.value === 'pen',
+  'is-tool-create': isCreateTool.value,
+  'is-disabled': saving.value,
+}))
+const toolHint = computed(() => {
+  if (activeTool.value === 'text') return t('rve_click_to_add_text', 'Click to add text')
+  if (activeTool.value === 'image') return t('rve_click_to_place_image', 'Click to place an image')
+  return t('rve_drag_to_draw', 'Drag to draw')
+})
+const leftToggleLabel = computed(() => leftCollapsed.value
+  ? t('rve_expand_left_sidebar', 'Expand left sidebar')
+  : t('rve_collapse_left_sidebar', 'Collapse left sidebar'))
+const rightToggleLabel = computed(() => rightCollapsed.value
+  ? t('rve_expand_right_sidebar', 'Expand right sidebar')
+  : t('rve_collapse_right_sidebar', 'Collapse right sidebar'))
+const resolvedToolsOrientation = computed(() => {
+  if (props.toolsOrientation !== 'auto') return props.toolsOrientation
+  return ['top', 'bottom'].includes(props.toolsPosition) ? 'horizontal' : 'vertical'
+})
+const toolsClass = computed(() => [
+  `rv-raw__tools--${props.toolsPosition}`,
+  `rv-raw__tools--${resolvedToolsOrientation.value}`,
+])
+const toolsStyle = computed(() => {
+  const raw = props.toolsOffset
+  const offset = typeof raw === 'number' ? `${raw}px` : String(raw || '').trim() || '16px'
+  return { '--rv-tools-offset': offset }
+})
+const toolsTooltipSide = computed(() => ({
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+}[props.toolsPosition] || 'top'))
 
 const isLine = computed(() => state.sel?.kind === 'line')
 const showFill = computed(() => !!state.sel && !['image', 'line'].includes(state.sel.kind))
@@ -281,10 +356,116 @@ function isTyping(target) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
 }
 
+function setTool(tool) {
+  if (!state.ready || saving.value) return
+  activeTool.value = tool
+  if (tool !== 'image') pendingImagePoint.value = null
+  if (tool === 'pen') {
+    api.setSpace(false)
+    api.setTool('draw')
+    return
+  }
+  if (tool === 'hand') {
+    api.setTool('select')
+    api.setSpace(true)
+    return
+  }
+  api.setSpace(false)
+  api.setTool('select')
+}
+
+function canvasPoint(clientX, clientY) {
+  return pointFromClient(clientX, clientY, state.width, state.height)
+}
+
+function onToolDown(event) {
+  if (!state.ready || saving.value) return
+  const stage = stageRef.value
+  if (!stage) return
+  const rect = stage.getBoundingClientRect()
+  if (activeTool.value === 'image') {
+    openImagePicker(canvasPoint(event.clientX, event.clientY))
+    return
+  }
+  if (activeTool.value === 'text') {
+    const p = canvasPoint(event.clientX, event.clientY)
+    api.addTextAt('body', { left: p.x, top: p.y })
+    setTool('move')
+    return
+  }
+  toolDrag.active = true
+  toolDrag.left = event.clientX - rect.left
+  toolDrag.top = event.clientY - rect.top
+  toolDrag.width = 0
+  toolDrag.height = 0
+  toolDrag.startX = event.clientX
+  toolDrag.startY = event.clientY
+}
+
+function onToolMove(event) {
+  if (!toolDrag.active) return
+  const stage = stageRef.value
+  if (!stage) return
+  const rect = stage.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  toolDrag.left = Math.min(x, toolDrag.startX - rect.left)
+  toolDrag.top = Math.min(y, toolDrag.startY - rect.top)
+  toolDrag.width = Math.abs(x - (toolDrag.startX - rect.left))
+  toolDrag.height = Math.abs(y - (toolDrag.startY - rect.top))
+}
+
+function onToolUp(event) {
+  if (!toolDrag.active) return
+  const start = canvasPoint(toolDrag.startX, toolDrag.startY)
+  const end = canvasPoint(event.clientX, event.clientY)
+  toolDrag.active = false
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  if (activeTool.value === 'line') {
+    if (Math.abs(dx) + Math.abs(dy) >= 4) {
+      api.addLineAt({ left: start.x, top: start.y, width: dx, height: dy })
+    }
+  }
+  else if (activeTool.value === 'frame' || activeTool.value === 'rect' || activeTool.value === 'ellipse') {
+    const isFrame = activeTool.value === 'frame'
+    const width = Math.max(4, Math.abs(dx))
+    const height = Math.max(4, Math.abs(dy))
+    const left = Math.min(start.x, end.x)
+    const top = Math.min(start.y, end.y)
+    api.addShapeAt(isFrame || activeTool.value === 'rect' ? 'square' : 'circle', {
+      left,
+      top,
+      width: width < 5 ? (isFrame ? 320 : 160) : width,
+      height: height < 5 ? (isFrame ? 240 : 160) : height,
+      fill: isFrame ? '#ffffff' : '#8c52ff',
+      name: isFrame ? 'Frame' : undefined,
+      rcFrame: isFrame || undefined,
+    })
+  }
+  setTool('move')
+}
+
+function onToolCancel() {
+  toolDrag.active = false
+}
+
 function onKeydown(event) {
   if (!state.ready || saving.value || isTyping(event.target)) return
   const eng = engine.value
   if (!eng) return
+  if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+    const next = TOOL_KEYS[event.key.toLowerCase()]
+    if (next) {
+      event.preventDefault()
+      setTool(next)
+      return
+    }
+    if (event.key === 'Escape') {
+      setTool('move')
+      return
+    }
+  }
   if (event.code === 'Space') {
     if (event.target instanceof HTMLElement && event.target.closest('button, a')) return
     if (!event.repeat) eng.setSpace(true)
@@ -336,18 +517,24 @@ function fileToUrl(file) {
   })
 }
 
-async function addImageFiles(files) {
+async function addImageFiles(files, at = null) {
   const eng = engine.value
   if (!state.ready || saving.value || !eng || !files?.length) return
   state.error = ''
   uploading.value += 1
   try {
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       if (unmounted || saving.value) return
       try {
         const url = await fileToUrl(file)
         if (unmounted || saving.value) return
-        if (url) await eng.addImage(url)
+        if (!url) continue
+        if (at && typeof eng.addImageAt === 'function') {
+          await eng.addImageAt(url, { left: at.x + index * 24, top: at.y + index * 24 })
+        }
+        else {
+          await eng.addImage(url)
+        }
       }
       catch (error) {
         if (!unmounted) fail(error)
@@ -375,11 +562,19 @@ async function addMediaImage(item) {
   }
 }
 
+function openImagePicker(at = null) {
+  pendingImagePoint.value = at
+  addFileInput.value?.click()
+}
+
 function onAddFiles(event) {
   const files = Array.from(event.target.files ?? [])
   event.target.value = ''
   if (saving.value) return
-  addImageFiles(files)
+  const at = pendingImagePoint.value
+  pendingImagePoint.value = null
+  if (at) setTool('move')
+  addImageFiles(files, at)
 }
 
 async function onReplaceFile(event) {
@@ -478,7 +673,9 @@ onMounted(async () => {
       return
     }
     engine.value = eng
-    await eng.loadDocument(documentValue)
+    if (documentValue) await eng.loadDocument(documentValue)
+    else if (props.initialImage) await eng.loadImageDocument(props.initialImage)
+    else await eng.loadDocument(null)
     if (unmounted) {
       if (engine.value === eng) {
         eng.dispose()
@@ -500,8 +697,7 @@ onBeforeUnmount(() => {
   unmounted = true
   window.removeEventListener('blur', onBlur)
   window.removeEventListener('keyup', onKeyup)
-  engine.value?.dispose()
-  engine.value = null
+  disposeEngine()
 })
 
 defineExpose({
@@ -523,73 +719,45 @@ defineExpose({
   >
     <header class="rc-top rv-raw__top">
       <div class="rc-top__group">
-        <button
-          type="button"
-          class="rc-btn rc-btn--sm"
-          :title="t('rve_undo_shortcut', 'Undo (Ctrl+Z)')"
-          :disabled="!state.canUndo || saving"
-          @click="api.undo()"
+        <RTooltip
+          :text="t('rve_undo_shortcut', 'Undo (Ctrl+Z)')"
+          side="bottom"
         >
-          <UIcon
-            name="i-lucide-undo-2"
-            class="rc-ico"
-          />
-        </button>
-        <button
-          type="button"
-          class="rc-btn rc-btn--sm"
-          :title="t('rve_redo_shortcut', 'Redo (Ctrl+Shift+Z)')"
-          :disabled="!state.canRedo || saving"
-          @click="api.redo()"
+          <button
+            type="button"
+            class="rc-btn rc-btn--sm"
+            :disabled="!state.canUndo || saving"
+            @click="api.undo()"
+          >
+            <UIcon
+              name="i-lucide-undo-2"
+              class="rc-ico"
+            />
+          </button>
+        </RTooltip>
+        <RTooltip
+          :text="t('rve_redo_shortcut', 'Redo (Ctrl+Shift+Z)')"
+          side="bottom"
         >
-          <UIcon
-            name="i-lucide-redo-2"
-            class="rc-ico"
-          />
-        </button>
+          <button
+            type="button"
+            class="rc-btn rc-btn--sm"
+            :disabled="!state.canRedo || saving"
+            @click="api.redo()"
+          >
+            <UIcon
+              name="i-lucide-redo-2"
+              class="rc-ico"
+            />
+          </button>
+        </RTooltip>
         <span class="rc-sep" />
         <span class="rc-top__title">{{ title || t('rve_untitled_design', 'Untitled design') }}</span>
         <span class="rc-top__dim">{{ state.width }} x {{ state.height }}</span>
       </div>
 
       <div class="rc-top__group">
-        <button
-          type="button"
-          class="rc-btn rc-btn--sm"
-          :title="t('rve_zoom_out', 'Zoom out')"
-          :disabled="!state.ready || saving"
-          @click="api.zoomBy(1 / 1.2)"
-        >
-          <UIcon
-            name="i-lucide-zoom-out"
-            class="rc-ico"
-          />
-        </button>
-        <span class="rv-raw__zoom">{{ Math.round(state.zoom * 100) }}%</span>
-        <button
-          type="button"
-          class="rc-btn rc-btn--sm"
-          :title="t('rve_zoom_in', 'Zoom in')"
-          :disabled="!state.ready || saving"
-          @click="api.zoomBy(1.2)"
-        >
-          <UIcon
-            name="i-lucide-zoom-in"
-            class="rc-ico"
-          />
-        </button>
-        <button
-          type="button"
-          class="rc-btn rc-btn--sm"
-          :title="t('rve_fit', 'Fit')"
-          :disabled="!state.ready || saving"
-          @click="api.fit()"
-        >
-          <UIcon
-            name="i-lucide-maximize"
-            class="rc-ico"
-          />
-        </button>
+        <span class="rv-raw__top-hint">{{ t('rve_free_style_hint', 'Free-style canvas - drag, draw and arrange anything') }}</span>
         <span class="rc-sep" />
         <button
           type="button"
@@ -612,10 +780,19 @@ defineExpose({
 
     <div class="rv-raw__body">
       <aside
+        id="rv-raw-left"
         class="rv-raw__left"
-        :class="{ 'is-disabled': !state.ready || saving }"
-        :inert="!state.ready || saving"
+        :class="{ 'is-disabled': !state.ready || saving, 'is-collapsed': leftCollapsed }"
+        :inert="leftCollapsed || !state.ready || saving"
       >
+        <div class="rv-raw__side-head rv-raw__side-head--left">
+          <RBtnExCol
+            :collapsed="leftCollapsed"
+            :label="leftToggleLabel"
+            controls="rv-raw-left"
+            @click="leftCollapsed = !leftCollapsed"
+          />
+        </div>
         <div class="rv-raw__tabs">
           <button
             type="button"
@@ -678,35 +855,50 @@ defineExpose({
                 @keydown.esc.prevent="renaming = null"
                 @blur="finishRename(layer.id, $event)"
               >
-              <span
+              <RTooltip
                 v-else
-                class="rc-layer__name"
-                :title="layer.name"
-                @dblclick.stop="startRename(layer.id, $event)"
-              >{{ layer.name }}</span>
+                :text="layer.name"
+                side="top"
+                class="rv-raw__tip rv-raw__tip--grow"
+              >
+                <span
+                  class="rc-layer__name"
+                  @dblclick.stop="startRename(layer.id, $event)"
+                >{{ layer.name }}</span>
+              </RTooltip>
               <span class="rv-raw__layer-tools">
-                <button
-                  type="button"
-                  class="rc-btn rc-btn--sm"
-                  :title="layer.visible ? t('rve_hide', 'Hide') : t('rve_show', 'Show')"
-                  @click.stop="api.toggleVisible(layer.id)"
+                <RTooltip
+                  :text="layer.visible ? t('rve_hide', 'Hide') : t('rve_show', 'Show')"
+                  side="top"
+                  class="rv-raw__tip"
                 >
-                  <UIcon
-                    :name="layer.visible ? 'i-lucide-eye' : 'i-lucide-eye-off'"
-                    class="rc-ico"
-                  />
-                </button>
-                <button
-                  type="button"
-                  class="rc-btn rc-btn--sm"
-                  :title="layer.locked ? t('rve_unlock', 'Unlock') : t('rve_lock', 'Lock')"
-                  @click.stop="api.toggleLock(layer.id)"
+                  <button
+                    type="button"
+                    class="rc-btn rc-btn--sm"
+                    @click.stop="api.toggleVisible(layer.id)"
+                  >
+                    <UIcon
+                      :name="layer.visible ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+                      class="rc-ico"
+                    />
+                  </button>
+                </RTooltip>
+                <RTooltip
+                  :text="layer.locked ? t('rve_unlock', 'Unlock') : t('rve_lock', 'Lock')"
+                  side="top"
+                  class="rv-raw__tip"
                 >
-                  <UIcon
-                    :name="layer.locked ? 'i-lucide-lock' : 'i-lucide-lock-open'"
-                    class="rc-ico"
-                  />
-                </button>
+                  <button
+                    type="button"
+                    class="rc-btn rc-btn--sm"
+                    @click.stop="api.toggleLock(layer.id)"
+                  >
+                    <UIcon
+                      :name="layer.locked ? 'i-lucide-lock' : 'i-lucide-lock-open'"
+                      class="rc-ico"
+                    />
+                  </button>
+                </RTooltip>
               </span>
             </li>
           </ul>
@@ -733,24 +925,29 @@ defineExpose({
             {{ t('rve_shapes', 'Shapes') }}
           </div>
           <div class="rc-shapes">
-            <button
+            <RTooltip
               v-for="shape in SHAPES"
               :key="shape.id"
-              type="button"
-              class="rc-shapes__item"
-              :title="tl(shape.label)"
-              @click="api.addShape(shape.id)"
+              :text="tl(shape.label)"
+              side="top"
+              class="rv-raw__tip rv-raw__tip--contents"
             >
-              <svg
-                viewBox="0 0 100 100"
-                aria-hidden="true"
+              <button
+                type="button"
+                class="rc-shapes__item"
+                @click="api.addShape(shape.id)"
               >
-                <path
-                  :d="shape.d"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
+                <svg
+                  viewBox="0 0 100 100"
+                  aria-hidden="true"
+                >
+                  <path
+                    :d="shape.d"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            </RTooltip>
           </div>
 
           <div class="rv-raw__title">
@@ -774,7 +971,7 @@ defineExpose({
           <button
             type="button"
             class="rc-drop rv-raw__drop"
-            @click="addFileInput?.click()"
+            @click="openImagePicker()"
           >
             <UIcon
               name="i-lucide-upload"
@@ -810,34 +1007,154 @@ defineExpose({
             v-else-if="mediaItems.length"
             class="rc-media"
           >
-            <button
+            <RTooltip
               v-for="item in mediaItems"
               :key="item.id || item.url || item.src"
-              type="button"
-              class="rc-media__item"
-              :title="item.name || t('rve_add_image', 'Add image')"
-              @click="addMediaImage(item)"
+              :text="item.name || t('rve_add_image', 'Add image')"
+              side="top"
+              class="rv-raw__tip rv-raw__tip--contents"
             >
-              <img
-                :src="item.url || item.src"
-                :alt="item.name || ''"
+              <button
+                type="button"
+                class="rc-media__item"
+                @click="addMediaImage(item)"
               >
-            </button>
+                <img
+                  :src="item.url || item.src"
+                  :alt="item.name || ''"
+                >
+              </button>
+            </RTooltip>
           </div>
         </div>
       </aside>
 
       <div
+        v-if="leftCollapsed"
+        class="rv-raw__edge-toggle rv-raw__edge-toggle--left"
+      >
+        <RBtnExCol
+          :collapsed="leftCollapsed"
+          :label="leftToggleLabel"
+          controls="rv-raw-left"
+          @click="leftCollapsed = !leftCollapsed"
+        />
+      </div>
+
+      <div
         ref="stageRef"
         class="rc-stage rv-raw__stage"
-        :class="{ 'is-disabled': saving }"
+        :class="stageClass"
         tabindex="0"
         @dragover.prevent
         @drop.prevent="onDrop"
       >
+        <aside
+          v-if="toolsVisible"
+          class="rv-raw__tools"
+          :class="toolsClass"
+          :style="toolsStyle"
+          :aria-label="t('rve_tools', 'Tools')"
+        >
+          <RTooltip
+            v-for="tool in TOOLS"
+            :key="tool.id"
+            :text="`${tl(tool.label)} (${tool.key.toUpperCase()})`"
+            :side="toolsTooltipSide"
+            class="rv-raw__tip"
+          >
+            <button
+              type="button"
+              class="rv-raw__tool"
+              :class="{ 'is-on': activeTool === tool.id }"
+              :disabled="!state.ready || saving"
+              @click="setTool(tool.id)"
+            >
+              <UIcon
+                :name="tool.icon"
+                class="rc-ico"
+              />
+            </button>
+          </RTooltip>
+        </aside>
+
         <div class="rc-stage__page">
           <canvas ref="canvasEl" />
         </div>
+
+        <div
+          v-if="isCreateTool"
+          class="rv-raw__tool-layer"
+          @pointerdown.prevent="onToolDown"
+          @pointermove.prevent="onToolMove"
+          @pointerup.prevent="onToolUp"
+          @pointercancel="onToolCancel"
+        >
+          <span
+            v-if="!toolDrag.active"
+            class="rv-raw__tool-hint"
+          >{{ toolHint }}</span>
+          <div
+            v-if="toolDrag.active"
+            class="rv-raw__marquee"
+            :style="marqueeStyle"
+          />
+        </div>
+
+        <div class="rv-raw__stage-info">
+          <span class="rv-raw__frame-label">{{ t('rve_frame', 'Frame') }} {{ state.pageIndex + 1 }}</span>
+          <span>{{ state.width }} x {{ state.height }}</span>
+        </div>
+
+        <div class="rv-raw__zoom-dock">
+          <RTooltip
+            :text="t('rve_zoom_out', 'Zoom out')"
+            side="top"
+            class="rv-raw__tip"
+          >
+            <button
+              type="button"
+              :disabled="!state.ready || saving"
+              @click="api.zoomBy(1 / 1.2)"
+            >
+              <UIcon
+                name="i-lucide-minus"
+                class="rc-ico"
+              />
+            </button>
+          </RTooltip>
+          <RTooltip
+            :text="t('rve_fit', 'Fit')"
+            side="top"
+            class="rv-raw__tip"
+          >
+            <button
+              type="button"
+              class="rv-raw__zoom-value"
+              :disabled="!state.ready || saving"
+              @click="api.fit()"
+            >
+              {{ Math.round(state.zoom * 100) }}%
+            </button>
+          </RTooltip>
+          <RTooltip
+            :text="t('rve_zoom_in', 'Zoom in')"
+            side="top"
+            class="rv-raw__tip"
+          >
+            <button
+              type="button"
+              :disabled="!state.ready || saving"
+              @click="api.zoomBy(1.2)"
+            >
+              <UIcon
+                name="i-lucide-plus"
+                class="rc-ico"
+              />
+            </button>
+          </RTooltip>
+        </div>
+
         <div
           v-if="!state.ready && !state.error"
           class="rc-overlay"
@@ -866,26 +1183,56 @@ defineExpose({
         </div>
       </div>
 
-      <aside
-        class="rv-raw__right"
-        :class="{ 'is-disabled': !state.ready || saving }"
-        :inert="!state.ready || saving"
+      <div
+        v-if="rightCollapsed"
+        class="rv-raw__edge-toggle rv-raw__edge-toggle--right"
       >
+        <RBtnExCol
+          :collapsed="rightCollapsed"
+          :label="rightToggleLabel"
+          controls="rv-raw-right"
+          side="left"
+          mirror
+          @click="rightCollapsed = !rightCollapsed"
+        />
+      </div>
+
+      <aside
+        id="rv-raw-right"
+        class="rv-raw__right"
+        :class="{ 'is-disabled': !state.ready || saving, 'is-collapsed': rightCollapsed }"
+        :inert="rightCollapsed || !state.ready || saving"
+      >
+        <div class="rv-raw__side-head rv-raw__side-head--right">
+          <RBtnExCol
+            :collapsed="rightCollapsed"
+            :label="rightToggleLabel"
+            controls="rv-raw-right"
+            side="left"
+            mirror
+            @click="rightCollapsed = !rightCollapsed"
+          />
+        </div>
         <div v-if="state.sel">
           <div class="rv-raw__inspector-head">
             <span class="rv-raw__title">{{ selLabel }}</span>
-            <button
-              type="button"
-              class="rc-btn rc-btn--sm"
-              :class="{ 'is-on': state.sel.locked }"
-              :title="state.sel.locked ? t('rve_unlock', 'Unlock') : t('rve_lock', 'Lock')"
-              @click="api.setLocked(!state.sel.locked)"
+            <RTooltip
+              :text="state.sel.locked ? t('rve_unlock', 'Unlock') : t('rve_lock', 'Lock')"
+              side="left"
+              class="rv-raw__tip"
             >
-              <UIcon
-                :name="state.sel.locked ? 'i-lucide-lock' : 'i-lucide-lock-open'"
-                class="rc-ico"
-              />
-            </button>
+              <button
+                type="button"
+                class="rc-btn rc-btn--sm"
+                :class="{ 'is-on': state.sel.locked }"
+                @click="api.setLocked(!state.sel.locked)"
+              >
+                <UIcon
+                  :name="state.sel.locked ? 'i-lucide-lock' : 'i-lucide-lock-open'"
+                  class="rc-ico"
+                />
+              </button>
+            </RTooltip>
           </div>
 
           <section class="rv-raw__section">
@@ -1016,40 +1363,55 @@ defineExpose({
               >
             </label>
             <div class="rv-raw__actions">
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :class="{ 'is-on': state.sel.shadow }"
-                :title="t('rve_toggle_shadow', 'Toggle shadow')"
-                @click="api.setShadow(!state.sel.shadow)"
+              <RTooltip
+                :text="t('rve_toggle_shadow', 'Toggle shadow')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-sun-dim"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_flip_horizontal', 'Flip horizontal')"
-                @click="api.flip('x')"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  :class="{ 'is-on': state.sel.shadow }"
+                  @click="api.setShadow(!state.sel.shadow)"
+                >
+                  <UIcon
+                    name="i-lucide-sun-dim"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_flip_horizontal', 'Flip horizontal')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-flip-horizontal"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_flip_vertical', 'Flip vertical')"
-                @click="api.flip('y')"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.flip('x')"
+                >
+                  <UIcon
+                    name="i-lucide-flip-horizontal"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_flip_vertical', 'Flip vertical')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-flip-vertical"
-                  class="rc-ico"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.flip('y')"
+                >
+                  <UIcon
+                    name="i-lucide-flip-vertical"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
           </section>
 
@@ -1096,70 +1458,95 @@ defineExpose({
               </label>
             </div>
             <div class="rv-raw__actions">
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :class="{ 'is-on': state.sel.bold }"
-                :title="t('rve_bold', 'Bold')"
-                @click="api.toggleBold()"
+              <RTooltip
+                :text="t('rve_bold', 'Bold')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-bold"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :class="{ 'is-on': state.sel.italic }"
-                :title="t('rve_italic', 'Italic')"
-                @click="api.toggleItalic()"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  :class="{ 'is-on': state.sel.bold }"
+                  @click="api.toggleBold()"
+                >
+                  <UIcon
+                    name="i-lucide-bold"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_italic', 'Italic')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-italic"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :class="{ 'is-on': state.sel.underline }"
-                :title="t('rve_underline', 'Underline')"
-                @click="api.toggleUnderline()"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  :class="{ 'is-on': state.sel.italic }"
+                  @click="api.toggleItalic()"
+                >
+                  <UIcon
+                    name="i-lucide-italic"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_underline', 'Underline')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-underline"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :class="{ 'is-on': state.sel.linethrough }"
-                :title="t('rve_strikethrough', 'Strikethrough')"
-                @click="api.toggleStrike()"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  :class="{ 'is-on': state.sel.underline }"
+                  @click="api.toggleUnderline()"
+                >
+                  <UIcon
+                    name="i-lucide-underline"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_strikethrough', 'Strikethrough')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-strikethrough"
-                  class="rc-ico"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  :class="{ 'is-on': state.sel.linethrough }"
+                  @click="api.toggleStrike()"
+                >
+                  <UIcon
+                    name="i-lucide-strikethrough"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
             <div class="rv-raw__actions">
-              <button
+              <RTooltip
                 v-for="align in TEXT_ALIGNS"
                 :key="align"
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :class="{ 'is-on': state.sel.textAlign === align }"
-                :title="`${t('rve_align', 'Align')} ${t('rve_align_' + align, align)}`"
-                @click="api.setAlign(align)"
+                :text="`${t('rve_align', 'Align')} ${t('rve_align_' + align, align)}`"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  :name="`i-lucide-align-${align}`"
-                  class="rc-ico"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  :class="{ 'is-on': state.sel.textAlign === align }"
+                  @click="api.setAlign(align)"
+                >
+                  <UIcon
+                    :name="`i-lucide-align-${align}`"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
             <label class="rv-raw__field">{{ t('rve_letter_spacing', 'Letter spacing') }}
               <input
@@ -1212,65 +1599,90 @@ defineExpose({
               {{ t('rve_arrange', 'Arrange') }}
             </div>
             <div class="rv-raw__actions">
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_bring_to_front', 'Bring to front')"
-                @click="api.order('front')"
+              <RTooltip
+                :text="t('rve_bring_to_front', 'Bring to front')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-chevrons-up"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_bring_forward', 'Bring forward')"
-                @click="api.order('forward')"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.order('front')"
+                >
+                  <UIcon
+                    name="i-lucide-chevrons-up"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_bring_forward', 'Bring forward')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-arrow-up"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_send_backward', 'Send backward')"
-                @click="api.order('backward')"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.order('forward')"
+                >
+                  <UIcon
+                    name="i-lucide-arrow-up"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_send_backward', 'Send backward')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-arrow-down"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_send_to_back', 'Send to back')"
-                @click="api.order('back')"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.order('backward')"
+                >
+                  <UIcon
+                    name="i-lucide-arrow-down"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_send_to_back', 'Send to back')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-chevrons-down"
-                  class="rc-ico"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.order('back')"
+                >
+                  <UIcon
+                    name="i-lucide-chevrons-down"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
             <div class="rv-raw__actions">
-              <button
+              <RTooltip
                 v-for="item in ALIGN"
                 :key="item[0]"
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="`${t('rve_align', 'Align')} ${t('rve_align_' + item[0], item[0])}`"
-                @click="api.align(item[0])"
+                :text="`${t('rve_align', 'Align')} ${t('rve_align_' + item[0], item[0])}`"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  :name="`i-lucide-${item[1]}`"
-                  class="rc-ico"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.align(item[0])"
+                >
+                  <UIcon
+                    :name="`i-lucide-${item[1]}`"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
             <div class="rv-raw__actions">
               <button
@@ -1297,28 +1709,38 @@ defineExpose({
                 />
                 {{ t('rve_ungroup', 'Ungroup') }}
               </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid"
-                :title="t('rve_duplicate', 'Duplicate')"
-                @click="api.duplicate()"
+              <RTooltip
+                :text="t('rve_duplicate', 'Duplicate')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-copy"
-                  class="rc-ico"
-                />
-              </button>
-              <button
-                type="button"
-                class="rc-btn rc-btn--solid rc-btn--danger"
-                :title="t('rve_delete', 'Delete')"
-                @click="api.remove()"
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid"
+                  @click="api.duplicate()"
+                >
+                  <UIcon
+                    name="i-lucide-copy"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
+              <RTooltip
+                :text="t('rve_delete', 'Delete')"
+                side="top"
+                class="rv-raw__tip"
               >
-                <UIcon
-                  name="i-lucide-trash-2"
-                  class="rc-ico"
-                />
-              </button>
+                <button
+                  type="button"
+                  class="rc-btn rc-btn--solid rc-btn--danger"
+                  @click="api.remove()"
+                >
+                  <UIcon
+                    name="i-lucide-trash-2"
+                    class="rc-ico"
+                  />
+                </button>
+              </RTooltip>
             </div>
           </section>
         </div>
@@ -1412,9 +1834,41 @@ defineExpose({
 <style lang="scss" scoped>
 .rv-raw {
   &__body {
+    position: relative;
     display: flex;
     flex: 1;
     min-height: 0;
+  }
+
+  &__side-head {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  &__side-head--left {
+    justify-content: flex-end;
+    padding: 6px 8px 0;
+  }
+
+  &__side-head--right {
+    justify-content: flex-start;
+    padding: 0 0 8px;
+  }
+
+  &__edge-toggle {
+    position: absolute;
+    top: 8px;
+    z-index: 31;
+    display: flex;
+  }
+
+  &__edge-toggle--left {
+    left: 8px;
+  }
+
+  &__edge-toggle--right {
+    right: 8px;
   }
 
   &__left {
@@ -1475,13 +1929,240 @@ defineExpose({
     border-left: 1px solid var(--rc-border);
   }
 
+  &__left.is-collapsed,
+  &__right.is-collapsed {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &__tip {
+    width: auto !important;
+  }
+
+  &__tip--contents {
+    display: contents;
+  }
+
+  &__tip--grow {
+    flex: 1;
+    min-width: 0;
+    width: auto !important;
+  }
+
+  &__tip--grow .rc-layer__name {
+    display: block;
+    width: 100%;
+  }
+
   &__stage {
     flex: 1;
     min-width: 0;
+    background: color-mix(in srgb, #000 78%, var(--rc-bg));
 
     &.is-disabled {
       pointer-events: none;
     }
+
+    &.is-tool-hand {
+      cursor: grab;
+    }
+
+    &.is-tool-draw {
+      cursor: crosshair;
+    }
+
+    .rc-stage__page {
+      padding: 72px;
+    }
+  }
+
+  &__tools {
+    position: absolute;
+    z-index: 26;
+    display: flex;
+    gap: 3px;
+    padding: 5px;
+    background: color-mix(in srgb, var(--rc-bg) 94%, transparent);
+    border: 1px solid color-mix(in srgb, var(--rc-text) 12%, transparent);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(12px);
+
+    &--horizontal {
+      flex-direction: row;
+    }
+
+    &--vertical {
+      flex-direction: column;
+    }
+
+    &--top {
+      top: var(--rv-tools-offset, 16px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    &--bottom {
+      bottom: var(--rv-tools-offset, 16px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    &--left {
+      top: 50%;
+      left: var(--rv-tools-offset, 16px);
+      transform: translateY(-50%);
+    }
+
+    &--right {
+      top: 50%;
+      right: var(--rv-tools-offset, 16px);
+      transform: translateY(-50%);
+    }
+  }
+
+  &__tool {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--rc-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      color: var(--rc-text);
+      background: var(--rc-bg-soft);
+    }
+
+    &.is-on {
+      color: var(--rc-accent);
+      background: color-mix(in srgb, var(--rc-accent) 16%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__tool-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 14;
+    cursor: crosshair;
+  }
+
+  &__tool-hint {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--rc-text);
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--rc-bg) 94%, transparent);
+    border: 1px solid var(--rc-border);
+    border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  &__marquee {
+    position: absolute;
+    border: 1.5px solid var(--rc-accent);
+    background: color-mix(in srgb, var(--rc-accent) 14%, transparent);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  &__stage-info {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(18, 18, 20, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+  }
+
+  &__frame-label {
+    font-weight: 700;
+    color: #fff;
+  }
+
+  &__zoom-dock {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: color-mix(in srgb, var(--rc-bg) 94%, transparent);
+    border: 1px solid var(--rc-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+
+    button {
+      display: grid;
+      place-items: center;
+      min-width: 30px;
+      height: 30px;
+      padding: 0 6px;
+      color: var(--rc-muted);
+      font: inherit;
+      background: transparent;
+      border: 0;
+      border-radius: 7px;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        color: var(--rc-text);
+        background: var(--rc-bg-soft);
+      }
+
+      &:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__zoom-value {
+    min-width: 52px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__top-hint {
+    max-width: 320px;
+    overflow: hidden;
+    font-size: 11px;
+    color: var(--rc-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__left.is-disabled,

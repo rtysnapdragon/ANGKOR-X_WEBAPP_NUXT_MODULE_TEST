@@ -11,7 +11,7 @@ import { clamp, uid } from './RCanvasData'
 import { installEditing } from './RCanvasEditing'
 
 // Custom object props that must survive toObject()/loadFromJSON().
-export const EXTRA_PROPS = ['id', 'name', 'rcLocked', 'rcFx', 'rcRadius']
+export const EXTRA_PROPS = ['id', 'name', 'rcLocked', 'rcFx', 'rcRadius', 'rcBase', 'rcFrame']
 
 export const CONTROL_STYLE = {
   cornerStyle: 'circle',
@@ -41,7 +41,19 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
   let W = width
   let H = height
   let pageIndex = 0
+  let originalFrame = null
+  let originalBackground = null
   let loading = false
+
+  function cloneData(value) {
+    if (value == null || typeof value === 'string') return value
+    try {
+      return JSON.parse(JSON.stringify(value))
+    }
+    catch {
+      return value
+    }
+  }
   let suppress = false
   let disposed = false
   const pagesData = []                 // [{ id, name, json }]
@@ -435,6 +447,8 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
       width: W,
       height: H,
       current: pageIndex,
+      originalFrame: originalFrame ? { ...originalFrame } : null,
+      originalBackground: cloneData(originalBackground),
       pages: pagesData.map(p => ({ id: p.id, name: p.name, json: p.json })),
     }
   }
@@ -447,11 +461,13 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
         width: d.width || W,
         height: d.height || H,
         current: d.current || 0,
+        originalFrame: d.originalFrame ?? null,
+        originalBackground: d.originalBackground ?? null,
         pages: d.pages.map((p, i) => ({ id: p.id || uid(), name: p.name || `Page ${i + 1}`, json: p.json ?? blankJson() })),
       }
     }
-    if (d?.objects) return { width: d.width || W, height: d.height || H, current: 0, pages: [{ id: uid(), name: 'Page 1', json: d }] }
-    return { width: W, height: H, current: 0, pages: [{ id: uid(), name: 'Page 1', json: blankJson() }] }
+    if (d?.objects) return { width: d.width || W, height: d.height || H, current: 0, originalFrame: null, originalBackground: null, pages: [{ id: uid(), name: 'Page 1', json: d }] }
+    return { width: W, height: H, current: 0, originalFrame: null, originalBackground: null, pages: [{ id: uid(), name: 'Page 1', json: blankJson() }] }
   }
 
   async function loadDocument(input) {
@@ -463,12 +479,18 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
       H = d.height
       state.width = W
       state.height = H
+      originalFrame = d.originalFrame ? { ...d.originalFrame } : null
+      originalBackground = cloneData(d.originalBackground)
       pagesData.length = 0
       pagesData.push(...d.pages)
       histories.clear()
       pageIndex = clamp(d.current, 0, pagesData.length - 1)
       syncPages()
       await loadJSON(pagesData[pageIndex].json)
+      if (!originalFrame && (canvas.getObjects().some(o => o.rcBase) || pagesData[pageIndex]?.name === 'Image')) {
+        originalFrame = { width: W, height: H }
+      }
+      if (originalBackground == null) originalBackground = cloneData(canvas.backgroundColor)
       hist()
       flags()
       fit()
@@ -484,7 +506,9 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
       const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' })
       const s = Math.min(1, maxSide / Math.max(img.width, img.height))
       await loadDocument({ width: Math.round(img.width * s), height: Math.round(img.height * s), pages: [{ name: 'Image', json: blankJson() }] })
-      img.set({ left: 0, top: 0, scaleX: s, scaleY: s })
+      originalFrame = { width: W, height: H }
+      originalBackground = cloneData(canvas.backgroundColor)
+      img.set({ left: 0, top: 0, scaleX: s, scaleY: s, rcBase: true })
       canvas.add(img)
       canvas.setActiveObject(img)
       resetHistory()
@@ -497,11 +521,27 @@ export async function createEngine({ el, stage, state, width = 1080, height = 10
 
   // ── Export ────────────────────────────────────────────────────────────────
   const MIME = { png: 'image/png', jpeg: 'image/jpeg', jpg: 'image/jpeg', webp: 'image/webp' }
-  function exportBlob({ format = 'png', scale = 1, quality = 0.92 } = {}) {
+  function sameData(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b)
+  }
+  function frameCropRect() {
+    if (!originalFrame) return null
+    if (W !== originalFrame.width || H !== originalFrame.height) return null
+    if (!sameData(canvas.backgroundColor, originalBackground)) return null
+    const objects = canvas.getObjects().filter(o => !isGuide(o) && o.visible !== false)
+    for (const o of objects) {
+      const r = o.getBoundingRect()
+      if (r.left < -1 || r.top < -1 || r.left + r.width > originalFrame.width + 1 || r.top + r.height > originalFrame.height + 1) return null
+      if (!o.rcBase && (o.rcFrame || /frame/i.test(o.name || ''))) return null
+    }
+    return { left: 0, top: 0, width: originalFrame.width, height: originalFrame.height }
+  }
+  function exportBlob({ format = 'png', scale = 1, quality = 0.92, crop = 'auto' } = {}) {
     return new Promise((resolve, reject) => {
       try {
         const mime = MIME[format] ?? 'image/png'
-        const out = withUnzoomed(() => canvas.toCanvasElement(scale))
+        const rect = crop === 'auto' ? frameCropRect() : crop
+        const out = withUnzoomed(() => (rect ? canvas.toCanvasElement(scale, rect) : canvas.toCanvasElement(scale)))
         out.toBlob(b => (b ? resolve(b) : reject(new Error('Export failed'))), mime, quality)
       }
       catch (e) {

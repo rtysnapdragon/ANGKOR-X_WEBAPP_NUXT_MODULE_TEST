@@ -7,7 +7,7 @@ export default function globalHelper() {
         truncate: (text, length) => text.length > length ? text.slice(0, length) + '...' : text,
       },
       config: {
-        appName: 'MyApp',
+        appName: 'Angkor',
         version: '1.0.0',
         environment: process.env.NODE_ENV || 'development',
       },
