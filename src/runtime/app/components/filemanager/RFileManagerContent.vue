@@ -14,6 +14,7 @@ import RBtn from '../btn/RBtn.vue'
 import RBtns from '../btn/RBtns.vue'
 import RTblBtns from '../btn/RTblBtns.vue'
 import FloatingInput from '../input/FloatingInput.vue'
+import RInputTags from '../input/RInputTags.vue'
 import RModal from '../RModal.vue'
 import RPopover from '../RPopover.vue'
 import RPopoverPanel from '../ui/RPopoverPanel.vue'
@@ -139,7 +140,6 @@ const categoryDialog = reactive({
   id: '',
   name: '',
   extensions: [],
-  extensionInput: '',
   private: false,
   error: '',
   saving: false,
@@ -209,11 +209,15 @@ const extensionOptions = computed(() => {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b))
 })
 
+const selectedCategoryExtensions = computed(() =>
+  Array.isArray(categoryDialog.extensions) ? categoryDialog.extensions : [],
+)
+
 const categoryExtensionChoices = computed(() => {
   const values = new Set([
     ...CATEGORY_EXTENSION_OPTIONS,
     ...extensionOptions.value,
-    ...categoryDialog.extensions,
+    ...selectedCategoryExtensions.value,
   ])
   return [...values]
 })
@@ -1063,18 +1067,10 @@ function normalizeCategoryExtension(value) {
   return String(value ?? '').trim().toLowerCase().replace(/^\.+/, '').replace(/[^a-z0-9+]/g, '')
 }
 
-function addCategoryExtension(value = categoryDialog.extensionInput) {
-  const extension = normalizeCategoryExtension(value)
-  if (!extension) return
-  if (!categoryDialog.extensions.includes(extension)) categoryDialog.extensions.push(extension)
-  categoryDialog.extensionInput = ''
-  categoryDialog.error = ''
-}
-
-function toggleCategoryExtension(extension) {
-  const index = categoryDialog.extensions.indexOf(extension)
-  if (index >= 0) categoryDialog.extensions.splice(index, 1)
-  else categoryDialog.extensions.push(extension)
+function updateCategoryExtensions(values) {
+  categoryDialog.extensions = [...new Set((Array.isArray(values) ? values : [])
+    .map(normalizeCategoryExtension)
+    .filter(Boolean))]
   categoryDialog.error = ''
 }
 
@@ -1083,8 +1079,7 @@ function openCategoryDialog(item = null) {
   categoryDialog.mode = item ? 'edit' : 'create'
   categoryDialog.id = item?.id ?? ''
   categoryDialog.name = item?.name ?? ''
-  categoryDialog.extensions = [...(item?.extensions ?? [])]
-  categoryDialog.extensionInput = ''
+  categoryDialog.extensions = Array.isArray(item?.extensions) ? [...item.extensions] : []
   categoryDialog.private = Boolean(item?.private)
   categoryDialog.error = ''
   categoryDialog.saving = false
@@ -1096,8 +1091,7 @@ function saveCategory() {
     categoryDialog.error = tr('rfm_category_name_required', 'Enter a category name.')
     return
   }
-  if (categoryDialog.extensionInput.trim()) addCategoryExtension()
-  const extensions = [...new Set(categoryDialog.extensions.map(normalizeCategoryExtension).filter(Boolean))]
+  const extensions = [...new Set(selectedCategoryExtensions.value.map(normalizeCategoryExtension).filter(Boolean))]
   if (!extensions.length) {
     categoryDialog.error = tr('rfm_category_extensions_required', 'Add at least one allowed extension.')
     return
@@ -2729,46 +2723,25 @@ watch(customFields, saveCustomFields, { deep: true })
 
         <div class="rfm__extensions-field">
           <span class="rfm__field-label">{{ tr('rfm_allowed_extensions', 'Allowed extensions') }}</span>
-          <FloatingInput
-            v-model="categoryDialog.extensionInput"
-            class="rfm__extension-input"
-            :label="tr('rfm_add_extension', 'Add an extension')"
+          <RInputTags
+            class="rfm__extension-tags"
+            :model-value="selectedCategoryExtensions"
+            :options="categoryExtensionChoices"
+            :convert-value="normalizeCategoryExtension"
+            mode="local"
+            :min-chars="0"
+            :suggestions-limit="60"
+            :duplicate="false"
+            :allow-custom="true"
+            :add-on-blur="false"
             :placeholder="tr('rfm_extension_placeholder', 'e.g. pdf')"
-            @keydown.enter.prevent="addCategoryExtension()"
+            :no-results-text="tr('rfm_no_results', 'No results found')"
+            @update:data="updateCategoryExtensions"
           >
-            <template #trailing>
-              <button
-                type="button"
-                class="rfm__extension-add"
-                :aria-label="tr('rfm_add_extension', 'Add an extension')"
-                @click="addCategoryExtension()"
-              >
-                <UIcon name="i-lucide-plus" />
-              </button>
+            <template #suggestion="{ option }">
+              <span class="rfm__extension-chip">{{ option }}</span>
             </template>
-          </FloatingInput>
-
-          <div
-            class="rfm__extension-choices"
-            role="listbox"
-            :aria-label="tr('rfm_allowed_extensions', 'Allowed extensions')"
-          >
-            <button
-              v-for="extension in categoryExtensionChoices"
-              :key="extension"
-              type="button"
-              class="rfm__extension-chip"
-              :class="{ 'is-active': categoryDialog.extensions.includes(extension) }"
-              :aria-pressed="categoryDialog.extensions.includes(extension)"
-              @click="toggleCategoryExtension(extension)"
-            >
-              <UIcon
-                v-if="categoryDialog.extensions.includes(extension)"
-                name="i-lucide-check"
-              />
-              <span>{{ extension }}</span>
-            </button>
-          </div>
+          </RInputTags>
         </div>
 
         <label class="rfm__private-toggle">
@@ -3309,6 +3282,13 @@ watch(customFields, saveCustomFields, { deep: true })
 .rfm__category-label { margin: 0; font-size: 0.68rem; font-weight: 600; color: var(--rfm-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .rfm__chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .rfm__chips span { padding: 2px 6px; font-size: 0.66rem; color: var(--rfm-muted); background: var(--rfm-bg); border: 1px solid var(--rfm-border); border-radius: 5px; }
+.rfm__selected-extensions span { display: inline-flex; align-items: center; gap: 4px; padding-right: 3px; }
+.rfm__selected-extensions button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; padding: 0; color: inherit;
+  background: transparent; border: 0; cursor: pointer;
+}
+.rfm__selected-extensions button:hover { color: var(--rfm-danger); }
 .rfm__category-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 4px; }
 .rfm__category-actions button {
   display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px;
@@ -3333,31 +3313,42 @@ watch(customFields, saveCustomFields, { deep: true })
 :global(.rfm__category-form .input-group.focused input) { border-color: var(--c-accent) !important; }
 :global(.rfm__extensions-field) { display: grid; gap: 8px; }
 :global(.rfm__field-label) { font-size: 0.76rem; font-weight: 600; color: var(--c-muted); }
-:global(.rm-body.rfm-category-modal-body .rfm__extension-input input) { padding-right: 44px !important; }
-:global(.rfm__extension-add) {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; padding: 0; color: var(--c-accent);
-  background: color-mix(in srgb, var(--c-accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--c-accent) 28%, var(--c-border));
-  border-radius: 7px; cursor: pointer;
+:global(.rfm__extension-tags) { width: 100%; }
+:global(.rfm__extension-tags .ui-rinputtag-base) {
+  min-height: 42px !important;
+  padding: 6px 10px !important;
+  background: var(--c-surface) !important;
+  border-color: var(--c-border) !important;
+  border-radius: 12px !important;
 }
-:global(.rfm__extension-add:hover) { background: color-mix(in srgb, var(--c-accent) 18%, transparent); }
-:global(.rfm__extension-choices) {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  max-height: 132px; padding: 2px; overflow-y: auto;
+:global(.rfm__extension-tags .ui-rinputtag-item) {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: auto !important; padding: 4px 8px !important;
+  font-size: 0.72rem !important; font-weight: 600;
+  color: var(--c-text) !important;
+  background: var(--c-hover, color-mix(in srgb, var(--c-muted) 12%, transparent)) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: 999px !important;
 }
+:global(.rfm__extension-tags .ui-rinputtag-input) { min-width: 80px; font-size: 0.84rem !important; }
+:global(.rfm__extension-tags .ui-rinputtag-suggestions) {
+  display: flex; flex-wrap: wrap; gap: 6px; z-index: 5555555555555;
+  max-height: 220px; padding: 8px; overflow-y: auto;
+}
+:global(.rfm__extension-tags .ui-rinputtag-suggestion-item) {
+  display: inline-flex; width: auto !important; padding: 0 !important;
+  background: transparent !important; border-radius: 999px !important;
+}
+:global(.rfm__extension-tags .ui-rinputtag-suggestion-item:hover) { background: transparent !important; }
+:global(.rfm__extension-tags .ui-rinputtag-suggestion-state) { padding: 12px 8px; font-size: 0.76rem; }
 :global(.rfm__extension-chip) {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 5px 9px; font-size: 0.72rem; color: var(--c-muted);
-  background: transparent; border: 1px solid var(--c-border);
-  border-radius: 999px; cursor: pointer;
+  height: auto !important; padding: 5px 9px !important;
+  font-size: 0.72rem; color: var(--c-muted);
+  background: transparent !important; border: 1px solid var(--c-border);
+  border-radius: 999px !important; box-shadow: none !important; cursor: pointer;
 }
-:global(.rfm__extension-chip:hover) { color: var(--c-text); background: var(--c-hover); }
-:global(.rfm__extension-chip.is-active) {
-  color: var(--c-accent);
-  background: color-mix(in srgb, var(--c-accent) 12%, transparent);
-  border-color: color-mix(in srgb, var(--c-accent) 38%, var(--c-border));
-}
+:global(.rfm__extension-chip:hover) { color: var(--c-text); background: var(--c-hover) !important; }
 :global(.rfm__private-toggle) {
   display: flex; align-items: flex-start; gap: 10px; padding: 12px;
   background: color-mix(in srgb, var(--c-accent) 4%, transparent);

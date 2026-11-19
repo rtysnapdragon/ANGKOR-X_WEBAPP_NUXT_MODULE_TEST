@@ -70,19 +70,19 @@ const api = {
   },
 
   oauth2: {
-    status: 'api/v1/google-drive/status',
-    list: 'api/v1/google-drive/list',
+    status: 'api/v1/google_drive/status',
+    list: 'api/v1/google_drive/list',
     // Uploads recorded in the DB (CMS_DRIVE_FILES), readable without Drive.
-    files: 'api/v1/google-drive/files',
-    upload: 'api/v1/google-drive/upload',
-    disconnect: 'api/v1/google-drive/disconnect',
+    files: 'api/v1/google_drive/files',
+    upload: 'api/v1/google_drive/upload',
+    disconnect: 'api/v1/google_drive/disconnect',
     // Full-page redirect handshake (fallback when the embedded widget is off).
-    connect: 'api/v1/google-drive/connect',
+    connect: 'api/v1/google_drive/connect',
     // Embedded Google Identity Services popup: the browser already holds a
     // one-shot code and posts it straight back. X-Requested-With is the header
     // Google's popup mode uses for CSRF protection, and the backend checks it.
-    authorize:'api/v1/google-drive/connect'
-    // authorize: (payload) => useHttp('api/v1/google-drive/connect', {
+    authorize:'api/v1/google_drive/connect'
+    // authorize: (payload) => useHttp('api/v1/google_drive/connect', {
     //   method: 'POST',
     //   body: { Action: 'authorize', ...payload },
     //   headers: { 'X-Requested-With': 'XMLHttpRequest', },

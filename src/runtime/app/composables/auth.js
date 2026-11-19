@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import axios from "axios";
+import { useOnline, getDeviceId} from '#imports'
 
 export const useAuth = async (args = {}) => {
   const {
@@ -58,7 +59,7 @@ export const useAuth = async (args = {}) => {
         Username: args.username ?? "username",
         Password: args?.password ?? "password",
         RememberMe: args?.remember ?? true,
-        RefreshToken: isActionLogin ? null : userCatch?.refresh_token,
+        RefreshToken: isActionLogin ? null : userCatch?.refresh_token || useCookie('rty_refresh_token').value,
       },
     });
 

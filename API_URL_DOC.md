@@ -4,13 +4,14 @@
 > **Scope:** all discovered route definitions in repository (excluding `.venv`, caches, `node_modules`).
 > **Details included per endpoint URL:** methods, resolved/defined path, handler, source (file:line), mount/base/status, tags/summary/description, status code, response model/class/responses, dependencies flags, include_in_schema/deprecated/name/operation_id, and best-effort signature parameters (path/query/body/form/file/header/cookie/dependency/request markers, annotations, defaults, marker meta) plus docstrings.
 > **Note:** best-effort from AST/static scan; verify runtime behavior and exact schemas via `main.py`, `app/api/v1/router.py`, and `/openapi.json`.
+> **Manual additions:** the five `/api/v1/file_explorer/categories/*` endpoints were implemented after the scan from `API_URL_DOC_NEW_REQUIRED.md` and are documented in the File Explorer section (items 24-28).
 
 ## Summary
 
-- **Total route definitions:** 489
-- **Unique (methods, resolved path):** 435
+- **Total route definitions:** 499
+- **Unique (methods, resolved path):** 445
 - **Source files with routes:** 55
-- **Mounted/active (inferred):** 445 definitions
+- **Mounted/active (inferred):** 455 definitions
 - **Not mounted / legacy / unresolved:** 44 definitions
 
 ## Table of Contents
@@ -18,7 +19,7 @@
 1. [System & Health](#system--health) (4 routes)
 2. [Authentication (Core)](#authentication-core) (42 routes)
 3. [User Profile](#user-profile) (10 routes)
-4. [File Explorer (Multi-Provider)](#file-explorer-multi-provider) (23 routes)
+4. [File Explorer (Multi-Provider)](#file-explorer-multi-provider) (28 routes)
 5. [Dashboard API](#dashboard-api) (4 routes)
 6. [RBAC (Roles & Permissions)](#rbac-roles--permissions) (29 routes)
 7. [Employee & Signature](#employee--signature) (5 routes)
@@ -29,12 +30,12 @@
 12. [Artworks, Galleries & Collections](#artworks-galleries--collections) (24 routes)
 13. [Chat (v1 API)](#chat-v1-api) (18 routes)
 14. [CMS](#cms) (16 routes)
-15. [CMS Management](#cms-management) (15 routes)
+15. [CMS Management](#cms-management) (36 routes)
 16. [Comments](#comments) (6 routes)
 17. [Databases Controller](#databases-controller) (3 routes)
-18. [Google Drive Activity & Audit (nested)](#google-drive-activity--audit-nested) (5 routes)
-19. [Google Drive Labels & Metadata (nested)](#google-drive-labels--metadata-nested) (7 routes)
-20. [Forum](#forum) (27 routes)
+18. [Google Drive Activity & Audit (nested)](#google_drive-activity--audit-nested) (5 routes)
+19. [Google Drive Labels & Metadata (nested)](#google_drive-labels--metadata-nested) (7 routes)
+20. [Forum](#forum) (32 routes)
 21. [Google Auth One Tap](#google-auth-one-tap) (1 routes)
 22. [Media / File Explore Management](#media--file-explore-management) (11 routes)
 23. [Memberships](#memberships) (3 routes)
@@ -57,7 +58,7 @@
 40. [Realtime WebSockets (Chat/Notifications)](#realtime-websockets-chatnotifications) (2 routes)
 41. [Auth Bridge (Cross-origin Cookie)](#auth-bridge-cross-origin-cookie) (4 routes)
 42. [Authentication (Legacy - not mounted)](#authentication-legacy---not-mounted) (16 routes)
-43. [Google Drive / OAuth (legacy v1 module - not mounted)](#google-drive--oauth-legacy-v1-module---not-mounted) (16 routes)
+43. [Google Drive / OAuth (legacy v1 module - not mounted)](#google_drive--oauth-legacy-v1-module---not-mounted) (16 routes)
 44. [RTS Auth (legacy duplicate - not mounted)](#rts-auth-legacy-duplicate---not-mounted) (2 routes)
 45. [RTS Auth Passkeys (copy - not mounted)](#rts-auth-passkeys-copy---not-mounted) (6 routes)
 46. [Tests (non-production routes)](#tests-non-production-routes) (2 routes)
@@ -171,15 +172,15 @@
 | 24 | `POST` | `/api/v1/cmd/labels/create` | `cmd_label_create` |  | mounted (/api/v1 router) |
 | 25 | `GET` | `/api/v1/cmd/labels/list` | `cmd_labels_list` |  | mounted (/api/v1 router) |
 | 26 | `POST` | `/api/v1/cmd/labels/remove` | `cmd_label_remove` |  | mounted (/api/v1 router) |
-| 27 | `GET` | `/api/v1/google-drive/callback` | `drive_callback` |  | mounted (/api/v1 router) |
-| 28 | `POST` | `/api/v1/google-drive/connect` | `connect_drive` |  | mounted (/api/v1 router) |
-| 29 | `POST` | `/api/v1/google-drive/connect_cls` | `connect_drive_cls` |  | mounted (/api/v1 router) |
-| 30 | `POST` | `/api/v1/google-drive/disconnect` | `disconnect_drive` |  | mounted (/api/v1 router) |
-| 31 | `GET` | `/api/v1/google-drive/files` | `list_stored_drive_files` |  | mounted (/api/v1 router) |
-| 32 | `GET` | `/api/v1/google-drive/list` | `list_drive` |  | mounted (/api/v1 router) |
-| 33 | `GET` | `/api/v1/google-drive/status` | `drive_status` |  | mounted (/api/v1 router) |
-| 34 | `POST` | `/api/v1/google-drive/summary` | `drive_summary` |  | mounted (/api/v1 router) |
-| 35 | `POST` | `/api/v1/google-drive/upload` | `upload_to_drive` |  | mounted (/api/v1 router) |
+| 27 | `GET` | `/api/v1/google_drive/callback` | `drive_callback` |  | mounted (/api/v1 router) |
+| 28 | `POST` | `/api/v1/google_drive/connect` | `connect_drive` |  | mounted (/api/v1 router) |
+| 29 | `POST` | `/api/v1/google_drive/connect_cls` | `connect_drive_cls` |  | mounted (/api/v1 router) |
+| 30 | `POST` | `/api/v1/google_drive/disconnect` | `disconnect_drive` |  | mounted (/api/v1 router) |
+| 31 | `GET` | `/api/v1/google_drive/files` | `list_stored_drive_files` |  | mounted (/api/v1 router) |
+| 32 | `GET` | `/api/v1/google_drive/list` | `list_drive` |  | mounted (/api/v1 router) |
+| 33 | `GET` | `/api/v1/google_drive/status` | `drive_status` |  | mounted (/api/v1 router) |
+| 34 | `POST` | `/api/v1/google_drive/summary` | `drive_summary` |  | mounted (/api/v1 router) |
+| 35 | `POST` | `/api/v1/google_drive/upload` | `upload_to_drive` |  | mounted (/api/v1 router) |
 | 36 | `POST` | `/api/v1/rty/dragon/site/auth/login` | `website_login` | Sign in with encrypted email/username/phone + password | mounted (/api/v1 router) |
 | 37 | `POST` | `/api/v1/rty/dragon/site/auth/logout` | `website_logout` | Revoke the current token and clear auth cookies | mounted (/api/v1 router) |
 | 38 | `GET` | `/api/v1/rty/dragon/site/auth/me` | `website_me` | Current website user (encrypted email/username/phone) | mounted (/api/v1 router) |
@@ -761,12 +762,12 @@ Remove a label from a Drive file via command-style endpoint.
 Removes a previously applied label from a file.
 ```
 
-#### 27. `GET` `/api/v1/google-drive/callback`
+#### 27. `GET` `/api/v1/google_drive/callback`
 
 - **Handler:** `drive_callback` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:710
 - **Defined path:** `/callback`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 
@@ -790,12 +791,12 @@ single-use ``state`` row written by :func:`connect_drive`, which carries the
 user id the authorisation was started for.
 ```
 
-#### 28. `POST` `/api/v1/google-drive/connect`
+#### 28. `POST` `/api/v1/google_drive/connect`
 
 - **Handler:** `connect_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:480
 - **Defined path:** `/connect`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 
@@ -822,12 +823,12 @@ the browser posts the one-shot code it received in a popup, and the code is
 exchanged right here.
 ```
 
-#### 29. `POST` `/api/v1/google-drive/connect_cls`
+#### 29. `POST` `/api/v1/google_drive/connect_cls`
 
 - **Handler:** `connect_drive_cls` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:661
 - **Defined path:** `/connect_cls`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveConnectionStatus`
@@ -860,12 +861,12 @@ reaches the browser) and the tokens are written to ``OAUTH_ACCOUNTS`` for
 the signed-in user, or for the system superuser when no session is present.
 ```
 
-#### 30. `POST` `/api/v1/google-drive/disconnect`
+#### 30. `POST` `/api/v1/google_drive/disconnect`
 
 - **Handler:** `disconnect_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:898
 - **Defined path:** `/disconnect`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 
@@ -882,12 +883,12 @@ the signed-in user, or for the system superuser when no session is present.
 Remove the stored Google tokens.
 ```
 
-#### 31. `GET` `/api/v1/google-drive/files`
+#### 31. `GET` `/api/v1/google_drive/files`
 
 - **Handler:** `list_stored_drive_files` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:864
 - **Defined path:** `/files`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveStoredFileListResponse`
@@ -913,12 +914,12 @@ The live Drive listing (``GET /list``) is unchanged; this answers from the
 database so the record survives even when Drive is unreachable.
 ```
 
-#### 32. `GET` `/api/v1/google-drive/list`
+#### 32. `GET` `/api/v1/google_drive/list`
 
 - **Handler:** `list_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:788
 - **Defined path:** `/list`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveListResponse`
@@ -940,12 +941,12 @@ database so the record survives even when Drive is unreachable.
 List folders and files inside a Drive folder.
 ```
 
-#### 33. `GET` `/api/v1/google-drive/status`
+#### 33. `GET` `/api/v1/google_drive/status`
 
 - **Handler:** `drive_status` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:316
 - **Defined path:** `/status`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveConnectionStatus`
@@ -969,12 +970,12 @@ Google's token endpoint — ``RefreshingInBackground`` tells the caller a
 refresh was scheduled; the next call reports the fresh expiry.
 ```
 
-#### 34. `POST` `/api/v1/google-drive/summary`
+#### 34. `POST` `/api/v1/google_drive/summary`
 
 - **Handler:** `drive_summary` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:912
 - **Defined path:** `/summary`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveSummaryResponse`
@@ -999,12 +1000,12 @@ Controlled by payload (POST = Action in body per GET/POST-only contract):
 - IncludeTypes/Largest/Recent: toggle sections to save time
 ```
 
-#### 35. `POST` `/api/v1/google-drive/upload`
+#### 35. `POST` `/api/v1/google_drive/upload`
 
 - **Handler:** `upload_to_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth.py`:812
 - **Defined path:** `/upload`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveFileUploadResult`
@@ -1377,8 +1378,8 @@ Upload a cropped avatar to Google Drive and point the profile at it.
 ## File Explorer (Multi-Provider)
 
 - **Source files:** `app/api/v1/endpoints/file_explorer.py`
-- **Endpoints:** 23
-- **Mount/status:** mounted (/api/v1 router) (23)
+- **Endpoints:** 28
+- **Mount/status:** mounted (/api/v1 router) (28)
 
 ### Endpoint index
 
@@ -1407,6 +1408,11 @@ Upload a cropped avatar to Google Drive and point the profile at it.
 | 21 | `POST` | `/api/v1/file_explorer/providers/list` | `providers_list` |  | mounted (/api/v1 router) |
 | 22 | `POST` | `/api/v1/file_explorer/providers/summary` | `providers_summary` |  | mounted (/api/v1 router) |
 | 23 | `POST` | `/api/v1/file_explorer/storage/read` | `storage_read` |  | mounted (/api/v1 router) |
+| 24 | `POST` | `/api/v1/file_explorer/categories/list` | `categories_list` | List asset categories with search, built-in filtering and paging. | mounted (/api/v1 router) |
+| 25 | `POST` | `/api/v1/file_explorer/categories/create` | `categories_create` | Create a category; names and extension ownership are unique. | mounted (/api/v1 router) |
+| 26 | `POST` | `/api/v1/file_explorer/categories/update` | `categories_update` | Update a category. Omitted fields keep their current values. | mounted (/api/v1 router) |
+| 27 | `GET` | `/api/v1/file_explorer/categories/delete` | `categories_delete` | `GET /categories/delete?Id=6` or `?Ids=6,7` (or the same keys as JSON). | mounted (/api/v1 router) |
+| 28 | `POST` | `/api/v1/file_explorer/categories/reorder` | `categories_reorder` | Atomically apply new `SortOrder` values and return the updated list. | mounted (/api/v1 router) |
 
 ### Endpoint details
 
@@ -1956,6 +1962,162 @@ Deep summary for ``Provider`` = google | supabase | telegram | r2.
 ```text
 Provider storage summary (same result as ``/providers/summary``).
 ```
+
+#### 24. `POST` `/api/v1/file_explorer/categories/list`
+
+- **Handler:** `categories_list` (async)
+- **Source:** `app/api/v1/endpoints/file_explorer.py`:1722
+- **Defined path:** `/categories/list`
+- **Router:** object=`router` prefix=`/file_explorer` resolved_base=`/api/v1/file_explorer`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['File Explorer']`
+- **Status code:** `200 OK`
+- **Response model:** `AssetCategoryListResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `CategoryListPayload` | `` | `` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(_guard('system.file_explorer.list'))` | `dependency` | {'arg': "_guard('system.file_explorer.list')"} |
+
+**Payload:** `{ "Search": string|null, "IncludeBuiltin": boolean=true, "Page": integer=1, "PageSize": integer=100 (max 500), "SortBy": "SortOrder"|"Name"|"CreatedAt"|"UpdatedAt", "SortOrder": "asc"|"desc" }`
+
+**Response:** `{ "Items": [AssetCategoryRead], "Total": integer }`; `FileCount` counts non-deleted files whose extension matches the category.
+
+**Docstring:**
+
+```text
+List asset categories with search, built-in filtering and paging.
+```
+
+#### 25. `POST` `/api/v1/file_explorer/categories/create`
+
+- **Handler:** `categories_create` (async)
+- **Source:** `app/api/v1/endpoints/file_explorer.py`:1752
+- **Defined path:** `/categories/create`
+- **Router:** object=`router` prefix=`/file_explorer` resolved_base=`/api/v1/file_explorer`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['File Explorer']`
+- **Status code:** `201 Created`
+- **Response model:** `AssetCategoryRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `CategoryCreatePayload` | `` | `` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(_guard('system.file_explorer.create'))` | `dependency` | {'arg': "_guard('system.file_explorer.create')"} |
+
+**Payload:** `{ "Name": string (1-80, required), "Extensions": [string] (min 1, required), "IsPrivate": boolean=false, "Icon": string|null, "SortOrder": integer|null }`
+
+**Docstring:**
+
+```text
+Create a category; names and extension ownership are unique.
+```
+
+#### 26. `POST` `/api/v1/file_explorer/categories/update`
+
+- **Handler:** `categories_update` (async)
+- **Source:** `app/api/v1/endpoints/file_explorer.py`:1786
+- **Defined path:** `/categories/update`
+- **Router:** object=`router` prefix=`/file_explorer` resolved_base=`/api/v1/file_explorer`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['File Explorer']`
+- **Status code:** `200 OK`
+- **Response model:** `AssetCategoryRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `CategoryUpdatePayload` | `` | `` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(_guard('system.file_explorer.update'))` | `dependency` | {'arg': "_guard('system.file_explorer.update')"} |
+
+**Payload:** `{ "Id": integer (required), "Name": string|null, "Extensions": [string]|null, "IsPrivate": boolean|null, "Icon": string|null, "SortOrder": integer|null }`. Omitted fields keep their current values; supplying `Extensions` replaces the whole list; `Icon: null` clears the icon.
+
+**Docstring:**
+
+```text
+Update a category. Omitted fields keep their current values.
+```
+
+#### 27. `GET` `/api/v1/file_explorer/categories/delete`
+
+- **Handler:** `categories_delete` (async)
+- **Source:** `app/api/v1/endpoints/file_explorer.py`:1823
+- **Defined path:** `/categories/delete`
+- **Router:** object=`router` prefix=`/file_explorer` resolved_base=`/api/v1/file_explorer`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['File Explorer']`
+- **Status code:** `200 OK`
+- **Response model:** `MessageResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `id_` | `Optional[str]` | `Query(None, alias='Id')` | `query` | {'arg': 'None', 'alias': "'Id'"} |
+| `ids` | `Optional[str]` | `Query(None, alias='Ids')` | `query` | {'arg': 'None', 'alias': "'Ids'"} |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(_guard('system.file_explorer.delete'))` | `dependency` | {'arg': "_guard('system.file_explorer.delete')"} |
+
+**Usage examples:** `GET /api/v1/file_explorer/categories/delete?Id=6`, `GET /api/v1/file_explorer/categories/delete?Ids=6,7` (or the same keys as a JSON body).
+
+**Rules:** all-or-nothing validation; missing `Id`/`Ids` → `400`; unknown id → `404`; built-in category → `409`. Files are never deleted, only the category mapping.
+
+**Docstring:**
+
+```text
+GET /categories/delete?Id=6 or ?Ids=6,7 (or the same keys as JSON).
+```
+
+#### 28. `POST` `/api/v1/file_explorer/categories/reorder`
+
+- **Handler:** `categories_reorder` (async)
+- **Source:** `app/api/v1/endpoints/file_explorer.py`:1849
+- **Defined path:** `/categories/reorder`
+- **Router:** object=`router` prefix=`/file_explorer` resolved_base=`/api/v1/file_explorer`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['File Explorer']`
+- **Status code:** `200 OK`
+- **Response model:** `AssetCategoryListResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `CategoryReorderPayload` | `` | `` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(_guard('system.file_explorer.update'))` | `dependency` | {'arg': "_guard('system.file_explorer.update')"} |
+
+**Payload:** `{ "Items": [{ "Id": integer, "SortOrder": integer }] }` (min 1 item). Duplicate ids → `400`; unknown ids → `404`; one transaction, then the full updated list is returned.
+
+**Docstring:**
+
+```text
+Atomically apply new SortOrder values and return the updated list.
+```
+
+### Asset category schemas
+
+| Schema | Fields |
+|---|---|
+| `CategoryListPayload` | `Search: string\|null`, `IncludeBuiltin: bool=true`, `Page: int=1`, `PageSize: int=100` (max 500), `SortBy: str="SortOrder"`, `SortOrder: str="asc"` |
+| `CategoryCreatePayload` | `Name: str` (1-80, required), `Extensions: list[str]` (min 1, required), `IsPrivate: bool=false`, `Icon: str\|null`, `SortOrder: int\|null` |
+| `CategoryUpdatePayload` | `Id: int` (required), `Name/Extensions/IsPrivate/Icon/SortOrder` all optional |
+| `CategoryOrderItem` | `Id: int`, `SortOrder: int` |
+| `CategoryReorderPayload` | `Items: list[CategoryOrderItem]` (min 1) |
+| `AssetCategoryRead` | `Id`, `Name`, `Slug`, `Extensions`, `IsPrivate`, `Icon`, `SortOrder`, `IsBuiltin`, `FileCount`, `CreatedAt`, `UpdatedAt` |
+| `AssetCategoryListResponse` | `Items: list[AssetCategoryRead]`, `Total: int` |
+| `MessageResponse` | `Message: str`, `Success: bool=true` |
+
+**Persistence:** `EXPLORER_CATEGORIES` (created by `explorer_store.ensure_tables` alongside `EXPLORER_FOLDERS` / `EXPLORER_FILES`), seeded with six built-in categories (Images, Videos, Audio, Documents, Archives, PDFs) on first use. Extensions are normalised to lowercase, dot-free `^[a-z0-9]{1,20}$` values and are owned by exactly one category.
 
 ---
 
@@ -5012,37 +5174,181 @@ Step 1: content -> MongoDB. Step 2: coordinates -> MySQL.
 ## CMS Management
 
 - **Source files:** `app/api/v1/endpoints/cms_mgmt.py`
-- **Endpoints:** 15
-- **Mount/status:** mounted (/api/v1 router) (15)
+- **Endpoints:** 36
+- **Mount/status:** mounted (/api/v1 router) (36)
+
+### Update notes (RULES_SYSTEM.md)
+
+- Prefix renamed from `/cms-mgmt` to snake_case `/cms_mgmt`.
+- All list/read endpoints moved from `GET` to `POST` with a PascalCase payload
+  (`Pages`, `Records`, `Search`, `OrderBy`, `OrderDir`).
+- `Action` in the URL/query replaced by explicit purpose suffixes: `/get`,
+  `/create`, `/edit`, `/delete`, `/search`, `/count`, `/export`, `/validate`, etc.
+- Every delete is now `GET` only, via `?Id=` or `?Ids=`.
+- `audit-logs` renamed to snake_case `audit_logs`; `web-config` to `web_config`.
+- Generic `GET/POST /{resource}` split into one route per purpose.
+- Translation and revision reads now carry `Resource` / `RecordId` / `RevisionId`
+  in the POST payload instead of in the path.
+
+### Previous to current URL mapping
+
+| Previous | Current |
+|---|---|
+| `GET /api/v1/cms-mgmt/audit-logs` | `POST /api/v1/cms_mgmt/audit_logs/get` |
+| `GET /api/v1/cms-mgmt/meta` | `POST /api/v1/cms_mgmt/meta/get` |
+| `GET /api/v1/cms-mgmt/revisions/all` | `POST /api/v1/cms_mgmt/revisions/get` |
+| `GET /api/v1/cms-mgmt/revisions/record/{resource}/{record_id}` | `POST /api/v1/cms_mgmt/revisions/get` (payload `Resource`, `RecordId`) |
+| `GET /api/v1/cms-mgmt/revisions/{revision_id}/diff` | `POST /api/v1/cms_mgmt/revisions/diff/get` (payload `RevisionId`) |
+| `POST /api/v1/cms-mgmt/revisions/{revision_id}/restore` | `POST /api/v1/cms_mgmt/revisions/restore/edit` (payload `RevisionId`) |
+| `GET /api/v1/cms-mgmt/themes/detail` | `POST /api/v1/cms_mgmt/themes/detail/get` |
+| `POST /api/v1/cms-mgmt/themes/detail` | `POST /api/v1/cms_mgmt/themes/create`, `/themes/edit`, `/themes/publish/edit` |
+| `GET /api/v1/cms-mgmt/themes/list` | `POST /api/v1/cms_mgmt/themes/get` |
+| `GET /api/v1/cms-mgmt/translations/{resource}/{record_id}` | `POST /api/v1/cms_mgmt/translations/get` |
+| `POST /api/v1/cms-mgmt/translations/{resource}/{record_id}` | `POST /api/v1/cms_mgmt/translations/create`, `GET /api/v1/cms_mgmt/translations/delete` |
+| `GET /api/v1/cms-mgmt/web-config` | `POST /api/v1/cms_mgmt/web_config/get` |
+| `POST /api/v1/cms-mgmt/web-config` | `POST /api/v1/cms_mgmt/web_config/create`, `/web_config/edit`, `GET /api/v1/cms_mgmt/web_config/delete` |
+| `GET /api/v1/cms-mgmt/{resource}` | `POST /api/v1/cms_mgmt/{resource}/get`, `/search`, `/count`, `/export`, `/validate` and `GET /api/v1/cms_mgmt/{resource}/delete` |
+| `POST /api/v1/cms-mgmt/{resource}` | `POST /api/v1/cms_mgmt/{resource}/create`, `/edit`, `/publish`, `/unpublish`, `/reorder`, `/duplicate`, `/restore`, `/import`, `/sync`, `/connect`, `/disconnect`, `/clear` |
 
 ### Endpoint index
 
 | # | Methods | Full path | Handler | Summary | Status |
 |---:|---|---|---|---|---|
-| 1 | `GET` | `/api/v1/cms-mgmt/audit-logs` | `list_audit_logs` |  | mounted (/api/v1 router) |
-| 2 | `GET` | `/api/v1/cms-mgmt/meta` | `cms_metadata` |  | mounted (/api/v1 router) |
-| 3 | `GET` | `/api/v1/cms-mgmt/revisions/all` | `list_all_revisions` |  | mounted (/api/v1 router) |
-| 4 | `GET` | `/api/v1/cms-mgmt/revisions/record/{resource}/{record_id}` | `list_record_revisions` |  | mounted (/api/v1 router) |
-| 5 | `GET` | `/api/v1/cms-mgmt/revisions/{revision_id}/diff` | `get_revision_diff` |  | mounted (/api/v1 router) |
-| 6 | `POST` | `/api/v1/cms-mgmt/revisions/{revision_id}/restore` | `restore_revision` |  | mounted (/api/v1 router) |
-| 7 | `GET` | `/api/v1/cms-mgmt/themes/detail` | `get_theme` |  | mounted (/api/v1 router) |
-| 8 | `POST` | `/api/v1/cms-mgmt/themes/detail` | `write_theme` |  | mounted (/api/v1 router) |
-| 9 | `GET` | `/api/v1/cms-mgmt/themes/list` | `list_themes` |  | mounted (/api/v1 router) |
-| 10 | `GET` | `/api/v1/cms-mgmt/translations/{resource}/{record_id}` | `read_translation` |  | mounted (/api/v1 router) |
-| 11 | `POST` | `/api/v1/cms-mgmt/translations/{resource}/{record_id}` | `write_translation` |  | mounted (/api/v1 router) |
-| 12 | `GET` | `/api/v1/cms-mgmt/web-config` | `list_web_config` |  | mounted (/api/v1 router) |
-| 13 | `POST` | `/api/v1/cms-mgmt/web-config` | `write_web_config` |  | mounted (/api/v1 router) |
-| 14 | `GET` | `/api/v1/cms-mgmt/{resource}` | `get_content` |  | mounted (/api/v1 router) |
-| 15 | `POST` | `/api/v1/cms-mgmt/{resource}` | `post_content` |  | mounted (/api/v1 router) |
+| 1 | `POST` | `/api/v1/cms_mgmt/meta/get` | `get_metadata` |  | mounted (/api/v1 router) |
+| 2 | `POST` | `/api/v1/cms_mgmt/web_config/get` | `get_web_config` |  | mounted (/api/v1 router) |
+| 3 | `POST` | `/api/v1/cms_mgmt/web_config/create` | `create_web_config` |  | mounted (/api/v1 router) |
+| 4 | `POST` | `/api/v1/cms_mgmt/web_config/edit` | `edit_web_config` |  | mounted (/api/v1 router) |
+| 5 | `GET` | `/api/v1/cms_mgmt/web_config/delete` | `delete_web_config` |  | mounted (/api/v1 router) |
+| 6 | `POST` | `/api/v1/cms_mgmt/audit_logs/get` | `get_audit_logs` |  | mounted (/api/v1 router) |
+| 7 | `POST` | `/api/v1/cms_mgmt/revisions/get` | `get_revisions` |  | mounted (/api/v1 router) |
+| 8 | `POST` | `/api/v1/cms_mgmt/revisions/diff/get` | `get_revision_diff` |  | mounted (/api/v1 router) |
+| 9 | `POST` | `/api/v1/cms_mgmt/revisions/restore/edit` | `restore_revision` |  | mounted (/api/v1 router) |
+| 10 | `POST` | `/api/v1/cms_mgmt/translations/get` | `get_translation` |  | mounted (/api/v1 router) |
+| 11 | `POST` | `/api/v1/cms_mgmt/translations/create` | `create_translation` |  | mounted (/api/v1 router) |
+| 12 | `GET` | `/api/v1/cms_mgmt/translations/delete` | `delete_translation` |  | mounted (/api/v1 router) |
+| 13 | `POST` | `/api/v1/cms_mgmt/themes/get` | `get_themes` |  | mounted (/api/v1 router) |
+| 14 | `POST` | `/api/v1/cms_mgmt/themes/detail/get` | `get_theme` |  | mounted (/api/v1 router) |
+| 15 | `POST` | `/api/v1/cms_mgmt/themes/create` | `create_theme` |  | mounted (/api/v1 router) |
+| 16 | `POST` | `/api/v1/cms_mgmt/themes/edit` | `edit_theme` |  | mounted (/api/v1 router) |
+| 17 | `POST` | `/api/v1/cms_mgmt/themes/publish/edit` | `publish_theme` |  | mounted (/api/v1 router) |
+| 18 | `GET` | `/api/v1/cms_mgmt/themes/delete` | `delete_theme` |  | mounted (/api/v1 router) |
+| 19 | `POST` | `/api/v1/cms_mgmt/{resource}/get` | `get_content` |  | mounted (/api/v1 router) |
+| 20 | `POST` | `/api/v1/cms_mgmt/{resource}/search` | `search_content` |  | mounted (/api/v1 router) |
+| 21 | `POST` | `/api/v1/cms_mgmt/{resource}/count` | `count_content` |  | mounted (/api/v1 router) |
+| 22 | `POST` | `/api/v1/cms_mgmt/{resource}/export` | `export_content` |  | mounted (/api/v1 router) |
+| 23 | `GET` | `/api/v1/cms_mgmt/{resource}/delete` | `delete_content` |  | mounted (/api/v1 router) |
+| 24 | `POST` | `/api/v1/cms_mgmt/{resource}/validate` | `validate_content` |  | mounted (/api/v1 router) |
+| 25 | `POST` | `/api/v1/cms_mgmt/{resource}/create` | `create_content` |  | mounted (/api/v1 router) |
+| 26 | `POST` | `/api/v1/cms_mgmt/{resource}/edit` | `edit_content` |  | mounted (/api/v1 router) |
+| 27 | `POST` | `/api/v1/cms_mgmt/{resource}/publish` | `publish_content` |  | mounted (/api/v1 router) |
+| 28 | `POST` | `/api/v1/cms_mgmt/{resource}/unpublish` | `unpublish_content` |  | mounted (/api/v1 router) |
+| 29 | `POST` | `/api/v1/cms_mgmt/{resource}/reorder` | `reorder_content` |  | mounted (/api/v1 router) |
+| 30 | `POST` | `/api/v1/cms_mgmt/{resource}/duplicate` | `duplicate_content` |  | mounted (/api/v1 router) |
+| 31 | `POST` | `/api/v1/cms_mgmt/{resource}/restore` | `restore_content` |  | mounted (/api/v1 router) |
+| 32 | `POST` | `/api/v1/cms_mgmt/{resource}/import` | `import_content` |  | mounted (/api/v1 router) |
+| 33 | `POST` | `/api/v1/cms_mgmt/{resource}/sync` | `sync_content` |  | mounted (/api/v1 router) |
+| 34 | `POST` | `/api/v1/cms_mgmt/{resource}/connect` | `connect_content` |  | mounted (/api/v1 router) |
+| 35 | `POST` | `/api/v1/cms_mgmt/{resource}/disconnect` | `disconnect_content` |  | mounted (/api/v1 router) |
+| 36 | `POST` | `/api/v1/cms_mgmt/{resource}/clear` | `clear_content` |  | mounted (/api/v1 router) |
 
 ### Endpoint details
 
-#### 1. `GET` `/api/v1/cms-mgmt/audit-logs`
+#### 1. `POST` `/api/v1/cms_mgmt/meta/get`
 
-- **Handler:** `list_audit_logs` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:375
-- **Defined path:** `/audit-logs`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Handler:** `get_metadata` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:357
+- **Defined path:** `/cms_mgmt/meta/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `dict`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 2. `POST` `/api/v1/cms_mgmt/web_config/get`
+
+- **Handler:** `get_web_config` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:408
+- **Defined path:** `/cms_mgmt/web_config/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `WebConfigListResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `WebConfigGetPayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 3. `POST` `/api/v1/cms_mgmt/web_config/create`
+
+- **Handler:** `create_web_config` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:439
+- **Defined path:** `/cms_mgmt/web_config/create`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `WebConfigWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 4. `POST` `/api/v1/cms_mgmt/web_config/edit`
+
+- **Handler:** `edit_web_config` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:449
+- **Defined path:** `/cms_mgmt/web_config/edit`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `WebConfigWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 5. `GET` `/api/v1/cms_mgmt/web_config/delete`
+
+- **Handler:** `delete_web_config` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:459
+- **Defined path:** `/cms_mgmt/web_config/delete`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 6. `POST` `/api/v1/cms_mgmt/audit_logs/get`
+
+- **Handler:** `get_audit_logs` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:478
+- **Defined path:** `/cms_mgmt/audit_logs/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
 - **Response model:** `AuditLogListResponse`
@@ -5051,53 +5357,17 @@ Step 1: content -> MongoDB. Step 2: coordinates -> MySQL.
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `request` | `Request` | `` | `request` |  |
-| `page` | `int` | `Query(1, ge=1)` | `query` | {'arg': '1', 'ge': '1'} |
-| `page_size` | `int` | `Query(20, ge=1, le=100)` | `query` | {'arg': '20', 'ge': '1', 'le': '100'} |
-| `action` | `str \| None` | `Query(None)` | `query` | {'arg': 'None'} |
-| `user_id` | `int \| None` | `Query(None, ge=1)` | `query` | {'arg': 'None', 'ge': '1'} |
-| `search` | `str \| None` | `Query(None)` | `query` | {'arg': 'None'} |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Recent audit entries, newest first.
-
-The read permission is `admin.audit_logs.list`; there is deliberately no
-mutation action, so this route cannot be used to alter history.
-```
-
-#### 2. `GET` `/api/v1/cms-mgmt/meta`
-
-- **Handler:** `cms_metadata` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:269
-- **Defined path:** `/meta`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['CMS Management']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
+| `body` | `AuditLogGetPayload` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 7. `POST` `/api/v1/cms_mgmt/revisions/get`
 
-```text
-Resource catalogue the frontend uses to build navigation and forms.
-```
-
-#### 3. `GET` `/api/v1/cms-mgmt/revisions/all`
-
-- **Handler:** `list_all_revisions` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:754
-- **Defined path:** `/revisions/all`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Handler:** `get_revisions` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:577
+- **Defined path:** `/cms_mgmt/revisions/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
 - **Response model:** `RevisionListResponse`
@@ -5106,52 +5376,17 @@ Resource catalogue the frontend uses to build navigation and forms.
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
+| `body` | `RevisionGetPayload` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `page` | `int` | `Query(1, ge=1)` | `query` | {'arg': '1', 'ge': '1'} |
-| `page_size` | `int` | `Query(20, ge=1, le=100)` | `query` | {'arg': '20', 'ge': '1', 'le': '100'} |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
-
-```text
-Recent content changes across every resource - the admin activity feed.
-```
-
-#### 4. `GET` `/api/v1/cms-mgmt/revisions/record/{resource}/{record_id}`
-
-- **Handler:** `list_record_revisions` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:845
-- **Defined path:** `/revisions/record/{resource}/{record_id}`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['CMS Management']`
-- **Response model:** `RevisionListResponse`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `resource` | `str` | `` | `path` |  |
-| `record_id` | `int` | `` | `path` |  |
-| `request` | `Request` | `` | `request` |  |
-| `page` | `int` | `Query(1, ge=1)` | `query` | {'arg': '1', 'ge': '1'} |
-| `page_size` | `int` | `Query(20, ge=1, le=100)` | `query` | {'arg': '20', 'ge': '1', 'le': '100'} |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Revision history for one record - the editor's version timeline.
-```
-
-#### 5. `GET` `/api/v1/cms-mgmt/revisions/{revision_id}/diff`
+#### 8. `POST` `/api/v1/cms_mgmt/revisions/diff/get`
 
 - **Handler:** `get_revision_diff` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:784
-- **Defined path:** `/revisions/{revision_id}/diff`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:601
+- **Defined path:** `/cms_mgmt/revisions/diff/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
 - **Response model:** `RevisionDiff`
@@ -5160,48 +5395,111 @@ Revision history for one record - the editor's version timeline.
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `revision_id` | `int` | `` | `path` |  |
+| `body` | `RevisionDiffGetPayload` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `against` | `str` | `Query('previous', pattern='^(previous\|current\|auto)$')` | `query` | {'arg': "'previous'"} |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
-
-```text
-Field-level diff for one revision.
-```
-
-#### 6. `POST` `/api/v1/cms-mgmt/revisions/{revision_id}/restore`
+#### 9. `POST` `/api/v1/cms_mgmt/revisions/restore/edit`
 
 - **Handler:** `restore_revision` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:804
-- **Defined path:** `/revisions/{revision_id}/restore`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:619
+- **Defined path:** `/cms_mgmt/revisions/restore/edit`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `revision_id` | `int` | `` | `path` |  |
+| `body` | `RevisionRestorePayload` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 10. `POST` `/api/v1/cms_mgmt/translations/get`
 
-```text
-Roll a record back to a previous revision.
-```
+- **Handler:** `get_translation` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:652
+- **Defined path:** `/cms_mgmt/translations/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `TranslationGroup`
 
-#### 7. `GET` `/api/v1/cms-mgmt/themes/detail`
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `TranslationGetPayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 11. `POST` `/api/v1/cms_mgmt/translations/create`
+
+- **Handler:** `create_translation` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:740
+- **Defined path:** `/cms_mgmt/translations/create`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `MessageResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `TranslationWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 12. `GET` `/api/v1/cms_mgmt/translations/delete`
+
+- **Handler:** `delete_translation` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:752
+- **Defined path:** `/cms_mgmt/translations/delete`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `MessageResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 13. `POST` `/api/v1/cms_mgmt/themes/get`
+
+- **Handler:** `get_themes` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:780
+- **Defined path:** `/cms_mgmt/themes/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ThemeListResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ThemeGetPayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 14. `POST` `/api/v1/cms_mgmt/themes/detail/get`
 
 - **Handler:** `get_theme` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:970
-- **Defined path:** `/themes/detail`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:793
+- **Defined path:** `/cms_mgmt/themes/detail/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
 - **Response model:** `ThemeRead`
@@ -5210,24 +5508,17 @@ Roll a record back to a previous revision.
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
+| `body` | `ThemeDetailGetPayload` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `id` | `int \| None` | `Query(None, alias='Id')` | `query` | {'arg': 'None', 'alias': "'Id'"} |
-| `code` | `str \| None` | `Query(None)` | `query` | {'arg': 'None'} |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 15. `POST` `/api/v1/cms_mgmt/themes/create`
 
-```text
-One theme, or the active theme when no selector is supplied.
-```
-
-#### 8. `POST` `/api/v1/cms-mgmt/themes/detail`
-
-- **Handler:** `write_theme` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:983
-- **Defined path:** `/themes/detail`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Handler:** `create_theme` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:828
+- **Defined path:** `/cms_mgmt/themes/create`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
 - **Response model:** `ThemeRead`
@@ -5241,145 +5532,68 @@ One theme, or the active theme when no selector is supplied.
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 16. `POST` `/api/v1/cms_mgmt/themes/edit`
 
-```text
-Create, update, publish or delete a theme.
-```
-
-#### 9. `GET` `/api/v1/cms-mgmt/themes/list`
-
-- **Handler:** `list_themes` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:956
-- **Defined path:** `/themes/list`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Handler:** `edit_theme` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:838
+- **Defined path:** `/cms_mgmt/themes/edit`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
-- **Response model:** `ThemeListResponse`
+- **Response model:** `ThemeRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ThemeWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 17. `POST` `/api/v1/cms_mgmt/themes/publish/edit`
+
+- **Handler:** `publish_theme` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:848
+- **Defined path:** `/cms_mgmt/themes/publish/edit`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ThemeRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ThemeWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 18. `GET` `/api/v1/cms_mgmt/themes/delete`
+
+- **Handler:** `delete_theme` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:858
+- **Defined path:** `/cms_mgmt/themes/delete`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ThemeRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
 | `request` | `Request` | `` | `request` |  |
-| `only_active` | `bool` | `Query(False)` | `query` | {'arg': 'False'} |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
-
-```text
-All themes for the active tenant database.
-```
-
-#### 10. `GET` `/api/v1/cms-mgmt/translations/{resource}/{record_id}`
-
-- **Handler:** `read_translation` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:865
-- **Defined path:** `/translations/{resource}/{record_id}`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['CMS Management']`
-- **Response model:** `TranslationGroup`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `resource` | `str` | `` | `path` |  |
-| `record_id` | `int` | `` | `path` |  |
-| `request` | `Request` | `` | `request` |  |
-| `field` | `str` | `Query('name')` | `query` | {'arg': "'name'"} |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Base value plus every stored translation for one field.
-```
-
-#### 11. `POST` `/api/v1/cms-mgmt/translations/{resource}/{record_id}`
-
-- **Handler:** `write_translation` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:882
-- **Defined path:** `/translations/{resource}/{record_id}`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['CMS Management']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `resource` | `str` | `` | `path` |  |
-| `record_id` | `int` | `` | `path` |  |
-| `body` | `TranslationWriteRequest` | `` | `` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Create, update, import or delete translation cells.
-```
-
-#### 12. `GET` `/api/v1/cms-mgmt/web-config`
-
-- **Handler:** `list_web_config` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:326
-- **Defined path:** `/web-config`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['CMS Management']`
-- **Response model:** `WebConfigListResponse`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `request` | `Request` | `` | `request` |  |
-| `group` | `str \| None` | `Query(None)` | `query` | {'arg': 'None'} |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Global web configuration, with secret values withheld.
-```
-
-#### 13. `POST` `/api/v1/cms-mgmt/web-config`
-
-- **Handler:** `write_web_config` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:343
-- **Defined path:** `/web-config`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['CMS Management']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `body` | `WebConfigWriteRequest` | `` | `` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Create, update or delete a web configuration entry.
-```
-
-#### 14. `GET` `/api/v1/cms-mgmt/{resource}`
+#### 19. `POST` `/api/v1/cms_mgmt/{resource}/get`
 
 - **Handler:** `get_content` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:482
-- **Defined path:** `/{resource}`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:921
+- **Defined path:** `/cms_mgmt/{resource}/get`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
 
@@ -5388,29 +5602,116 @@ Create, update or delete a web configuration entry.
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
 | `resource` | `str` | `` | `path` |  |
+| `body` | `ContentGetPayload` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `page` | `int` | `Query(1, ge=1)` | `query` | {'arg': '1', 'ge': '1'} |
-| `page_size` | `int` | `Query(20, ge=1, le=100)` | `query` | {'arg': '20', 'ge': '1', 'le': '100'} |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 20. `POST` `/api/v1/cms_mgmt/{resource}/search`
 
-```text
-Read side of the content API: list, read, validate, export and delete.
-
-``?Action=delete&Id=12`` removes a row, which keeps the whole management API
-on GET/POST as required.
-```
-
-#### 15. `POST` `/api/v1/cms-mgmt/{resource}`
-
-- **Handler:** `post_content` (async)
-- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:665
-- **Defined path:** `/{resource}`
-- **Router:** object=`router` prefix=`/cms-mgmt` resolved_base=`/api/v1/cms-mgmt`
+- **Handler:** `search_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:932
+- **Defined path:** `/cms_mgmt/{resource}/search`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['CMS Management']`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentGetPayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 21. `POST` `/api/v1/cms_mgmt/{resource}/count`
+
+- **Handler:** `count_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:943
+- **Defined path:** `/cms_mgmt/{resource}/count`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentGetPayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 22. `POST` `/api/v1/cms_mgmt/{resource}/export`
+
+- **Handler:** `export_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:954
+- **Defined path:** `/cms_mgmt/{resource}/export`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentGetPayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 23. `GET` `/api/v1/cms_mgmt/{resource}/delete`
+
+- **Handler:** `delete_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:965
+- **Defined path:** `/cms_mgmt/{resource}/delete`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 24. `POST` `/api/v1/cms_mgmt/{resource}/validate`
+
+- **Handler:** `validate_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1045
+- **Defined path:** `/cms_mgmt/{resource}/validate`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ValidationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ValidatePayload` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 25. `POST` `/api/v1/cms_mgmt/{resource}/create`
+
+- **Handler:** `create_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1120
+- **Defined path:** `/cms_mgmt/{resource}/create`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
 
 **Parameters (signature, best-effort):**
 
@@ -5422,12 +5723,225 @@ on GET/POST as required.
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 26. `POST` `/api/v1/cms_mgmt/{resource}/edit`
 
-```text
-Write side of the content API: create, update, delete, publish, reorder,
-duplicate, restore and import.
-```
+- **Handler:** `edit_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1131
+- **Defined path:** `/cms_mgmt/{resource}/edit`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 27. `POST` `/api/v1/cms_mgmt/{resource}/publish`
+
+- **Handler:** `publish_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1142
+- **Defined path:** `/cms_mgmt/{resource}/publish`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 28. `POST` `/api/v1/cms_mgmt/{resource}/unpublish`
+
+- **Handler:** `unpublish_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1153
+- **Defined path:** `/cms_mgmt/{resource}/unpublish`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 29. `POST` `/api/v1/cms_mgmt/{resource}/reorder`
+
+- **Handler:** `reorder_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1164
+- **Defined path:** `/cms_mgmt/{resource}/reorder`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 30. `POST` `/api/v1/cms_mgmt/{resource}/duplicate`
+
+- **Handler:** `duplicate_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1175
+- **Defined path:** `/cms_mgmt/{resource}/duplicate`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 31. `POST` `/api/v1/cms_mgmt/{resource}/restore`
+
+- **Handler:** `restore_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1186
+- **Defined path:** `/cms_mgmt/{resource}/restore`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 32. `POST` `/api/v1/cms_mgmt/{resource}/import`
+
+- **Handler:** `import_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1197
+- **Defined path:** `/cms_mgmt/{resource}/import`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 33. `POST` `/api/v1/cms_mgmt/{resource}/sync`
+
+- **Handler:** `sync_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1208
+- **Defined path:** `/cms_mgmt/{resource}/sync`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 34. `POST` `/api/v1/cms_mgmt/{resource}/connect`
+
+- **Handler:** `connect_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1219
+- **Defined path:** `/cms_mgmt/{resource}/connect`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 35. `POST` `/api/v1/cms_mgmt/{resource}/disconnect`
+
+- **Handler:** `disconnect_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1230
+- **Defined path:** `/cms_mgmt/{resource}/disconnect`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 36. `POST` `/api/v1/cms_mgmt/{resource}/clear`
+
+- **Handler:** `clear_content` (async)
+- **Source:** `app/api/v1/endpoints/cms_mgmt.py`:1241
+- **Defined path:** `/cms_mgmt/{resource}/clear`
+- **Router:** object=`router` prefix=`/cms_mgmt` resolved_base=`/api/v1/cms_mgmt`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['CMS Management']`
+- **Response model:** `ContentMutationResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `resource` | `str` | `` | `path` |  |
+| `body` | `ContentWriteRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
 ---
 
@@ -5663,27 +6177,27 @@ Single POST entry point; ``Action`` (default ``list``) selects the operation.
 
 - **Source files:** `app/api/v1/endpoints/drive_activity.py`
 - **Endpoints:** 5
-- **Mount/status:** mounted nested under /api/v1/google-drive/activity (5)
+- **Mount/status:** mounted nested under /api/v1/google_drive/activity (5)
 
 ### Endpoint index
 
 | # | Methods | Full path | Handler | Summary | Status |
 |---:|---|---|---|---|---|
-| 1 | `POST` | `/api/v1/google-drive/activity/audit/list` | `list_audit_logs` |  | mounted nested under /api/v1/google-drive/activity |
-| 2 | `POST` | `/api/v1/google-drive/activity/history` | `activity_history` |  | mounted nested under /api/v1/google-drive/activity |
-| 3 | `POST` | `/api/v1/google-drive/activity/query` | `query_activity` |  | mounted nested under /api/v1/google-drive/activity |
-| 4 | `POST` | `/api/v1/google-drive/activity/summary` | `activity_summary` |  | mounted nested under /api/v1/google-drive/activity |
-| 5 | `POST` | `/api/v1/google-drive/activity/sync` | `sync_activity` |  | mounted nested under /api/v1/google-drive/activity |
+| 1 | `POST` | `/api/v1/google_drive/activity/audit/list` | `list_audit_logs` |  | mounted nested under /api/v1/google_drive/activity |
+| 2 | `POST` | `/api/v1/google_drive/activity/history` | `activity_history` |  | mounted nested under /api/v1/google_drive/activity |
+| 3 | `POST` | `/api/v1/google_drive/activity/query` | `query_activity` |  | mounted nested under /api/v1/google_drive/activity |
+| 4 | `POST` | `/api/v1/google_drive/activity/summary` | `activity_summary` |  | mounted nested under /api/v1/google_drive/activity |
+| 5 | `POST` | `/api/v1/google_drive/activity/sync` | `sync_activity` |  | mounted nested under /api/v1/google_drive/activity |
 
 ### Endpoint details
 
-#### 1. `POST` `/api/v1/google-drive/activity/audit/list`
+#### 1. `POST` `/api/v1/google_drive/activity/audit/list`
 
 - **Handler:** `list_audit_logs` (async)
 - **Source:** `app/api/v1/endpoints/drive_activity.py`:88
 - **Defined path:** `/audit/list`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/activity`
-- **Mount/status:** mounted nested under /api/v1/google-drive/activity
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/activity`
+- **Mount/status:** mounted nested under /api/v1/google_drive/activity
 - **Tags:** `['Google Drive - Activity & Audit']`
 - **Response model:** `AuditLogListResponse`
 - **Responses:** `error_responses(UnprocessableError)`
@@ -5702,13 +6216,13 @@ Single POST entry point; ``Action`` (default ``list``) selects the operation.
 Stored audit trail, newest first. Filters: Actions, ActorId, ItemId, StartTime/EndTime, Search (title).
 ```
 
-#### 2. `POST` `/api/v1/google-drive/activity/history`
+#### 2. `POST` `/api/v1/google_drive/activity/history`
 
 - **Handler:** `activity_history` (async)
 - **Source:** `app/api/v1/endpoints/drive_activity.py`:62
 - **Defined path:** `/history`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/activity`
-- **Mount/status:** mounted nested under /api/v1/google-drive/activity
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/activity`
+- **Mount/status:** mounted nested under /api/v1/google_drive/activity
 - **Tags:** `['Google Drive - Activity & Audit']`
 - **Response model:** `ActivityQueryResponse`
 - **Responses:** `_READ_ERRORS`
@@ -5727,13 +6241,13 @@ Stored audit trail, newest first. Filters: Actions, ActorId, ItemId, StartTime/E
 Who did what to one file/folder (ItemId required).
 ```
 
-#### 3. `POST` `/api/v1/google-drive/activity/query`
+#### 3. `POST` `/api/v1/google_drive/activity/query`
 
 - **Handler:** `query_activity` (async)
 - **Source:** `app/api/v1/endpoints/drive_activity.py`:52
 - **Defined path:** `/query`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/activity`
-- **Mount/status:** mounted nested under /api/v1/google-drive/activity
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/activity`
+- **Mount/status:** mounted nested under /api/v1/google_drive/activity
 - **Tags:** `['Google Drive - Activity & Audit']`
 - **Response model:** `ActivityQueryResponse`
 - **Responses:** `_READ_ERRORS`
@@ -5752,13 +6266,13 @@ Who did what to one file/folder (ItemId required).
 Live Drive Activity query. Scope by ItemId or AncestorId (folder subtree).
 ```
 
-#### 4. `POST` `/api/v1/google-drive/activity/summary`
+#### 4. `POST` `/api/v1/google_drive/activity/summary`
 
 - **Handler:** `activity_summary` (async)
 - **Source:** `app/api/v1/endpoints/drive_activity.py`:98
 - **Defined path:** `/summary`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/activity`
-- **Mount/status:** mounted nested under /api/v1/google-drive/activity
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/activity`
+- **Mount/status:** mounted nested under /api/v1/google_drive/activity
 - **Tags:** `['Google Drive - Activity & Audit']`
 - **Response model:** `ActivitySummaryResponse`
 - **Responses:** `error_responses(UnprocessableError)`
@@ -5777,13 +6291,13 @@ Live Drive Activity query. Scope by ItemId or AncestorId (folder subtree).
 Daily / Weekly / Monthly report (UTC buckets) with per-action, top actors and top items.
 ```
 
-#### 5. `POST` `/api/v1/google-drive/activity/sync`
+#### 5. `POST` `/api/v1/google_drive/activity/sync`
 
 - **Handler:** `sync_activity` (async)
 - **Source:** `app/api/v1/endpoints/drive_activity.py`:75
 - **Defined path:** `/sync`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/activity`
-- **Mount/status:** mounted nested under /api/v1/google-drive/activity
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/activity`
+- **Mount/status:** mounted nested under /api/v1/google_drive/activity
 - **Tags:** `['Google Drive - Activity & Audit']`
 - **Response model:** `ActivitySyncResponse`
 - **Responses:** `{**_READ_ERRORS, **error_responses(DriveActivityRangeTooLargeError)}`
@@ -5809,29 +6323,29 @@ last stored event. Run it from a scheduler (e.g. every 15 min) and before report
 
 - **Source files:** `app/api/v1/endpoints/drive_labels.py`
 - **Endpoints:** 7
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels (7)
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels (7)
 
 ### Endpoint index
 
 | # | Methods | Full path | Handler | Summary | Status |
 |---:|---|---|---|---|---|
-| 1 | `POST` | `/api/v1/google-drive/labels/assign` | `assign_labels` |  | mounted nested under /api/v1/google-drive/labels |
-| 2 | `POST` | `/api/v1/google-drive/labels/create` | `create_label` |  | mounted nested under /api/v1/google-drive/labels |
-| 3 | `GET` | `/api/v1/google-drive/labels/delete` | `delete_labels` |  | mounted nested under /api/v1/google-drive/labels |
-| 4 | `POST` | `/api/v1/google-drive/labels/file` | `get_file_labels` |  | mounted nested under /api/v1/google-drive/labels |
-| 5 | `POST` | `/api/v1/google-drive/labels/get` | `get_label` |  | mounted nested under /api/v1/google-drive/labels |
-| 6 | `POST` | `/api/v1/google-drive/labels/list` | `list_labels` |  | mounted nested under /api/v1/google-drive/labels |
-| 7 | `POST` | `/api/v1/google-drive/labels/update` | `update_label` |  | mounted nested under /api/v1/google-drive/labels |
+| 1 | `POST` | `/api/v1/google_drive/labels/assign` | `assign_labels` |  | mounted nested under /api/v1/google_drive/labels |
+| 2 | `POST` | `/api/v1/google_drive/labels/create` | `create_label` |  | mounted nested under /api/v1/google_drive/labels |
+| 3 | `GET` | `/api/v1/google_drive/labels/delete` | `delete_labels` |  | mounted nested under /api/v1/google_drive/labels |
+| 4 | `POST` | `/api/v1/google_drive/labels/file` | `get_file_labels` |  | mounted nested under /api/v1/google_drive/labels |
+| 5 | `POST` | `/api/v1/google_drive/labels/get` | `get_label` |  | mounted nested under /api/v1/google_drive/labels |
+| 6 | `POST` | `/api/v1/google_drive/labels/list` | `list_labels` |  | mounted nested under /api/v1/google_drive/labels |
+| 7 | `POST` | `/api/v1/google_drive/labels/update` | `update_label` |  | mounted nested under /api/v1/google_drive/labels |
 
 ### Endpoint details
 
-#### 1. `POST` `/api/v1/google-drive/labels/assign`
+#### 1. `POST` `/api/v1/google_drive/labels/assign`
 
 - **Handler:** `assign_labels` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:111
 - **Defined path:** `/assign`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `FileLabelsResponse`
 - **Responses:** `error_responses(*_COMMON, DriveItemNotFoundError, LabelNotFoundError, LabelFieldNotFoundError, LabelChoiceNotFoundError)`
@@ -5856,13 +6370,13 @@ Apply structured metadata to a file. Fields and options may be given by id or di
 `Remove: true` removes the label; `Clear: true` on a field unsets its value.
 ```
 
-#### 2. `POST` `/api/v1/google-drive/labels/create`
+#### 2. `POST` `/api/v1/google_drive/labels/create`
 
 - **Handler:** `create_label` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:83
 - **Defined path:** `/create`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `LabelDefinition`
 - **Responses:** `error_responses(*_COMMON)`
@@ -5884,13 +6398,13 @@ Confidentiality (Public | Internal | Confidential) and ApprovalStatus
 `Publish: true` (default) makes it assignable immediately.
 ```
 
-#### 3. `GET` `/api/v1/google-drive/labels/delete`
+#### 3. `GET` `/api/v1/google_drive/labels/delete`
 
 - **Handler:** `delete_labels` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:129
 - **Defined path:** `/delete`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `LabelDeleteResponse`
 - **Responses:** `error_responses(*_COMMON)`
@@ -5911,13 +6425,13 @@ Published label -> DISABLED (reversible). Disabled/draft label -> permanently DE
 (erases its metadata on all files). Per-id results; one failure does not stop the rest.
 ```
 
-#### 4. `POST` `/api/v1/google-drive/labels/file`
+#### 4. `POST` `/api/v1/google_drive/labels/file`
 
 - **Handler:** `get_file_labels` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:73
 - **Defined path:** `/file`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `FileLabelsResponse`
 - **Responses:** `error_responses(*_COMMON, DriveItemNotFoundError)`
@@ -5936,13 +6450,13 @@ Published label -> DISABLED (reversible). Disabled/draft label -> permanently DE
 Labels (and their values) currently applied to a file.
 ```
 
-#### 5. `POST` `/api/v1/google-drive/labels/get`
+#### 5. `POST` `/api/v1/google_drive/labels/get`
 
 - **Handler:** `get_label` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:64
 - **Defined path:** `/get`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `LabelDefinition`
 - **Responses:** `error_responses(*_COMMON, LabelNotFoundError)`
@@ -5955,13 +6469,13 @@ Labels (and their values) currently applied to a file.
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `user` | `CurrentUser` | `Depends(require_permission('system.drive_labels.read'))` | `dependency` | {'arg': "require_permission('system.drive_labels.read')"} |
 
-#### 6. `POST` `/api/v1/google-drive/labels/list`
+#### 6. `POST` `/api/v1/google_drive/labels/list`
 
 - **Handler:** `list_labels` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:55
 - **Defined path:** `/list`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `LabelListResponse`
 - **Responses:** `error_responses(*_COMMON)`
@@ -5974,13 +6488,13 @@ Labels (and their values) currently applied to a file.
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `user` | `CurrentUser` | `Depends(require_permission('system.drive_labels.read'))` | `dependency` | {'arg': "require_permission('system.drive_labels.read')"} |
 
-#### 7. `POST` `/api/v1/google-drive/labels/update`
+#### 7. `POST` `/api/v1/google_drive/labels/update`
 
 - **Handler:** `update_label` (async)
 - **Source:** `app/api/v1/endpoints/drive_labels.py`:98
 - **Defined path:** `/update`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google-drive/labels`
-- **Mount/status:** mounted nested under /api/v1/google-drive/labels
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1/google_drive/labels`
+- **Mount/status:** mounted nested under /api/v1/google_drive/labels
 - **Tags:** `['Google Drive - Labels & Metadata']`
 - **Response model:** `LabelDefinition`
 - **Responses:** `error_responses(*_COMMON, LabelNotFoundError)`
@@ -5998,261 +6512,68 @@ Labels (and their values) currently applied to a file.
 ## Forum
 
 - **Source files:** `app/api/v1/endpoints/forum.py`
-- **Endpoints:** 27
-- **Mount/status:** mounted (/api/v1 router) (27)
+- **Endpoints:** 32
+- **Mount/status:** mounted (/api/v1 router) (32)
+- **Contract:** RULES_SYSTEM.md — create/list/get/update/assign use `POST` via PascalCase payload only; delete uses `GET /.../delete?Id=1` or `?Ids=1,2` (JSON `{"Id": [1, 2]}` also accepted). No `{id}` path parameters.
+- **List payload:** `Pages`, `Records`, `Search`, `OrderBy`, `OrderDir`; list responses are arrays with `TotalRecord` added to every row.
+
+### Payload schemas
+
+| Action | Body schema | Identifier field |
+|---|---|---|
+| `create` | `ForumPostCreate`, `ForumCategoryCreate`, `ForumTagCreate`, `ForumSeriesCreate`, `ForumCommentCreate` | — |
+| `list` | `ForumPostListRequest`, `ForumCategoryListRequest`, `ForumTagListRequest`, `ForumSeriesListRequest`, `ForumCommentListRequest` | — |
+| `get` | `ForumGetRequest` | `Id` |
+| `update` | `ForumPostUpdate`, `ForumCategoryUpdate`, `ForumTagUpdate`, `ForumSeriesUpdate`, `ForumCommentUpdate` | `Id` |
+| `assign` | `ForumAssignRequest` | `Id` |
+| `delete` | query `Id`/`Ids` or JSON `Id`/`Ids` | `Id`, `Ids` |
+| `reactions/create` | `ForumReactionCreate` | `PostId` |
+| `bookmarks/create` | `ForumBookmarkCreate` | `PostId` |
 
 ### Endpoint index
 
 | # | Methods | Full path | Handler | Summary | Status |
 |---:|---|---|---|---|---|
-| 1 | `GET` | `/api/v1/categories` | `delete_categories` |  | mounted (/api/v1 router) |
-| 2 | `POST` | `/api/v1/categories` | `create_category` |  | mounted (/api/v1 router) |
-| 3 | `POST` | `/api/v1/categories/list` | `list_categories` |  | mounted (/api/v1 router) |
-| 4 | `GET` | `/api/v1/categories/{cat_id}` | `category_get_or_delete` |  | mounted (/api/v1 router) |
-| 5 | `POST` | `/api/v1/categories/{cat_id}` | `category_item` |  | mounted (/api/v1 router) |
-| 6 | `GET` | `/api/v1/comments` | `delete_comments` |  | mounted (/api/v1 router) |
-| 7 | `POST` | `/api/v1/comments` | `create_or_list_comments` |  | mounted (/api/v1 router) |
-| 8 | `POST` | `/api/v1/comments/list` | `list_comments` |  | mounted (/api/v1 router) |
-| 9 | `GET` | `/api/v1/comments/{comment_id}` | `comment_get_or_delete` |  | mounted (/api/v1 router) |
-| 10 | `POST` | `/api/v1/comments/{comment_id}` | `comment_item` |  | mounted (/api/v1 router) |
-| 11 | `GET` | `/api/v1/posts` | `delete_posts` |  | mounted (/api/v1 router) |
-| 12 | `POST` | `/api/v1/posts` | `create_post` |  | mounted (/api/v1 router) |
-| 13 | `POST` | `/api/v1/posts/list` | `list_posts` |  | mounted (/api/v1 router) |
-| 14 | `GET` | `/api/v1/posts/{post_id}` | `post_get_or_delete` |  | mounted (/api/v1 router) |
-| 15 | `POST` | `/api/v1/posts/{post_id}` | `post_item` |  | mounted (/api/v1 router) |
-| 16 | `POST` | `/api/v1/posts/{post_id}/bookmarks` | `add_bookmark` |  | mounted (/api/v1 router) |
-| 17 | `POST` | `/api/v1/posts/{post_id}/reactions` | `add_reaction` |  | mounted (/api/v1 router) |
-| 18 | `GET` | `/api/v1/series` | `delete_series_batch` |  | mounted (/api/v1 router) |
-| 19 | `POST` | `/api/v1/series` | `create_series` |  | mounted (/api/v1 router) |
-| 20 | `POST` | `/api/v1/series/list` | `list_series` |  | mounted (/api/v1 router) |
-| 21 | `GET` | `/api/v1/series/{series_id}` | `series_get_or_delete` |  | mounted (/api/v1 router) |
-| 22 | `POST` | `/api/v1/series/{series_id}` | `series_item` |  | mounted (/api/v1 router) |
-| 23 | `GET` | `/api/v1/tags` | `delete_tags` |  | mounted (/api/v1 router) |
-| 24 | `POST` | `/api/v1/tags` | `create_tag` |  | mounted (/api/v1 router) |
-| 25 | `POST` | `/api/v1/tags/list` | `list_tags` |  | mounted (/api/v1 router) |
-| 26 | `GET` | `/api/v1/tags/{tag_id}` | `tag_get_or_delete` |  | mounted (/api/v1 router) |
-| 27 | `POST` | `/api/v1/tags/{tag_id}` | `tag_item` |  | mounted (/api/v1 router) |
+| 1 | `POST` | `/api/v1/posts/create` | `create_post` | Create post | mounted (/api/v1 router) |
+| 2 | `POST` | `/api/v1/posts/list` | `list_posts` | Datatable list of posts | mounted (/api/v1 router) |
+| 3 | `POST` | `/api/v1/posts/get` | `get_post` | Get post by Id in payload | mounted (/api/v1 router) |
+| 4 | `POST` | `/api/v1/posts/update` | `update_post` | Update post by Id in payload | mounted (/api/v1 router) |
+| 5 | `POST` | `/api/v1/posts/assign` | `assign_post` | Assign post relations by Id in payload | mounted (/api/v1 router) |
+| 6 | `GET` | `/api/v1/posts/delete` | `delete_posts` | Delete post(s) by Id/Ids payload | mounted (/api/v1 router) |
+| 7 | `POST` | `/api/v1/categories/create` | `create_category` | Create category | mounted (/api/v1 router) |
+| 8 | `POST` | `/api/v1/categories/list` | `list_categories` | Datatable list of categories | mounted (/api/v1 router) |
+| 9 | `POST` | `/api/v1/categories/get` | `get_category` | Get category by Id in payload | mounted (/api/v1 router) |
+| 10 | `POST` | `/api/v1/categories/update` | `update_category` | Update category by Id in payload | mounted (/api/v1 router) |
+| 11 | `POST` | `/api/v1/categories/assign` | `assign_category` | Assign category relations by Id in payload | mounted (/api/v1 router) |
+| 12 | `GET` | `/api/v1/categories/delete` | `delete_categories` | Delete category(ies) by Id/Ids payload | mounted (/api/v1 router) |
+| 13 | `POST` | `/api/v1/tags/create` | `create_tag` | Create tag | mounted (/api/v1 router) |
+| 14 | `POST` | `/api/v1/tags/list` | `list_tags` | Datatable list of tags | mounted (/api/v1 router) |
+| 15 | `POST` | `/api/v1/tags/get` | `get_tag` | Get tag by Id in payload | mounted (/api/v1 router) |
+| 16 | `POST` | `/api/v1/tags/update` | `update_tag` | Update tag by Id in payload | mounted (/api/v1 router) |
+| 17 | `POST` | `/api/v1/tags/assign` | `assign_tag` | Assign tag relations by Id in payload | mounted (/api/v1 router) |
+| 18 | `GET` | `/api/v1/tags/delete` | `delete_tags` | Delete tag(s) by Id/Ids payload | mounted (/api/v1 router) |
+| 19 | `POST` | `/api/v1/series/create` | `create_series` | Create series | mounted (/api/v1 router) |
+| 20 | `POST` | `/api/v1/series/list` | `list_series` | Datatable list of series | mounted (/api/v1 router) |
+| 21 | `POST` | `/api/v1/series/get` | `get_series` | Get series by Id in payload | mounted (/api/v1 router) |
+| 22 | `POST` | `/api/v1/series/update` | `update_series` | Update series by Id in payload | mounted (/api/v1 router) |
+| 23 | `POST` | `/api/v1/series/assign` | `assign_series` | Assign series relations by Id in payload | mounted (/api/v1 router) |
+| 24 | `GET` | `/api/v1/series/delete` | `delete_series_batch` | Delete series by Id/Ids payload | mounted (/api/v1 router) |
+| 25 | `POST` | `/api/v1/comments/create` | `create_comment` | Create comment | mounted (/api/v1 router) |
+| 26 | `POST` | `/api/v1/comments/list` | `list_comments` | Datatable list of comments | mounted (/api/v1 router) |
+| 27 | `POST` | `/api/v1/comments/get` | `get_comment` | Get comment by Id in payload | mounted (/api/v1 router) |
+| 28 | `POST` | `/api/v1/comments/update` | `update_comment` | Update comment by Id in payload | mounted (/api/v1 router) |
+| 29 | `POST` | `/api/v1/comments/assign` | `assign_comment` | Assign comment flags by Id in payload | mounted (/api/v1 router) |
+| 30 | `GET` | `/api/v1/comments/delete` | `delete_comments` | Delete comment(s) by Id/Ids payload | mounted (/api/v1 router) |
+| 31 | `POST` | `/api/v1/posts/reactions/create` | `create_reaction` | Add reaction by PostId in payload | mounted (/api/v1 router) |
+| 32 | `POST` | `/api/v1/posts/bookmarks/create` | `create_bookmark` | Add bookmark by PostId in payload | mounted (/api/v1 router) |
 
 ### Endpoint details
 
-#### 1. `GET` `/api/v1/categories`
-
-- **Handler:** `delete_categories` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:422
-- **Defined path:** `/categories`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 2. `POST` `/api/v1/categories`
-
-- **Handler:** `create_category` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:364
-- **Defined path:** `/categories`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-- **Status code:** `status.HTTP_201_CREATED`
-- **Response model:** `IDResponse`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `body` | `ForumCategoryCreate` | `` | `` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 3. `POST` `/api/v1/categories/list`
-
-- **Handler:** `list_categories` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:378
-- **Defined path:** `/categories/list`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-- **Response model:** `None`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `body` | `ForumCategoryListRequest` | `` | `` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 4. `GET` `/api/v1/categories/{cat_id}`
-
-- **Handler:** `category_get_or_delete` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:451
-- **Defined path:** `/categories/{cat_id}`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `cat_id` | `int` | `` | `path` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 5. `POST` `/api/v1/categories/{cat_id}`
-
-- **Handler:** `category_item` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:391
-- **Defined path:** `/categories/{cat_id}`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `cat_id` | `int` | `` | `path` |  |
-| `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 6. `GET` `/api/v1/comments`
-
-- **Handler:** `delete_comments` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:766
-- **Defined path:** `/comments`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 7. `POST` `/api/v1/comments`
-
-- **Handler:** `create_or_list_comments` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:698
-- **Defined path:** `/comments`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-``Action=list`` lists; anything else creates a comment.
-```
-
-#### 8. `POST` `/api/v1/comments/list`
-
-- **Handler:** `list_comments` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:722
-- **Defined path:** `/comments/list`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-- **Response model:** `None`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `body` | `ForumCommentListRequest` | `` | `` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 9. `GET` `/api/v1/comments/{comment_id}`
-
-- **Handler:** `comment_get_or_delete` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:797
-- **Defined path:** `/comments/{comment_id}`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `comment_id` | `int` | `` | `path` |  |
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 10. `POST` `/api/v1/comments/{comment_id}`
-
-- **Handler:** `comment_item` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:735
-- **Defined path:** `/comments/{comment_id}`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `comment_id` | `int` | `` | `path` |  |
-| `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-#### 11. `GET` `/api/v1/posts`
-
-- **Handler:** `delete_posts` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:307
-- **Defined path:** `/posts`
-- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['Forum']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `request` | `Request` | `` | `request` |  |
-| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
-| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
-
-**Docstring:**
-
-```text
-Batch delete over GET: ``?Action=delete&Ids=1,2`` (or ``Id=1``).
-```
-
-#### 12. `POST` `/api/v1/posts`
+#### 1. `POST` `/api/v1/posts/create`
 
 - **Handler:** `create_post` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:245
-- **Defined path:** `/posts`
+- **Source:** `app/api/v1/endpoints/forum.py`:208
+- **Defined path:** `/posts/create`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
@@ -6268,10 +6589,10 @@ Batch delete over GET: ``?Action=delete&Ids=1,2`` (or ``Id=1``).
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 13. `POST` `/api/v1/posts/list`
+#### 2. `POST` `/api/v1/posts/list`
 
 - **Handler:** `list_posts` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:259
+- **Source:** `app/api/v1/endpoints/forum.py`:222
 - **Defined path:** `/posts/list`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
@@ -6287,54 +6608,87 @@ Batch delete over GET: ``?Action=delete&Ids=1,2`` (or ``Id=1``).
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 14. `GET` `/api/v1/posts/{post_id}`
+#### 3. `POST` `/api/v1/posts/get`
 
-- **Handler:** `post_get_or_delete` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:339
-- **Defined path:** `/posts/{post_id}`
+- **Handler:** `get_post` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:236
+- **Defined path:** `/posts/get`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumPostRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `post_id` | `int` | `` | `path` |  |
+| `body` | `ForumGetRequest` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-**Docstring:**
+#### 4. `POST` `/api/v1/posts/update`
 
-```text
-GET-transported read or delete (``?Action=delete``).
-```
-
-#### 15. `POST` `/api/v1/posts/{post_id}`
-
-- **Handler:** `post_item` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:273
-- **Defined path:** `/posts/{post_id}`
+- **Handler:** `update_post` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:249
+- **Defined path:** `/posts/update`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumPostRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `post_id` | `int` | `` | `path` |  |
+| `body` | `ForumPostUpdate` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 16. `POST` `/api/v1/posts/{post_id}/bookmarks`
+#### 5. `POST` `/api/v1/posts/assign`
 
-- **Handler:** `add_bookmark` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:846
-- **Defined path:** `/posts/{post_id}/bookmarks`
+- **Handler:** `assign_post` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:266
+- **Defined path:** `/posts/assign`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumPostRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumAssignRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 6. `GET` `/api/v1/posts/delete`
+
+- **Handler:** `delete_posts` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:282
+- **Defined path:** `/posts/delete`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `MessageResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `body` | `dict[str, Any] \| None` | `Body(default=None)` | `body` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 7. `POST` `/api/v1/categories/create`
+
+- **Handler:** `create_category` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:305
+- **Defined path:** `/categories/create`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
@@ -6345,16 +6699,111 @@ GET-transported read or delete (``?Action=delete``).
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `post_id` | `int` | `` | `path` |  |
+| `body` | `ForumCategoryCreate` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 17. `POST` `/api/v1/posts/{post_id}/reactions`
+#### 8. `POST` `/api/v1/categories/list`
 
-- **Handler:** `add_reaction` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:821
-- **Defined path:** `/posts/{post_id}/reactions`
+- **Handler:** `list_categories` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:319
+- **Defined path:** `/categories/list`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `None`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumCategoryListRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 9. `POST` `/api/v1/categories/get`
+
+- **Handler:** `get_category` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:332
+- **Defined path:** `/categories/get`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumCategoryRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumGetRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 10. `POST` `/api/v1/categories/update`
+
+- **Handler:** `update_category` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:345
+- **Defined path:** `/categories/update`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumCategoryRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumCategoryUpdate` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 11. `POST` `/api/v1/categories/assign`
+
+- **Handler:** `assign_category` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:361
+- **Defined path:** `/categories/assign`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumCategoryRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumAssignRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 12. `GET` `/api/v1/categories/delete`
+
+- **Handler:** `delete_categories` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:377
+- **Defined path:** `/categories/delete`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `MessageResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `body` | `dict[str, Any] \| None` | `Body(default=None)` | `body` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 13. `POST` `/api/v1/tags/create`
+
+- **Handler:** `create_tag` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:398
+- **Defined path:** `/tags/create`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
@@ -6365,34 +6814,111 @@ GET-transported read or delete (``?Action=delete``).
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `post_id` | `int` | `` | `path` |  |
+| `body` | `ForumTagCreate` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 18. `GET` `/api/v1/series`
+#### 14. `POST` `/api/v1/tags/list`
 
-- **Handler:** `delete_series_batch` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:643
-- **Defined path:** `/series`
+- **Handler:** `list_tags` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:412
+- **Defined path:** `/tags/list`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `None`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumTagListRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 15. `POST` `/api/v1/tags/get`
+
+- **Handler:** `get_tag` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:425
+- **Defined path:** `/tags/get`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumTagRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumGetRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 16. `POST` `/api/v1/tags/update`
+
+- **Handler:** `update_tag` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:438
+- **Defined path:** `/tags/update`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumTagRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumTagUpdate` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 17. `POST` `/api/v1/tags/assign`
+
+- **Handler:** `assign_tag` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:454
+- **Defined path:** `/tags/assign`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumTagRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumAssignRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 18. `GET` `/api/v1/tags/delete`
+
+- **Handler:** `delete_tags` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:470
+- **Defined path:** `/tags/delete`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `MessageResponse`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
 | `request` | `Request` | `` | `request` |  |
+| `body` | `dict[str, Any] \| None` | `Body(default=None)` | `body` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 19. `POST` `/api/v1/series`
+#### 19. `POST` `/api/v1/series/create`
 
 - **Handler:** `create_series` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:584
-- **Defined path:** `/series`
+- **Source:** `app/api/v1/endpoints/forum.py`:491
+- **Defined path:** `/series/create`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
@@ -6411,7 +6937,7 @@ GET-transported read or delete (``?Action=delete``).
 #### 20. `POST` `/api/v1/series/list`
 
 - **Handler:** `list_series` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:598
+- **Source:** `app/api/v1/endpoints/forum.py`:505
 - **Defined path:** `/series/list`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
@@ -6427,65 +6953,87 @@ GET-transported read or delete (``?Action=delete``).
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 21. `GET` `/api/v1/series/{series_id}`
+#### 21. `POST` `/api/v1/series/get`
 
-- **Handler:** `series_get_or_delete` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:674
-- **Defined path:** `/series/{series_id}`
+- **Handler:** `get_series` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:518
+- **Defined path:** `/series/get`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumSeriesRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `series_id` | `int` | `` | `path` |  |
+| `body` | `ForumGetRequest` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 22. `POST` `/api/v1/series/{series_id}`
+#### 22. `POST` `/api/v1/series/update`
 
-- **Handler:** `series_item` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:611
-- **Defined path:** `/series/{series_id}`
+- **Handler:** `update_series` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:531
+- **Defined path:** `/series/update`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumSeriesRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `series_id` | `int` | `` | `path` |  |
+| `body` | `ForumSeriesUpdate` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 23. `GET` `/api/v1/tags`
+#### 23. `POST` `/api/v1/series/assign`
 
-- **Handler:** `delete_tags` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:532
-- **Defined path:** `/tags`
+- **Handler:** `assign_series` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:548
+- **Defined path:** `/series/assign`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumSeriesRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumAssignRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 24. `GET` `/api/v1/series/delete`
+
+- **Handler:** `delete_series_batch` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:564
+- **Defined path:** `/series/delete`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `MessageResponse`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
 | `request` | `Request` | `` | `request` |  |
+| `body` | `dict[str, Any] \| None` | `Body(default=None)` | `body` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 24. `POST` `/api/v1/tags`
+#### 25. `POST` `/api/v1/comments/create`
 
-- **Handler:** `create_tag` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:474
-- **Defined path:** `/tags`
+- **Handler:** `create_comment` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:587
+- **Defined path:** `/comments/create`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
@@ -6496,16 +7044,16 @@ GET-transported read or delete (``?Action=delete``).
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `body` | `ForumTagCreate` | `` | `` |  |
+| `body` | `ForumCommentCreate` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 25. `POST` `/api/v1/tags/list`
+#### 26. `POST` `/api/v1/comments/list`
 
-- **Handler:** `list_tags` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:488
-- **Defined path:** `/tags/list`
+- **Handler:** `list_comments` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:602
+- **Defined path:** `/comments/list`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
@@ -6515,45 +7063,124 @@ GET-transported read or delete (``?Action=delete``).
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `body` | `ForumTagListRequest` | `` | `` |  |
+| `body` | `ForumCommentListRequest` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 26. `GET` `/api/v1/tags/{tag_id}`
+#### 27. `POST` `/api/v1/comments/get`
 
-- **Handler:** `tag_get_or_delete` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:561
-- **Defined path:** `/tags/{tag_id}`
+- **Handler:** `get_comment` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:615
+- **Defined path:** `/comments/get`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumCommentRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `tag_id` | `int` | `` | `path` |  |
+| `body` | `ForumGetRequest` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
-#### 27. `POST` `/api/v1/tags/{tag_id}`
+#### 28. `POST` `/api/v1/comments/update`
 
-- **Handler:** `tag_item` (async)
-- **Source:** `app/api/v1/endpoints/forum.py`:501
-- **Defined path:** `/tags/{tag_id}`
+- **Handler:** `update_comment` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:628
+- **Defined path:** `/comments/update`
 - **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
 - **Mount/status:** mounted (/api/v1 router)
 - **Tags:** `['Forum']`
+- **Response model:** `ForumCommentRead`
 
 **Parameters (signature, best-effort):**
 
 | Name | Annotation | Default | Source/marker | Meta |
 |---|---|---|---|---|
-| `tag_id` | `int` | `` | `path` |  |
+| `body` | `ForumCommentUpdate` | `` | `` |  |
 | `request` | `Request` | `` | `request` |  |
-| `body` | `dict[str, Any]` | `Body(default_factory=dict)` | `body` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 29. `POST` `/api/v1/comments/assign`
+
+- **Handler:** `assign_comment` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:645
+- **Defined path:** `/comments/assign`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `ForumCommentRead`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumAssignRequest` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 30. `GET` `/api/v1/comments/delete`
+
+- **Handler:** `delete_comments` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:661
+- **Defined path:** `/comments/delete`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Response model:** `MessageResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `request` | `Request` | `` | `request` |  |
+| `body` | `dict[str, Any] \| None` | `Body(default=None)` | `body` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 31. `POST` `/api/v1/posts/reactions/create`
+
+- **Handler:** `create_reaction` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:686
+- **Defined path:** `/posts/reactions/create`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Status code:** `status.HTTP_201_CREATED`
+- **Response model:** `IDResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumReactionCreate` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
+| `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
+| `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
+
+#### 32. `POST` `/api/v1/posts/bookmarks/create`
+
+- **Handler:** `create_bookmark` (async)
+- **Source:** `app/api/v1/endpoints/forum.py`:713
+- **Defined path:** `/posts/bookmarks/create`
+- **Router:** object=`router` prefix=`` resolved_base=`/api/v1`
+- **Mount/status:** mounted (/api/v1 router)
+- **Tags:** `['Forum']`
+- **Status code:** `status.HTTP_201_CREATED`
+- **Response model:** `IDResponse`
+
+**Parameters (signature, best-effort):**
+
+| Name | Annotation | Default | Source/marker | Meta |
+|---|---|---|---|---|
+| `body` | `ForumBookmarkCreate` | `` | `` |  |
+| `request` | `Request` | `` | `request` |  |
 | `session` | `AsyncSession` | `Depends(get_db)` | `dependency` | {'arg': 'get_db'} |
 | `current_user` | `CurrentUser` | `Depends(get_current_user)` | `dependency` | {'arg': 'get_current_user'} |
 
@@ -10728,31 +11355,31 @@ Create a new local account.
 
 | # | Methods | Full path | Handler | Summary | Status |
 |---:|---|---|---|---|---|
-| 1 | `GET` | `/api/v1/google-drive/activity/history` | `drive_activity_history` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 2 | `GET` | `/api/v1/google-drive/activity/query` | `drive_activity_query` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 3 | `GET` | `/api/v1/google-drive/activity/summary` | `drive_activity_summary` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 4 | `GET` | `/api/v1/google-drive/callback` | `drive_callback` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 5 | `POST` | `/api/v1/google-drive/connect` | `connect_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 6 | `POST` | `/api/v1/google-drive/connect_cls` | `connect_drive_cls` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 7 | `POST` | `/api/v1/google-drive/disconnect` | `disconnect_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 8 | `GET` | `/api/v1/google-drive/files` | `list_stored_drive_files` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 9 | `POST` | `/api/v1/google-drive/labels/apply` | `drive_label_apply` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 10 | `POST` | `/api/v1/google-drive/labels/create` | `drive_label_create` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 11 | `GET` | `/api/v1/google-drive/labels/list` | `drive_labels_list` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 12 | `POST` | `/api/v1/google-drive/labels/remove` | `drive_label_remove` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 13 | `GET` | `/api/v1/google-drive/list` | `list_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 14 | `GET` | `/api/v1/google-drive/status` | `drive_status` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 15 | `POST` | `/api/v1/google-drive/summary` | `drive_summary` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
-| 16 | `POST` | `/api/v1/google-drive/upload` | `upload_to_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 1 | `GET` | `/api/v1/google_drive/activity/history` | `drive_activity_history` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 2 | `GET` | `/api/v1/google_drive/activity/query` | `drive_activity_query` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 3 | `GET` | `/api/v1/google_drive/activity/summary` | `drive_activity_summary` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 4 | `GET` | `/api/v1/google_drive/callback` | `drive_callback` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 5 | `POST` | `/api/v1/google_drive/connect` | `connect_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 6 | `POST` | `/api/v1/google_drive/connect_cls` | `connect_drive_cls` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 7 | `POST` | `/api/v1/google_drive/disconnect` | `disconnect_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 8 | `GET` | `/api/v1/google_drive/files` | `list_stored_drive_files` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 9 | `POST` | `/api/v1/google_drive/labels/apply` | `drive_label_apply` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 10 | `POST` | `/api/v1/google_drive/labels/create` | `drive_label_create` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 11 | `GET` | `/api/v1/google_drive/labels/list` | `drive_labels_list` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 12 | `POST` | `/api/v1/google_drive/labels/remove` | `drive_label_remove` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 13 | `GET` | `/api/v1/google_drive/list` | `list_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 14 | `GET` | `/api/v1/google_drive/status` | `drive_status` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 15 | `POST` | `/api/v1/google_drive/summary` | `drive_summary` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
+| 16 | `POST` | `/api/v1/google_drive/upload` | `upload_to_drive` |  | DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py) |
 
 ### Endpoint details
 
-#### 1. `GET` `/api/v1/google-drive/activity/history`
+#### 1. `GET` `/api/v1/google_drive/activity/history`
 
 - **Handler:** `drive_activity_history` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1196
 - **Defined path:** `/activity/history`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -10778,12 +11405,12 @@ Get Drive activity history for a user, optionally filtered by target file/Folder
 - **days**: Lookback window in days (1-365)
 ```
 
-#### 2. `GET` `/api/v1/google-drive/activity/query`
+#### 2. `GET` `/api/v1/google_drive/activity/query`
 
 - **Handler:** `drive_activity_query` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1234
 - **Defined path:** `/activity/query`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -10809,12 +11436,12 @@ Query Drive Activity API with advanced filters.
 - **pageToken**: Pagination token from previous response
 ```
 
-#### 3. `GET` `/api/v1/google-drive/activity/summary`
+#### 3. `GET` `/api/v1/google_drive/activity/summary`
 
 - **Handler:** `drive_activity_summary` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1218
 - **Defined path:** `/activity/summary`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -10836,12 +11463,12 @@ Build daily/weekly/monthly activity summary from Drive Activity API.
 - **days**: Lookback window in days (1-365)
 ```
 
-#### 4. `GET` `/api/v1/google-drive/callback`
+#### 4. `GET` `/api/v1/google_drive/callback`
 
 - **Handler:** `drive_callback` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:646
 - **Defined path:** `/callback`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 
@@ -10865,12 +11492,12 @@ single-use ``state`` row written by :func:`connect_drive`, which carries the
 user id the authorisation was started for.
 ```
 
-#### 5. `POST` `/api/v1/google-drive/connect`
+#### 5. `POST` `/api/v1/google_drive/connect`
 
 - **Handler:** `connect_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:418
 - **Defined path:** `/connect`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 
@@ -10897,12 +11524,12 @@ the browser posts the one-shot code it received in a popup, and the code is
 exchanged right here.
 ```
 
-#### 6. `POST` `/api/v1/google-drive/connect_cls`
+#### 6. `POST` `/api/v1/google_drive/connect_cls`
 
 - **Handler:** `connect_drive_cls` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:597
 - **Defined path:** `/connect_cls`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveConnectionStatus`
@@ -10935,12 +11562,12 @@ reaches the browser) and the tokens are written to ``OAUTH_ACCOUNTS`` for
 the signed-in user, or for the system superuser when no session is present.
 ```
 
-#### 7. `POST` `/api/v1/google-drive/disconnect`
+#### 7. `POST` `/api/v1/google_drive/disconnect`
 
 - **Handler:** `disconnect_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:834
 - **Defined path:** `/disconnect`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 
@@ -10957,12 +11584,12 @@ the signed-in user, or for the system superuser when no session is present.
 Remove the stored Google tokens.
 ```
 
-#### 8. `GET` `/api/v1/google-drive/files`
+#### 8. `GET` `/api/v1/google_drive/files`
 
 - **Handler:** `list_stored_drive_files` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:800
 - **Defined path:** `/files`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveStoredFileListResponse`
@@ -10988,12 +11615,12 @@ The live Drive listing (``GET /list``) is unchanged; this answers from the
 database so the record survives even when Drive is unreachable.
 ```
 
-#### 9. `POST` `/api/v1/google-drive/labels/apply`
+#### 9. `POST` `/api/v1/google_drive/labels/apply`
 
 - **Handler:** `drive_label_apply` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1304
 - **Defined path:** `/labels/apply`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -11016,12 +11643,12 @@ Apply a label to a Drive file for classification and metadata.
 - **labelId**: Label ID to apply
 ```
 
-#### 10. `POST` `/api/v1/google-drive/labels/create`
+#### 10. `POST` `/api/v1/google_drive/labels/create`
 
 - **Handler:** `drive_label_create` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1256
 - **Defined path:** `/labels/create`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -11046,12 +11673,12 @@ Create a new Drive label for document classification and metadata.
 - **properties**: Optional structured metadata properties
 ```
 
-#### 11. `GET` `/api/v1/google-drive/labels/list`
+#### 11. `GET` `/api/v1/google_drive/labels/list`
 
 - **Handler:** `drive_labels_list` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1288
 - **Defined path:** `/labels/list`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -11073,12 +11700,12 @@ Returns cached/live labels that can be used to categorize files by
 department, document type, confidentiality levels, or approval statuses.
 ```
 
-#### 12. `POST` `/api/v1/google-drive/labels/remove`
+#### 12. `POST` `/api/v1/google_drive/labels/remove`
 
 - **Handler:** `drive_label_remove` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:1328
 - **Defined path:** `/labels/remove`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `dict[str, Any]`
@@ -11101,12 +11728,12 @@ Remove a label from a Drive file.
 - **labelId**: Label ID to remove
 ```
 
-#### 13. `GET` `/api/v1/google-drive/list`
+#### 13. `GET` `/api/v1/google_drive/list`
 
 - **Handler:** `list_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:724
 - **Defined path:** `/list`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveListResponse`
@@ -11128,12 +11755,12 @@ Remove a label from a Drive file.
 List folders and files inside a Drive folder.
 ```
 
-#### 14. `GET` `/api/v1/google-drive/status`
+#### 14. `GET` `/api/v1/google_drive/status`
 
 - **Handler:** `drive_status` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:256
 - **Defined path:** `/status`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveConnectionStatus`
@@ -11152,12 +11779,12 @@ List folders and files inside a Drive folder.
 Whether the signed-in user has a usable Drive connection.
 ```
 
-#### 15. `POST` `/api/v1/google-drive/summary`
+#### 15. `POST` `/api/v1/google_drive/summary`
 
 - **Handler:** `drive_summary` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:848
 - **Defined path:** `/summary`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveSummaryResponse`
@@ -11182,12 +11809,12 @@ Controlled by payload (POST = Action in body per GET/POST-only contract):
 - IncludeTypes/Largest/Recent: toggle sections to save time
 ```
 
-#### 16. `POST` `/api/v1/google-drive/upload`
+#### 16. `POST` `/api/v1/google_drive/upload`
 
 - **Handler:** `upload_to_drive` (async)
 - **Source:** `app/api/v1/endpoints/cms_oauth_v1.py`:748
 - **Defined path:** `/upload`
-- **Router:** object=`router` prefix=`/google-drive` resolved_base=`/api/v1/google-drive`
+- **Router:** object=`router` prefix=`/google_drive` resolved_base=`/api/v1/google_drive`
 - **Mount/status:** DEFINED, NOT MOUNTED (legacy; active: cms_oauth.py)
 - **Tags:** `['--------------------------- Google Drive - Cloud Manager ------------------------------']`
 - **Response model:** `DriveFileUploadResult`
@@ -11444,6 +12071,18 @@ Upload an asset into Drive for use as a CMS media item.
 
 ## Update Notes (delta vs previous API_URL_DOC)
 
+### Post-scan implementation additions (asset categories)
+
+- Implemented the five endpoints requested in `API_URL_DOC_NEW_REQUIRED.md`; they were **not** part of the original static scan:
+  - `POST /api/v1/file_explorer/categories/list`
+  - `POST /api/v1/file_explorer/categories/create`
+  - `POST /api/v1/file_explorer/categories/update`
+  - `GET /api/v1/file_explorer/categories/delete`
+  - `POST /api/v1/file_explorer/categories/reorder`
+- Backed by the new `EXPLORER_CATEGORIES` table (`app/models/explorer.py`), created and seeded by `explorer_store.ensure_tables`.
+- All five reuse the existing `file_explorer` router/prefix and `system.file_explorer.<action>` permission guards; no new router registration was needed.
+- Summary counts and the File Explorer section above were updated to include these routes.
+
 ### Coverage additions / newly documented modules
 
 - **System & Health**: 4 route definition(s) documented from source scan.
@@ -11458,7 +12097,7 @@ Upload an asset into Drive for use as a CMS media item.
 - **Databases Controller**: 3 route definition(s) documented from source scan.
 - **Google Drive Activity & Audit (nested)**: 5 route definition(s) documented from source scan.
 - **Google Drive Labels & Metadata (nested)**: 7 route definition(s) documented from source scan.
-- **Forum**: 27 route definition(s) documented from source scan.
+- **Forum**: 32 route definition(s) documented from source scan.
 - **Google Auth One Tap**: 1 route definition(s) documented from source scan.
 - **Media / File Explore Management**: 11 route definition(s) documented from source scan.
 - **Memberships**: 3 route definition(s) documented from source scan.
@@ -11490,12 +12129,13 @@ Upload an asset into Drive for use as a CMS media item.
 - `POST /login`, `/register`, `/auth/*` in old doc -> actual mounted paths are under `/api/v1/auth/*` (e.g. `/api/v1/auth/login`, `/api/v1/auth/register`) per current scan.
 - File Explorer in old doc showed `GET/POST /api/v1/file_explorer/folders`, `GET /files`, etc.; current implementation exposes action-style endpoints like `/api/v1/file_explorer/folders/list|read|create|update|assign|delete`, `/files/list|upload|read|update|assign|restore|download|delete`, `/providers/list|summary`, `/objects/list`, `/storage/read`, `/google/*` (see File Explorer section).
 - RBAC old doc showed `GET /api/v1/rbac/roles` and `POST /api/v1/rbac/roles`; current scan shows `POST /api/v1/rbac/roles/list`, `/roles/assign`, `/roles/permissions`, `GET /permissions/list|matrix|users`, `POST /rbac/sync`, etc.
-- Google Drive nested subroutes now include `/api/v1/google-drive/activity/*` and `/api/v1/google-drive/labels/*` (mounted via `cms_oauth.py`). CMD drive endpoints also exist at `/api/v1/cmd/activity/*` and `/api/v1/cmd/labels/*`.
+- Google Drive nested subroutes now include `/api/v1/google_drive/activity/*` and `/api/v1/google_drive/labels/*` (mounted via `cms_oauth.py`). CMD drive endpoints also exist at `/api/v1/cmd/activity/*` and `/api/v1/cmd/labels/*`.
 - Media module now includes dashboard and datatable/action endpoints: `/api/v1/media/dashboard`, `/files/list`, `/files/delete`, `/folders/star`, plus legacy/action handlers.
+- Forum now follows RULES_SYSTEM.md payload-only action routes: `POST /api/v1/posts|categories|tags|series|comments/create|list|get|update|assign`, `GET /api/v1/posts|categories|tags|series|comments/delete?Id|Ids=...`, plus `POST /api/v1/posts/reactions/create` and `/posts/bookmarks/create`. Path-parameter routes such as `/api/v1/tags/{tag_id}` were removed from the forum router.
 
 ### Newly discovered paths (not present in previous API_URL_DOC path set, best-effort compare)
 
-- **Count:** 301 resolved paths newly present vs previous doc set (includes corrected mounts, nested routes, legacy-defined files, and test routes).
+- **Count:** 306 resolved paths newly present vs previous doc set (includes corrected mounts, nested routes, legacy-defined files, test routes, and the implemented asset-category endpoints).
 
 <details><summary><code>/</code> (1)</summary>
 
@@ -11678,8 +12318,13 @@ Upload an asset into Drive for use as a CMS media item.
 
 </details>
 
-<details><summary><code>/api/v1/file_explorer</code> (16)</summary>
+<details><summary><code>/api/v1/file_explorer</code> (21)</summary>
 
+- `/api/v1/file_explorer/categories/create`
+- `/api/v1/file_explorer/categories/delete`
+- `/api/v1/file_explorer/categories/list`
+- `/api/v1/file_explorer/categories/reorder`
+- `/api/v1/file_explorer/categories/update`
 - `/api/v1/file_explorer/files/assign`
 - `/api/v1/file_explorer/files/delete`
 - `/api/v1/file_explorer/files/download`
@@ -11710,22 +12355,22 @@ Upload an asset into Drive for use as a CMS media item.
 
 </details>
 
-<details><summary><code>/api/v1/google-drive</code> (14)</summary>
+<details><summary><code>/api/v1/google_drive</code> (14)</summary>
 
-- `/api/v1/google-drive/activity/audit/list`
-- `/api/v1/google-drive/activity/history`
-- `/api/v1/google-drive/activity/query`
-- `/api/v1/google-drive/activity/summary`
-- `/api/v1/google-drive/activity/sync`
-- `/api/v1/google-drive/labels/apply`
-- `/api/v1/google-drive/labels/assign`
-- `/api/v1/google-drive/labels/create`
-- `/api/v1/google-drive/labels/delete`
-- `/api/v1/google-drive/labels/file`
-- `/api/v1/google-drive/labels/get`
-- `/api/v1/google-drive/labels/list`
-- `/api/v1/google-drive/labels/remove`
-- `/api/v1/google-drive/labels/update`
+- `/api/v1/google_drive/activity/audit/list`
+- `/api/v1/google_drive/activity/history`
+- `/api/v1/google_drive/activity/query`
+- `/api/v1/google_drive/activity/summary`
+- `/api/v1/google_drive/activity/sync`
+- `/api/v1/google_drive/labels/apply`
+- `/api/v1/google_drive/labels/assign`
+- `/api/v1/google_drive/labels/create`
+- `/api/v1/google_drive/labels/delete`
+- `/api/v1/google_drive/labels/file`
+- `/api/v1/google_drive/labels/get`
+- `/api/v1/google_drive/labels/list`
+- `/api/v1/google_drive/labels/remove`
+- `/api/v1/google_drive/labels/update`
 
 </details>
 

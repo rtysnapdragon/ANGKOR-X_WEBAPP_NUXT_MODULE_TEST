@@ -148,17 +148,35 @@ const SIZE_RE = /^\d{1,3}(\.\d{1,2})?(px|pt|em|rem)$/
 const SPACING_RE = /^-?(\d{1,2}|\d{0,2}\.\d{1,3})(em|px)$/
 const LINE_HEIGHT_RE = /^\d(\.\d{1,2})?$/
 const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|hsla?\([\d\s.,%/deg]+\))$/i
+function colorInputValue(value, fallback) {
+  const color = String(value ?? '')
+  return /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(color) ? color.slice(0, 7) : fallback
+}
 
 // Literal values taken from _color.scss (documents store literals, never CSS variables).
 const TEXT_COLORS = [
-  { name: 'Gray', value: '#858585' }, { name: 'Red', value: '#d11717' }, { name: 'Orange', value: '#ff8c42' },
-  { name: 'Amber', value: '#e8a83e' }, { name: 'Green', value: '#28a745' }, { name: 'Cyan', value: '#06b6d4' },
-  { name: 'Blue', value: '#0ea5e9' }, { name: 'Purple', value: '#692ace' }, { name: 'Pink', value: '#ec4899' },
+  { name: 'Black', value: '#111827' }, { name: 'Slate', value: '#475569' }, { name: 'Gray', value: '#6b7280' },
+  { name: 'Silver', value: '#9ca3af' }, { name: 'Brown', value: '#92400e' }, { name: 'Red', value: '#dc2626' },
+  { name: 'Rose', value: '#e11d48' }, { name: 'Pink', value: '#db2777' }, { name: 'Fuchsia', value: '#c026d3' },
+  { name: 'Purple', value: '#7c3aed' }, { name: 'Indigo', value: '#4f46e5' }, { name: 'Blue', value: '#2563eb' },
+  { name: 'Sky', value: '#0284c7' }, { name: 'Cyan', value: '#0891b2' }, { name: 'Teal', value: '#0d9488' },
+  { name: 'Green', value: '#16a34a' }, { name: 'Lime', value: '#65a30d' }, { name: 'Yellow', value: '#a16207' },
+  { name: 'Amber', value: '#d97706' }, { name: 'Orange', value: '#ea580c' }, { name: 'Coral', value: '#f43f5e' },
+  { name: 'Magenta', value: '#a21caf' }, { name: 'Violet', value: '#6d28d9' }, { name: 'Navy', value: '#1e3a8a' },
+  { name: 'Olive', value: '#4d7c0f' }, { name: 'Forest', value: '#15803d' }, { name: 'Aqua', value: '#0e7490' },
+  { name: 'Maroon', value: '#991b1b' }, { name: 'Khaki', value: '#78716c' }, { name: 'White', value: '#ffffff' },
 ]
 const HIGHLIGHTS = [
-  { name: 'Gray', value: '#9ca3af66' }, { name: 'Red', value: '#f8717166' }, { name: 'Orange', value: '#ff8c4266' },
-  { name: 'Yellow', value: '#ffb34777' }, { name: 'Green', value: '#4ade8066' }, { name: 'Cyan', value: '#06b6d466' },
-  { name: 'Blue', value: '#60a5fa66' }, { name: 'Purple', value: '#a855f766' }, { name: 'Pink', value: '#ec489966' },
+  { name: 'Gray', value: '#9ca3af66' }, { name: 'Slate', value: '#64748b66' }, { name: 'Brown', value: '#b4530966' },
+  { name: 'Red', value: '#ef444466' }, { name: 'Rose', value: '#f43f5e66' }, { name: 'Pink', value: '#ec489966' },
+  { name: 'Fuchsia', value: '#d946ef66' }, { name: 'Purple', value: '#a855f766' }, { name: 'Indigo', value: '#6366f166' },
+  { name: 'Blue', value: '#60a5fa66' }, { name: 'Sky', value: '#38bdf866' }, { name: 'Cyan', value: '#06b6d466' },
+  { name: 'Teal', value: '#14b8a666' }, { name: 'Green', value: '#4ade8066' }, { name: 'Lime', value: '#a3e63566' },
+  { name: 'Yellow', value: '#fde04777' }, { name: 'Amber', value: '#fbbf2477' }, { name: 'Orange', value: '#fb923c66' },
+  { name: 'Coral', value: '#fb718566' }, { name: 'Magenta', value: '#c026d366' }, { name: 'Violet', value: '#8b5cf666' },
+  { name: 'Navy', value: '#3b82f666' }, { name: 'Olive', value: '#84cc1666' }, { name: 'Forest', value: '#22c55e66' },
+  { name: 'Aqua', value: '#22d3ee66' }, { name: 'Maroon', value: '#f8717166' }, { name: 'Khaki', value: '#d6d3d166' },
+  { name: 'Sand', value: '#fcd34d66' }, { name: 'Mint', value: '#6ee7b766' }, { name: 'Lavender', value: '#c4b5fd66' },
 ]
 
 const uid = () => (globalThis.crypto?.randomUUID?.() ?? `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`)
@@ -473,6 +491,7 @@ const findQuery = ref('')
 const replaceQuery = ref('')
 const findMessage = ref('')
 const specialOpen = ref(false)
+const stickersOpen = ref(false)
 const a11yResult = ref(null)
 const tableDockEl = ref(null)
 const tableDock = reactive({ visible: false, top: 0, left: 0, place: 'above' })
@@ -1477,7 +1496,7 @@ function buildSlashItems() {
   if (on('tables')) add('table', X, XK, 'Table', 'rve_table', 'Add a 3 × 3 table with a header row.', 'rve_table_hint', 'i-lucide-table', ['grid', 'spreadsheet'], (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())
   if (on('codeBlock')) add('code', X, XK, 'Code', 'rve_code', 'Capture a code snippet.', 'rve_code_hint', 'i-lucide-square-code', ['pre', 'snippet', 'code'], (e) => e.chain().focus().toggleCodeBlock().run())
   if (on('pageBreak')) add('page-break', X, XK, 'Page break', 'rve_page_break', 'Start a new printed page.', 'rve_page_break_hint', 'i-lucide-scissors', ['page', 'break', 'print'], (e) => e.chain().focus().insertPageBreak().run())
-  if (on('emoji')) add('emoji', X, XK, 'Emoji', 'rve_emoji', 'Insert an emoji.', 'rve_emoji_hint', 'i-lucide-smile', ['emoji', 'smile'], (e) => e.chain().focus().insertContent('😊').run())
+  if (on('emoji')) add('emoji', X, XK, 'Stickers & emoji', 'rve_emoji', 'Open the sticker picker.', 'rve_emoji_hint', 'i-lucide-smile', ['emoji', 'sticker', 'stickers', 'smile'], () => toggleStickers())
   if (on('specialCharacters')) add('special-characters', X, XK, 'Special character', 'rve_special_character', 'Insert a symbol or special character.', 'rve_special_character_hint', 'i-lucide-type', ['symbol', 'character'], (e) => e.chain().focus().insertContent('©').run())
   add('date', X, XK, 'Date', 'rve_date', 'Insert today’s date.', 'rve_date_hint', 'i-lucide-calendar', ['today', 'time'], (e) => e.chain().focus().insertContent(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })).run())
   return list.map((it) => {
@@ -3574,7 +3593,7 @@ function onRootKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openLink() }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's' && hasApiSave.value) { e.preventDefault(); void saveToApi() }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f' && vis('findReplace')) { e.preventDefault(); toggleFind() }
-  if (e.key === 'Escape') { blockMenu.open = false; menuOpen.value = null; sourceOpen.value = false; findOpen.value = false; specialOpen.value = false }
+  if (e.key === 'Escape') { blockMenu.open = false; menuOpen.value = null; sourceOpen.value = false; findOpen.value = false; specialOpen.value = false; stickersOpen.value = false }
 }
 
 const TABLE_DOCK_TOOLS = [
@@ -3641,9 +3660,66 @@ function updateTableDock() {
 }
 watch(() => tick.value, () => { updateTableDock() })
 
+const STICKER_GROUPS = [
+  {
+    id: 'smileys', name: 'Smileys', items: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊'],
+  },
+  {
+    id: 'people', name: 'People', items: ['👋', '🤚', '🖐', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁', '👅', '👄', '💋', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '👩', '🧓', '👴', '👵', '👮', '👲', '👳', '👷', '💂', '🕵️', '👨‍💻', '👩‍💻', '👨‍🏫', '👩‍🏫', '👨‍🍳', '👩‍🍳', '👨‍🎤', '👩‍🎤', '👨‍🚀', '👩‍🚀', '🧑‍✈️', '👩‍⚕️', '👨‍⚕️', '👩‍🎓', '👨‍🎓'],
+  },
+  {
+    id: 'animals', name: 'Animals', items: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🐌', '🦋', '🐞', '🐜', '🪲', '🐢', '🐍', '🦎', '🐙', '🦑', '🦐', '🦀', '🐠', '🐟', '🐬', '🐳', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🕊', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿', '🦔'],
+  },
+  {
+    id: 'food', name: 'Food', items: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '☕', '🍵', '🧃', '🥤', '🍺', '🍻', '🥂', '🍷', '🍸', '🍹', '🧉'],
+  },
+  {
+    id: 'activities', name: 'Activities', items: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸', '🥌', '🎿', '⛷', '🏂', '🏋️‍♀️', '🏋️‍♂️', '🤼', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🎯', '🎮', '🕹', '🎲', '🧩', '🎨', '🎭', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗'],
+  },
+  {
+    id: 'travel', name: 'Travel', items: ['🚗', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🛵', '🏍', '🛺', '🚲', '🛴', '🚀', '🛸', '✈️', '🛩', '🛫', '🛬', '🪂', '🚁', '🚂', '🚆', '🚇', '🚊', '🚝', '🚞', '🚋', '⛵', '🛥', '🚤', '🛳', '⛴', '⛽', '🗺', '🧭', '🗼', '🗽', '🏰', '🏯', '🏟', '🎡', '🎢', '🎠', '⛲', '⛱', '🏖', '🏝', '🏜', '🌋', '🏔', '⛰', '🗻', '🏕', '🏠', '🏡', '🏢', '🏬', '🏭', '🏥', '🏦', '🏨', '🏫', '🏛', '🏗', '🧱', '🪜', '🛠', '⚙️', '🔧', '🔨', '🧰', '🧲', '🧪', '🧬', '🔬', '🔭', '🛰', '🌍', '🌎', '🌏', '🌐'],
+  },
+  {
+    id: 'objects', name: 'Objects', items: ['💻', '🖥', '🖨', '⌨️', '🖱', '🖲', '💽', '💾', '💿', '📀', '📱', '📲', '☎️', '📞', '📟', '📠', '📺', '📻', '🎙', '🎚', '🎛', '⏰', '⏱', '⏲', '🕰', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯', '🪔', '🧯', '🛢', '💸', '💵', '💴', '💶', '💷', '💰', '💳', '🧾', '💎', '⚖️', '🔗', '⛓', '🛡', '⚔️', '🪓', '🔪', '🗡', '🔮', '🪄', '📿', '🎁', '🎈', '🎉', '🎊', '🎏', '🎀', '🎗', '🎫', '🎟', '📯', '📜', '📃', '📄', '📑', '📋', '📌', '📍', '📎', '🖇', '📐', '📏', '✂️', '🗂', '🗃', '🗄', '🗑', '🔒', '🔓', '🔑', '🗝', '🔩', '🧫'],
+  },
+  {
+    id: 'symbols', name: 'Symbols', items: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚡', '☀️', '🌤', '⛅', '🌥', '☁️', '🌦', '🌧', '⛈', '🌩', '🌨', '❄️', '☃️', '⛄', '🌬', '💨', '💧', '💦', '🫧', '☔', '☂️', '🌈', '🌫', '🌪', '🌊', '🔥', '💥', '💫', '⭐', '🌟', '✨', '☄️', '💯', '💢', '🔔', '🔕', '🎵', '🎶', '♠️', '♣️', '♥️', '♦️', '🃏', '🀄', '🎴', '🔇', '🔈', '🔉', '🔊', '📢', '📣', '✅', '❌', '❎', '➕', '➖', '➗', '✖️', '♾', '💲', '💱', '™️', '©️', '®️', '‼️', '⁉️', '❓', '❔', '❗', '❕', '〰️', '➰', '➿', '🔱', '⚜️'],
+  },
+  {
+    id: 'flags', name: 'Flags', items: ['🏳️', '🏴', '🏁', '🚩', '🏳️‍🌈', '🏳️‍⚧️', '🇰🇭', '🇺🇸', '🇬🇧', '🇫🇷', '🇩🇪', '🇪🇸', '🇮🇹', '🇯🇵', '🇰🇷', '🇨🇳', '🇻🇳', '🇹🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇵🇭', '🇦🇺', '🇨🇦', '🇧🇷', '🇮🇳', '🇷🇺', '🇺🇦', '🇪🇺', '🇦🇪', '🇿🇦'],
+  },
+]
+const STICKER_GROUPS_WITH_ALL = [
+  { id: 'all', name: 'All stickers', items: [...new Set(STICKER_GROUPS.flatMap(group => group.items))] },
+  ...STICKER_GROUPS,
+]
+const stickerGroup = ref('all')
+const visibleStickers = computed(() => STICKER_GROUPS_WITH_ALL.find(group => group.id === stickerGroup.value)?.items ?? [])
 const SPECIALS = ['©', '®', '™', '€', '£', '¥', '¢', '§', '¶', '•', '—', '–', '…', '°', '±', '×', '÷', '→', '←', '↑', '↓', '✓', '✗', '∞', '≠', '≤', '≥', 'α', 'β', 'π']
-function toggleSpecial() { specialOpen.value = !specialOpen.value; if (specialOpen.value) { findOpen.value = false; sourceOpen.value = false } }
-function insertSpecial(value) { chain().insertContent(value).run(); specialOpen.value = false }
+function toggleSpecial() {
+  specialOpen.value = !specialOpen.value
+  if (specialOpen.value) {
+    findOpen.value = false
+    sourceOpen.value = false
+    stickersOpen.value = false
+  }
+}
+function insertSpecial(value) {
+  chain().insertContent(value).run()
+  specialOpen.value = false
+}
+function toggleStickers() {
+  stickersOpen.value = !stickersOpen.value
+  if (stickersOpen.value) {
+    findOpen.value = false
+    sourceOpen.value = false
+    specialOpen.value = false
+  }
+}
+function insertSticker(value) {
+  chain().insertContent(value).run()
+  stickersOpen.value = false
+}
 function currentHtml() { return any() ? sanitizeHTML(any().getHTML()) : '' }
 function currentJson() { return any() ? buildEnvelope(any()) : null }
 function downloadFile(name, content, type) {
@@ -3672,10 +3748,10 @@ function printDocument() {
 }
 function toggleSource() {
   sourceOpen.value = !sourceOpen.value
-  if (sourceOpen.value) { sourceText.value = currentHtml(); findOpen.value = false; specialOpen.value = false }
+  if (sourceOpen.value) { sourceText.value = currentHtml(); findOpen.value = false; specialOpen.value = false; stickersOpen.value = false }
 }
 function applySource() { live()?.commands.setContent(sanitizeHTML(sourceText.value), { emitUpdate: true }); sourceOpen.value = false; showNotice(t('rve_source_applied', 'Source applied.')) }
-function toggleFind() { findOpen.value = !findOpen.value; if (findOpen.value) { sourceOpen.value = false; specialOpen.value = false; findMessage.value = '' } }
+function toggleFind() { findOpen.value = !findOpen.value; if (findOpen.value) { sourceOpen.value = false; specialOpen.value = false; stickersOpen.value = false; findMessage.value = '' } }
 function findMatches(query) {
   const e = any()
   const q = String(query ?? '').trim().toLowerCase()
@@ -3814,8 +3890,20 @@ watch(isFullscreen, (active) => {
   emit('fullscreen', active)
   nextTick(() => { updateTableDock(); refreshMediaBars() })
 })
-function toggleMenu(id) { menuOpen.value = menuOpen.value === id ? null : id }
-function runMenuItem(item) { menuOpen.value = null; if (typeof item?.run === 'function') item.run() }
+function toggleMenu(id) {
+  menuOpen.value = menuOpen.value === id ? null : id
+}
+function hoverMenu(id) {
+  if (menuOpen.value) {
+    menuOpen.value = id
+  }
+}
+function runMenuItem(item) {
+  menuOpen.value = null
+  if (typeof item?.run === 'function') {
+    item.run()
+  }
+}
 const linkActions = { isFile: linkIsFile, preview: previewLink, download: downloadLink }
 const toolbarActions = computed(() => [
   {
@@ -3825,7 +3913,7 @@ const toolbarActions = computed(() => [
   },
   { id: 'inline-code', label: 'Inline code', icon: 'i-lucide-code', show: vis('inlineCode'), run: () => chain().toggleCode().run() },
   { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', show: vis('pageBreak'), run: () => chain().insertPageBreak().run() },
-  { id: 'emoji', label: 'Emoji', icon: 'i-lucide-smile', show: vis('emoji'), run: () => insertSpecial('😊') },
+  { id: 'emoji', label: 'Stickers & emoji', icon: 'i-lucide-smile', show: vis('emoji'), run: () => toggleStickers() },
   { id: 'special', label: 'Special characters', icon: 'i-lucide-type', show: vis('specialCharacters'), run: toggleSpecial },
   { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: vis('findReplace'), run: toggleFind },
   { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: vis('source'), run: toggleSource },
@@ -3839,45 +3927,45 @@ const menuDefs = computed(() => [
   {
     id: 'file', label: 'File', icon: 'i-lucide-file',
     items: [
-      { id: 'clear', label: 'New document', icon: 'i-lucide-file-plus', show: () => isEditable.value, run: () => clearContent() },
-      { id: 'load', label: 'Load from API', icon: 'i-lucide-cloud-download', show: () => hasApiLoad.value, run: () => void loadFromApi() },
-      { id: 'save', label: 'Save', icon: 'i-lucide-save', show: () => hasApiSave.value, run: () => void saveToApi() },
-      { id: 'download-html', label: 'Download HTML', icon: 'i-lucide-download', show: () => vis('exportTools'), run: exportHtml },
-      { id: 'download-json', label: 'Download JSON', icon: 'i-lucide-file-json-2', show: () => vis('exportTools'), run: exportJson },
-      { id: 'print', label: 'Print', icon: 'i-lucide-printer', show: () => vis('exportTools'), run: printDocument },
+      { id: 'clear', label: 'New document', icon: 'i-lucide-file-plus', group: 'Document', show: () => isEditable.value, run: () => clearContent() },
+      { id: 'load', label: 'Load from API', icon: 'i-lucide-cloud-download', group: 'Document', show: () => hasApiLoad.value, run: () => void loadFromApi() },
+      { id: 'save', label: 'Save', icon: 'i-lucide-save', group: 'Document', kbd: 'Ctrl+S', show: () => hasApiSave.value, run: () => void saveToApi() },
+      { id: 'download-html', label: 'Download HTML', icon: 'i-lucide-download', group: 'Export', show: () => vis('exportTools'), run: exportHtml },
+      { id: 'download-json', label: 'Download JSON', icon: 'i-lucide-file-json-2', group: 'Export', show: () => vis('exportTools'), run: exportJson },
+      { id: 'print', label: 'Print', icon: 'i-lucide-printer', group: 'Export', kbd: 'Ctrl+P', show: () => vis('exportTools'), run: printDocument },
     ],
   },
   {
     id: 'edit', label: 'Edit', icon: 'i-lucide-pen-line',
     items: [
-      { id: 'undo', label: 'Undo', icon: 'i-lucide-undo-2', show: () => usable('history'), run: () => chain().undo().run() },
-      { id: 'redo', label: 'Redo', icon: 'i-lucide-redo-2', show: () => usable('history'), run: () => chain().redo().run() },
-      { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: () => vis('findReplace'), run: toggleFind },
-      { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: () => vis('source'), run: toggleSource },
-      { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', show: () => vis('accessibility'), run: runAccessibility },
+      { id: 'undo', label: 'Undo', icon: 'i-lucide-undo-2', group: 'History', kbd: 'Ctrl+Z', show: () => usable('history'), run: () => chain().undo().run() },
+      { id: 'redo', label: 'Redo', icon: 'i-lucide-redo-2', group: 'History', kbd: 'Ctrl+Y', show: () => usable('history'), run: () => chain().redo().run() },
+      { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', group: 'Tools', kbd: 'Ctrl+F', show: () => vis('findReplace'), run: toggleFind },
+      { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', group: 'Tools', show: () => vis('source'), run: toggleSource },
+      { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', group: 'Tools', show: () => vis('accessibility'), run: runAccessibility },
     ],
   },
   {
     id: 'insert', label: 'Insert', icon: 'i-lucide-plus',
     items: [
-      { id: 'image', label: 'Image', icon: 'i-lucide-image', show: () => kindAllowed('image'), run: () => pickFiles('image') },
-      { id: 'video', label: 'Video', icon: 'i-lucide-video', show: () => kindAllowed('video'), run: () => pickFiles('video') },
-      { id: 'audio', label: 'Audio', icon: 'i-lucide-music', show: () => kindAllowed('audio'), run: () => pickFiles('audio') },
-      { id: 'file', label: 'File', icon: 'i-lucide-paperclip', show: () => kindAllowed('file'), run: () => pickFiles('file') },
-      { id: 'media-url', label: 'Media from URL', icon: 'i-lucide-link-2', show: () => KINDS.some((k) => kindAllowed(k)), run: openMediaUrl },
-      { id: 'table', label: 'Table', icon: 'i-lucide-table', show: () => usable('tables'), run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
-      { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', show: () => vis('pageBreak'), run: () => chain().insertPageBreak().run() },
-      { id: 'emoji', label: 'Emoji', icon: 'i-lucide-smile', show: () => vis('emoji'), run: () => insertSpecial('😊') },
-      { id: 'special', label: 'Special characters', icon: 'i-lucide-type', show: () => vis('specialCharacters'), run: toggleSpecial },
+      { id: 'image', label: 'Image', icon: 'i-lucide-image', group: 'Media', show: () => kindAllowed('image'), run: () => pickFiles('image') },
+      { id: 'video', label: 'Video', icon: 'i-lucide-video', group: 'Media', show: () => kindAllowed('video'), run: () => pickFiles('video') },
+      { id: 'audio', label: 'Audio', icon: 'i-lucide-music', group: 'Media', show: () => kindAllowed('audio'), run: () => pickFiles('audio') },
+      { id: 'file', label: 'File', icon: 'i-lucide-paperclip', group: 'Media', show: () => kindAllowed('file'), run: () => pickFiles('file') },
+      { id: 'media-url', label: 'Media from URL', icon: 'i-lucide-link-2', group: 'Media', show: () => KINDS.some((k) => kindAllowed(k)), run: openMediaUrl },
+      { id: 'table', label: 'Table', icon: 'i-lucide-table', group: 'Content', show: () => usable('tables'), run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+      { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', group: 'Content', show: () => vis('pageBreak'), run: () => chain().insertPageBreak().run() },
+      { id: 'emoji', label: 'Stickers & emoji', icon: 'i-lucide-smile', group: 'Content', show: () => vis('emoji'), run: () => toggleStickers() },
+      { id: 'special', label: 'Special characters', icon: 'i-lucide-type', group: 'Content', show: () => vis('specialCharacters'), run: toggleSpecial },
     ],
   },
   {
     id: 'format', label: 'Format', icon: 'i-lucide-paintbrush',
     items: [
-      { id: 'bold', label: 'Bold', icon: 'i-lucide-bold', show: () => usable('textFormatting'), run: () => chain().toggleBold().run() },
-      { id: 'italic', label: 'Italic', icon: 'i-lucide-italic', show: () => usable('textFormatting'), run: () => chain().toggleItalic().run() },
-      { id: 'code', label: 'Inline code', icon: 'i-lucide-code', show: () => usable('inlineCode'), run: () => chain().toggleCode().run() },
-      { id: 'clear', label: 'Clear formatting', icon: 'i-lucide-remove-formatting', show: () => usable('textFormatting'), run: () => chain().unsetAllMarks().run() },
+      { id: 'bold', label: 'Bold', icon: 'i-lucide-bold', group: 'Text', kbd: 'Ctrl+B', show: () => usable('textFormatting'), run: () => chain().toggleBold().run() },
+      { id: 'italic', label: 'Italic', icon: 'i-lucide-italic', group: 'Text', kbd: 'Ctrl+I', show: () => usable('textFormatting'), run: () => chain().toggleItalic().run() },
+      { id: 'code', label: 'Inline code', icon: 'i-lucide-code', group: 'Text', kbd: 'Ctrl+/', show: () => usable('inlineCode'), run: () => chain().toggleCode().run() },
+      { id: 'clear', label: 'Clear formatting', icon: 'i-lucide-remove-formatting', group: 'Text', show: () => usable('textFormatting'), run: () => chain().unsetAllMarks().run() },
     ],
   },
   {
@@ -3886,16 +3974,16 @@ const menuDefs = computed(() => [
       {
         id: 'fullscreen', label: isFullscreen.value ? 'Exit full screen' : 'Full screen',
         icon: isFullscreen.value ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2',
-        show: () => vis('fullscreen'), run: () => void toggleFullscreen(),
+        group: 'Display', kbd: 'F11', show: () => vis('fullscreen'), run: () => void toggleFullscreen(),
       },
-      { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: () => vis('source'), run: toggleSource },
-      { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: () => vis('findReplace'), run: toggleFind },
-      { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', show: () => vis('accessibility'), run: runAccessibility },
+      { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', group: 'Display', show: () => vis('source'), run: toggleSource },
+      { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', group: 'Tools', kbd: 'Ctrl+F', show: () => vis('findReplace'), run: toggleFind },
+      { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', group: 'Tools', show: () => vis('accessibility'), run: runAccessibility },
     ],
   },
   {
     id: 'table', label: 'Table', icon: 'i-lucide-table',
-    items: TABLE_DOCK_TOOLS.filter((t) => !t.sep).map((t) => ({ id: t.id, label: t.label, icon: t.icon, show: () => usable('tables'), run: () => runTableTool(t) })),
+    items: TABLE_DOCK_TOOLS.filter((t) => !t.sep).map((t) => ({ id: t.id, label: t.label, icon: t.icon, group: 'Table tools', show: () => usable('tables'), run: () => runTableTool(t) })),
   },
 ].map((m) => ({ ...m, items: m.items.filter((i) => !i.show || i.show()) })).filter((m) => m.items.length))
 
@@ -4017,40 +4105,74 @@ defineExpose({
     @drop.capture="onDrop"
     @mouseleave="onRootLeave"
   >
-    <div v-if="editor && vis('menuBar')" ref="menuRoot" class="rv-menubar" role="menubar">
-      <div v-for="m in menuDefs" :key="m.id" class="rv-menubar__wrap">
-        <RTooltip :text="tl(m.label)" side="bottom">
-          <button type="button" class="rv-menubar__btn" :class="{ 'is-active': menuOpen === m.id }" role="menuitem" :aria-haspopup="true" :aria-expanded="menuOpen === m.id" @mousedown.prevent @click="toggleMenu(m.id)">{{ tl(m.label) }}</button>
-        </RTooltip>
-        <div v-if="menuOpen === m.id" class="rv-menubar__menu" role="menu">
-          <button v-for="item in m.items" :key="item.id" type="button" class="rv-menu__item" :class="{ 'rv-menu__item--danger': item.danger }" role="menuitem" @mousedown.prevent @click="runMenuItem(item)">
-            <RIcon v-if="item.icon" :name="item.icon" />
-            <span>{{ tl(item.label) }}</span>
-          </button>
+    <div
+      v-if="editor && (vis('menuBar') || feat.toolbar.visible)"
+      class="rv-sticky-panel__content"
+    >
+      <div v-if="editor && vis('menuBar')" ref="menuRoot" class="rv-menu-bar rv-menubar" role="menubar">
+        <div v-for="m in menuDefs" :key="m.id" class="rv-menubar__wrap">
+          <RTooltip :text="tl(m.label)" side="bottom">
+            <button
+              type="button"
+              class="rv-menubar__btn"
+              :class="{ 'is-active': menuOpen === m.id }"
+              role="menuitem"
+              aria-haspopup="menu"
+              :aria-expanded="menuOpen === m.id"
+              @mousedown.prevent
+              @click="toggleMenu(m.id)"
+              @mouseenter="hoverMenu(m.id)"
+            >
+              <RIcon v-if="m.icon" :name="m.icon" />
+              <span>{{ tl(m.label) }}</span>
+              <RIcon name="i-lucide-chevron-down" class="rv-menubar__caret" />
+            </button>
+          </RTooltip>
+          <div v-if="menuOpen === m.id" class="rv-menubar__menu" role="menu">
+            <template v-for="(item, itemIndex) in m.items" :key="item.id">
+              <div
+                v-if="itemIndex && item.group && item.group !== m.items[itemIndex - 1].group"
+                class="rv-menu__sep"
+                role="separator"
+              />
+              <button
+                type="button"
+                class="rv-menu__item"
+                :class="{ 'rv-menu__item--danger': item.danger }"
+                role="menuitem"
+                @mousedown.prevent
+                @click="runMenuItem(item)"
+              >
+                <RIcon v-if="item.icon" :name="item.icon" />
+                <span>{{ tl(item.label) }}</span>
+                <kbd v-if="item.kbd" class="rv-menubar__kbd">{{ item.kbd }}</kbd>
+              </button>
+            </template>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- ================= Toolbar (separate component: Word-style ribbon / compact row) ================= -->
-    <RVToolbar
-      v-if="editor && feat.toolbar.visible"
-      ref="toolbarRef"
-      :editor="editor"
-      :features="feat"
-      :fonts="opts.fonts"
-      :font-sizes="opts.fontSizes"
-      :editable="isEditable"
-      :mode="opts.toolbarMode"
-      :compact="compact"
-      :insert-items="insertItems"
-      :text-colors="TEXT_COLORS"
-      :highlights="HIGHLIGHTS"
-      :apply-link="applyLink"
-      :toolbar-actions="toolbarActions"
-      :link-actions="linkActions"
-      :tick="tick"
-      :t="t"
-    />
+      <!-- ================= Toolbar (separate component: Word-style ribbon / compact row) ================= -->
+      <RVToolbar
+        v-if="editor && feat.toolbar.visible"
+        ref="toolbarRef"
+        :editor="editor"
+        :features="feat"
+        :fonts="opts.fonts"
+        :font-sizes="opts.fontSizes"
+        :editable="isEditable"
+        :mode="opts.toolbarMode"
+        :compact="compact"
+        :insert-items="insertItems"
+        :text-colors="TEXT_COLORS"
+        :highlights="HIGHLIGHTS"
+        :apply-link="applyLink"
+        :toolbar-actions="toolbarActions"
+        :link-actions="linkActions"
+        :tick="tick"
+        :t="t"
+      />
+    </div>
 
     <div v-if="sourceOpen && vis('source')" class="rv-util-panel rv-util-panel--source" role="dialog" :aria-label="t('rve_source_editing', 'Source editing')">
       <div class="rv-util-panel__head">
@@ -4088,6 +4210,54 @@ defineExpose({
       </div>
       <div class="rv-util-panel__specials">
         <button v-for="ch in SPECIALS" :key="ch" type="button" class="rv-special" @click="insertSpecial(ch)">{{ ch }}</button>
+      </div>
+    </div>
+
+    <div
+      v-if="stickersOpen && vis('emoji')"
+      class="rv-util-panel rv-util-panel--stickers"
+      role="dialog"
+      :aria-label="t('rve_stickers', 'Stickers')"
+    >
+      <div class="rv-util-panel__head">
+        <strong><RIcon name="i-lucide-smile" /> {{ t('rve_stickers', 'Stickers') }}</strong>
+        <button
+          type="button"
+          class="rv-btn"
+          :aria-label="t('rve_close', 'Close')"
+          @click="stickersOpen = false"
+        >
+          <UIcon name="i-lucide-x" />
+        </button>
+      </div>
+      <div
+        class="rv-sticker__groups"
+        role="group"
+        :aria-label="t('rve_sticker_categories', 'Sticker categories')"
+      >
+        <button
+          v-for="group in STICKER_GROUPS_WITH_ALL"
+          :key="group.id"
+          type="button"
+          class="rv-sticker__group"
+          :class="{ 'is-active': stickerGroup === group.id }"
+          :aria-pressed="stickerGroup === group.id"
+          @click="stickerGroup = group.id"
+        >
+          {{ tl(group.name) }}
+        </button>
+      </div>
+      <div class="rv-sticker__grid">
+        <button
+          v-for="(sticker, index) in visibleStickers"
+          :key="`${sticker}-${index}`"
+          type="button"
+          class="rv-sticker"
+          :aria-label="sticker"
+          @click="insertSticker(sticker)"
+        >
+          {{ sticker }}
+        </button>
       </div>
     </div>
 
@@ -4170,12 +4340,34 @@ defineExpose({
           <button type="button" class="rv-swatch rv-swatch--none" :aria-label="t('rve_default_text_color', 'Default text color')" @mousedown.prevent @click="setTextColor(null)">A</button>
           <button v-for="c in TEXT_COLORS" :key="c.value" type="button" class="rv-swatch" :style="{ color: c.value }" :aria-label="`${tl(c.name)} ${t('rve_text_color', 'Text color')}`" @mousedown.prevent @click="setTextColor(c.value)">A</button>
         </div>
+        <div class="rv-pop__actions rv-pop__actions--color">
+          <label class="rv-color-input">
+            <input
+              type="color"
+              :value="colorInputValue(curColor(), '#111827')"
+              :aria-label="t('rve_custom_color', 'Custom color')"
+              @change="setTextColor($event.target.value)"
+            >
+            <span>{{ t('rve_custom_color', 'Custom color') }}</span>
+          </label>
+        </div>
       </div>
       <div v-if="bubble.mode === 'highlight'" class="rv-bubble__panel rv-bubble__panel--colors">
         <div class="rv-pop__label">{{ t('rve_highlight', 'Highlight') }}</div>
         <div class="rv-swatches">
           <button type="button" class="rv-swatch rv-swatch--none" :aria-label="t('rve_no_highlight', 'No highlight')" @mousedown.prevent @click="setHighlightColor(null)"><UIcon name="i-lucide-ban" /></button>
           <button v-for="c in HIGHLIGHTS" :key="c.value" type="button" class="rv-swatch rv-swatch--bg" :style="{ background: c.value }" :aria-label="`${tl(c.name)} ${t('rve_highlight', 'Highlight')}`" @mousedown.prevent @click="setHighlightColor(c.value)" />
+        </div>
+        <div class="rv-pop__actions rv-pop__actions--color">
+          <label class="rv-color-input">
+            <input
+              type="color"
+              :value="colorInputValue(curHighlight(), '#ffff00')"
+              :aria-label="t('rve_custom_highlight_color', 'Custom highlight color')"
+              @change="setHighlightColor(`${$event.target.value}66`)"
+            >
+            <span>{{ t('rve_custom_highlight_color', 'Custom highlight color') }}</span>
+          </label>
         </div>
       </div>
     </div>
@@ -4464,6 +4656,14 @@ defineExpose({
   font-family: var(--font-400 , ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif) ;
   color: var(--color-w-b-1);
 }
+.rv-sticky-panel__content {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg-content);
+}
+.rv-sticky-panel__content > .rv-menu-bar { position: relative; z-index: 31; }
+.rv-sticky-panel__content > .rv-toolbar { position: relative; top: auto; z-index: 30; }
 .rv-menubar {
   position: relative;
   z-index: 30;
@@ -4479,6 +4679,7 @@ defineExpose({
 .rv-menubar__btn {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 28px;
   padding: 0 9px;
   font-size: 0.8125rem;
@@ -4488,7 +4689,10 @@ defineExpose({
   cursor: pointer;
   &:hover, &.is-active { background: color-mix(in srgb, var(--color-w-b-1) 8%, transparent); }
   &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+  .iconify, .r-icon { color: var(--c-muted); }
 }
+.rv-menubar__caret { font-size: 0.7rem; opacity: 0.65; }
+.rv-menubar__kbd { margin-left: auto; padding-left: 16px; font-size: 0.6875rem; color: var(--c-muted); white-space: nowrap; }
 .rv-menubar__menu {
   position: absolute;
   z-index: 50;
@@ -4524,6 +4728,7 @@ defineExpose({
 }
 .rv-util-panel--source { width: min(52rem, calc(100% - 32px)); }
 .rv-util-panel--special { width: min(24rem, calc(100% - 32px)); }
+.rv-util-panel--stickers { width: min(40rem, calc(100% - 32px)); }
 .rv-util-panel--a11y { width: min(26rem, calc(100% - 32px)); }
 .rv-util-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
 .rv-util-panel__head strong { display: inline-flex; align-items: center; gap: 8px; }
@@ -4556,6 +4761,38 @@ defineExpose({
   cursor: pointer;
   &:hover { background: color-mix(in srgb, var(--color-primary) 11%, transparent); color: var(--color-primary); }
 }
+.rv-sticker__groups { display: flex; flex-wrap: wrap; gap: 4px; }
+.rv-sticker__group {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  cursor: pointer;
+  &:hover { color: var(--color-w-b-1); background: var(--bg-hover); }
+  &.is-active { color: var(--color-primary); border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 11%, transparent); }
+}
+.rv-sticker__grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  padding: 2px;
+}
+.rv-sticker {
+  display: grid;
+  place-items: center;
+  min-height: 2.5rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  cursor: pointer;
+  &:hover { background: color-mix(in srgb, var(--color-primary) 11%, transparent); transform: scale(1.05); }
+}
+@media (max-width: 640px) { .rv-sticker__grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .rv-util-panel--a11y p { margin: 0; font-size: 0.8125rem; }
 .rv-table-dock {
   position: fixed;
@@ -4761,7 +4998,9 @@ defineExpose({
 .rv-menu__label { padding: 4px 8px; font-size: 0.75rem; font-weight: 600; color: color-mix(in srgb, var(--c-muted) 65%, transparent); text-transform: uppercase; letter-spacing: 0.04em; }
 .rv-menu__sep { height: 1px; margin: 4px 0; background: var(--border-card); }
 .rv-menu__item--danger { color: var(--r-c-danger); }
-.rv-swatches { display: grid; grid-template-columns: repeat(5, 1.75rem); gap: 6px; }
+.rv-swatches { display: grid; grid-template-columns: repeat(8, 1.75rem); gap: 6px; }
+.rv-color-input { display: inline-flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--c-muted); cursor: pointer; }
+.rv-color-input input { width: 2.25rem; height: 2rem; padding: 0; background: transparent; border: 1px solid var(--border-card); border-radius: 6px; cursor: pointer; }
 .rv-swatch {
   display: grid;
   place-items: center;

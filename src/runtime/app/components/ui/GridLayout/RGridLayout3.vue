@@ -80,7 +80,7 @@ import {
   finalizeOption,
   layoutSignature,
   normalizeOption,
-} from '~/utils/gridLayout.config'
+} from '../../../utils/gridLayout.config'
 
 defineOptions({ name: 'RGridLayout', inheritAttrs: false })
 

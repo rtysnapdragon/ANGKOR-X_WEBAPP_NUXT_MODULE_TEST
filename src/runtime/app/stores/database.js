@@ -1,4 +1,7 @@
 import { defineStore, acceptHMRUpdate } from 'pinia'
+import { useCookie, useToast, useHttp, isEmpty } from '#imports'
+import helper from '../utils/helper'
+
 const { api, str } = helper()
 
 export const useDatabaseStore = defineStore("DatabaseStore", {
@@ -50,6 +53,9 @@ export const useDatabaseStore = defineStore("DatabaseStore", {
       }
     },
   },
+  setDatabase: (value) => {
+    useCookie(str.dbCode).value = value
+  }
 });
 if (import.meta.hot) {
   import.meta.hot.accept(acceptHMRUpdate(useDatabaseStore, import.meta.hot));

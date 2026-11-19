@@ -204,15 +204,10 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useSlots, watch } from 'vue'
-import { buildChart } from '~/utils/chart/build'
-import { downloadBlob, downloadUrl, optionToSvg, safeFileName, tableToCsv } from '~/utils/chart/export'
-import { createFormatter, mergeOptions } from '~/utils/chart/format'
-import {
-  DEFAULT_ECHARTS_EVENTS,
-  DEFAULT_LABELS,
-  SWITCH_FAMILIES,
-  ZOOMABLE_TYPES,
-} from '~/utils/chart/types'
+import { buildChart } from '../../../utils/chart/build'
+import { downloadBlob, downloadUrl, optionToSvg, safeFileName, tableToCsv } from '../../../utils/chart/export'
+import { createFormatter, mergeOptions } from '../../../utils/chart/format'
+import {  DEFAULT_ECHARTS_EVENTS, DEFAULT_LABELS, SWITCH_FAMILIES, ZOOMABLE_TYPES} from '../../../utils/chart/types'
 import type {
   RChartAction,
   RChartActionEvent,
@@ -237,7 +232,7 @@ import type {
   RChartValueFormatter,
   RChartVariant,
   RChartZoomEvent,
-} from '~/utils/chart/types'
+} from '../../../utils/chart/types'
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Props / emits

@@ -359,3 +359,52 @@ Edit saved `RVisualEditor` designs in a standalone Figma-like side editor instea
 - `RTooltip` popper mode now supports `side` + `align` (`top`/`bottom`/`left`/`right` with `start`/`center`/`end`), accepts bare `is-popper`, and re-applies placement via `setOptions` when the teleported container mounts or `side`/`align` changes. The `v-if` moved inside `<Transition>` (inside `<Teleport>`) so leave animations run, and global `rt-tooltip-enter/leave-*` + `rt-tooltip-from/to-{side}` classes provide a smooth directional fade/translate/scale. The outer popper element transitions opacity, while the inner `.rt-tooltip-anim` wrapper handles the directional translate/scale transform, so the animation never clobbers Popper's inline positioning transform. The popper arrow class binding was fixed to apply `ui.arrow.*` values instead of object keys. `prevent` / `is-global` / `disabled` now also handle bare attributes. `npm run dev:build` passes; `RTooltip.vue` still has pre-existing project lint errors.
 - Added `RCanvasPresetPicker.vue`, a grouped preset dropdown built on `RPopoverPanel` (trigger preview, sticky group headers, 2-column option grid, selected check, `v-model` + `select` emit). `RVisualEditorRawEditor` now uses it in place of the native `<select>`; `applyCanvasPreset(preset)` takes the preset object directly. Added `rve_no_presets` to `en.json`/`km.json`, removed the obsolete `rv-raw__preset-*` CSS, and verified JSON parsing, targeted ESLint (0 errors), and `npm run dev:build`.
 - Fixed the preset dropdown not appearing: `RPopoverPanel` now uses a writable `v-model:open`, forces `portal="body"`, and sets `.rpp-content` to `z-index: 5555555 !important` so it sits above the design-builder overlay (`10000/10001`) like `RTooltip`. Also changed `.rpp-panel__body` from `flex: 1` to `flex: 1 1 auto`; the old zero flex-basis collapsed the scrollable body to 0 height, which hid the preset list even when the panel opened. Targeted ESLint and `npm run dev:build` pass.
+
+## 2026-11-19 — RFileManager Add-Category Extension Selection
+
+Status: implemented; targeted ESLint and prepack verified; manual browser QA pending.
+
+### Goal
+
+Match the CKBox-style Add-category modal from `file_manage_ui_13_setting_asset_categories_add-2.png`: selected extensions render as removable chips inside the input, and a full-width dropdown shows available extension chips. The user explicitly required a sample-selection style and rejected using `RSelect.vue` for this UI.
+
+### Files
+
+- `src/runtime/app/components/filemanager/RFileManagerContent.vue` — Add/Edit category modal and extension-selection UI.
+- `src/runtime/app/components/input/RInputTags.vue` — local suggestion/tag input used as the sample-selection component.
+- `src/runtime/app/components/RSelect.vue` — earlier additive `searchOnly`/panel work remains in the file, but this UI no longer imports or uses it.
+- `src/runtime/app/assets/lang/en.json`, `src/runtime/app/assets/lang/km.json` — `rfm_*` modal and extension keys.
+- `API_URL_DOC_NEW_REQUIRED.md` — required asset-category endpoints documentation.
+
+### Implementation
+
+- Replaced the `RSelect` extension field with `RInputTags` in local suggestion mode.
+- Bound the tag input to `categoryDialog.extensions` via `:model-value` and `@update:data`.
+- Added `selectedCategoryExtensions` computed to keep the model an array even if stale data is a string.
+- Added `updateCategoryExtensions(values)` to normalize, deduplicate, and store extension values.
+- Removed `categoryDialog.extensionInput`, `addCategoryExtension()`, and `filteredCategoryExtensions()`.
+- Suggestions come from `categoryExtensionChoices`: static options, file-derived extensions, and currently selected extensions.
+- The `#suggestion` slot renders each option as `.rfm__extension-chip`.
+- Added CSS overrides for the tag input base, selected chips, full-width suggestion container, and chip-like suggestion items.
+- Kept category persistence localStorage-backed under `rfm_categories`.
+
+### Contracts / Decisions
+
+- `categoryDialog.extensions` is always a `string[]`.
+- All extension values pass through `normalizeCategoryExtension`: trimmed, lowercase, leading dots removed, unsupported characters stripped.
+- `RInputTags` emits `update:data`; the parent owns normalization and the final array state.
+- Selected tags are filtered out of the suggestion dropdown by `RInputTags`.
+- `RSelect.vue` is not part of this UI; its earlier panel/search-only changes are additive and currently unused here.
+- Backend asset-category endpoints are still not implemented; only documented.
+
+### Verification
+
+- `npx eslint "src/runtime/app/components/filemanager/RFileManagerContent.vue"` passes with no output.
+- `npm run prepack` reports only the pre-existing `RFileUpload1.vue` TS4025 diagnostic.
+- `git diff --check` reports only existing CRLF warnings.
+
+### Caveats / Follow-ups
+
+- Manual browser QA is still needed for dropdown opening on focus, chip removal, typed custom extensions, and exact visual match to `-2.png`.
+- Pre-existing `RSelect.vue` lint errors remain unrelated to this change.
+- Asset-category API endpoints in `API_URL_DOC_NEW_REQUIRED.md` still need backend implementation before localStorage can be replaced.

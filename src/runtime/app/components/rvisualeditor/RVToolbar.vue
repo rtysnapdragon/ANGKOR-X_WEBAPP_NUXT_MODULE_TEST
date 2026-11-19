@@ -44,6 +44,10 @@ const usable = (key) => props.editable && feature(key)?.enabled === true
 const list = (v) => (Array.isArray(v) ? v : [])
 const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|hsla?\([\d\s.,%/deg]+\))$/i
 const safeColor = (c) => (typeof c === 'string' && COLOR_RE.test(c) ? c : null)
+function colorInputValue(value, fallback) {
+  const color = String(value ?? '')
+  return /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(color) ? color.slice(0, 7) : fallback
+}
 
 // ---- action table: one source for visibility, active, disabled, run, shortcut ------------------------------
 const inList = () => act('listItem') || act('taskItem')
@@ -272,7 +276,7 @@ onBeforeUnmount(() => { pop.value = null })
 </script>
 
 <template>
-  <div v-if="ed()" ref="rootEl" class="rv-tb" :data-mode="mode" :data-compact="compact" :data-tick="tick" role="toolbar" :aria-label="tr('rve_formatting_toolbar', 'Formatting toolbar')">
+  <div v-if="ed()" ref="rootEl" class="rv-toolbar rv-tb" :data-mode="mode" :data-compact="compact" :data-tick="tick" role="toolbar" :aria-label="tr('rve_formatting_toolbar', 'Formatting toolbar')">
     <!-- ===== tab strip + quick access ===== -->
     <div class="rv-tb__strip">
       <div v-if="ids(G.history).length" class="rv-qat" role="group" :aria-label="tr('rve_quick_access', 'Quick access')">
@@ -342,6 +346,17 @@ onBeforeUnmount(() => { pop.value = null })
                     <button type="button" class="rv-swatch rv-swatch--none" :aria-label="tr('rve_automatic', 'Automatic')" @mousedown.prevent @click="setColor(null)">A</button>
                     <button v-for="c in list(textColors)" :key="c.value" type="button" class="rv-swatch" :style="{ color: c.value }" :aria-label="`${tl(c.name)} ${tr('rve_text_color', 'Text color')}`" @mousedown.prevent @click="setColor(c.value)">A</button>
                   </div>
+                  <div class="rv-pop__actions rv-pop__actions--color">
+                    <label class="rv-color-input">
+                      <input
+                        type="color"
+                        :value="colorInputValue(curColor(), '#111827')"
+                        :aria-label="tr('rve_custom_color', 'Custom color')"
+                        @change="setColor($event.target.value)"
+                      >
+                      <span>{{ tr('rve_custom_color', 'Custom color') }}</span>
+                    </label>
+                  </div>
                 </div>
               </span>
               <span v-if="vis('colors')" class="rv-pop-wrap">
@@ -353,6 +368,17 @@ onBeforeUnmount(() => { pop.value = null })
                   <div class="rv-swatches">
                     <button type="button" class="rv-swatch rv-swatch--none" :aria-label="tr('rve_no_highlight', 'No highlight')" @mousedown.prevent @click="setHighlight(null)"><RIcon name="i-lucide-ban" /></button>
                     <button v-for="c in list(highlights)" :key="c.value" type="button" class="rv-swatch rv-swatch--bg" :style="{ background: c.value }" :aria-label="`${tl(c.name)} ${tr('rve_highlight', 'Highlight')}`" @mousedown.prevent @click="setHighlight(c.value)" />
+                  </div>
+                  <div class="rv-pop__actions rv-pop__actions--color">
+                    <label class="rv-color-input">
+                      <input
+                        type="color"
+                        :value="colorInputValue(curHighlight(), '#ffff00')"
+                        :aria-label="tr('rve_custom_highlight_color', 'Custom highlight color')"
+                        @change="setHighlight(`${$event.target.value}66`)"
+                      >
+                      <span>{{ tr('rve_custom_highlight_color', 'Custom highlight color') }}</span>
+                    </label>
                   </div>
                 </div>
               </span>

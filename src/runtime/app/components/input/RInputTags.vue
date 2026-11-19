@@ -545,7 +545,7 @@ defineExpose({
 
 .ui-rinputtag-suggestions {
   position: absolute;
-  z-index: 50;
+  z-index: 5999999;
   top: calc(100% + var(--space-1, 4px));
   left: 0;
   right: 0;

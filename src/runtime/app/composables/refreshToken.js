@@ -1,5 +1,6 @@
 export const useRefreshToken = performRefreshToken;
-import { useUserData,useToast } from "#imports";
+import { useUserData,useToast} from "#imports";
+import { useAuth } from './auth';
 let isRefreshing = false;
 
 async function performRefreshToken(force) {
@@ -24,7 +25,7 @@ async function performRefreshToken(force) {
     }
 
     isRefreshing = true;
-    await useAuth(isRefreshing);
+    await useAuth();
   } finally {
     isRefreshing = false;
   }
