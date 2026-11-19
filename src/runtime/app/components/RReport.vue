@@ -30,7 +30,7 @@
             <div class="text-[14px] font-[600]">{{ i?.Description }}</div>
           </div>
         </div>
-      <RModal>
+      </RModal>
     </transition>
     <iframe
       ref="rtyReport"

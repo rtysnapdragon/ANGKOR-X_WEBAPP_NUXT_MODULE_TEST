@@ -48,7 +48,7 @@
 
       <!-- ── BODY ── -->
       <template #body>
-        <div class="rm-body" :class="[props.height, props.overflowAuto && 'overflow-auto']">
+        <div class="rm-body" :class="[props.height, props.bodyClass, props.overflowAuto && 'overflow-auto']">
           <slot />
         </div>
       </template>
@@ -97,7 +97,9 @@ const props = defineProps({
   isFullScreen: { type: Boolean, default: false },      // legacy: forces fullscreen (no toggle)
   expandable:   { type: Boolean, default: false },      // adds a full-screen toggle to the header
   modalWidth:   { type: String,  default: undefined }, // '600px' | '80vw' ...
+  modalHeight:  { type: String,  default: undefined }, // '600px' | '80vh' ...
   modalRadius:  { type: [String, Number], default: undefined }, // '8px' | 16 (px) | 'var(--r-lg)' | '0'
+  bodyClass:    { type: String,  default: undefined },
   noClose:      { type: Boolean, default: true },      // true = close button shown + dismissible
   noHeader:     { type: Boolean, default: false },
   noFooter:     { type: Boolean, default: false },
@@ -120,6 +122,7 @@ const hasRadius = computed(() => props.modalRadius !== undefined && props.modalR
 const contentStyle = computed(() => {
   const style = {}
   if (props.modalWidth) style['--rm-w'] = props.modalWidth
+  if (props.modalHeight) style['--rm-h'] = props.modalHeight
   if (hasRadius.value) {
     style['--rm-radius'] = typeof props.modalRadius === 'number' ? `${props.modalRadius}px` : props.modalRadius
   }
@@ -177,6 +180,7 @@ function onCloseModal() {
   display: flex;
   flex-direction: column;
   width: var(--rm-w, 560px);
+  height: var(--rm-h, auto);
   max-width: calc(100vw - 2rem);
   max-height: calc(100dvh - 4rem);
   overflow: hidden;

@@ -1,6 +1,7 @@
 <template>
   <UPopover
-    :open="isOpen"
+    v-model:open="openModel"
+    portal="body"
     :arrow="arrow"
     :content="{ side, align, sideOffset }"
     :mode="mode"
@@ -8,7 +9,6 @@
     :dismissible="dismissible"
     :ui="mergedUI"
     :class="$slots.default ? 'rpp-host' : undefined"
-    @update:open="onUpdateOpen"
   >
     <!-- Trigger — whatever the consumer puts here becomes the clickable anchor -->
     <template v-if="$slots.default" #default>
@@ -87,13 +87,16 @@ const props = defineProps({
 
 const emit = defineEmits(['open', 'close'])
 const isOpen = defineModel('open', { default: false })
+const openModel = computed({
+  get: () => isOpen.value,
+  set: (v) => {
+    if (v && props.disabled) return
+    isOpen.value = v
+  },
+})
 
 watch(isOpen, (v) => emit(v ? 'open' : 'close'))
 
-function onUpdateOpen(v) {
-  if (v && props.disabled) return
-  isOpen.value = v
-}
 const open = () => { if (!props.disabled) isOpen.value = true }
 const close = () => { isOpen.value = false }
 const toggle = () => (isOpen.value ? close() : open())
@@ -125,7 +128,7 @@ defineExpose({ isOpen, open, close, toggle })
 
 // UPopover's own content shell — neutralised, .rpp-panel carries the surface
 .rpp-content {
-  z-index: 10300;
+  z-index: 5555555 !important;
   padding: 0;
   background: transparent;
   border: 0;
@@ -210,7 +213,7 @@ defineExpose({ isOpen, open, close, toggle })
   }
 
   &__body {
-    flex: 1;
+    flex: 1 1 auto;
     padding: var(--sp-4);
     color: var(--c-text);
 

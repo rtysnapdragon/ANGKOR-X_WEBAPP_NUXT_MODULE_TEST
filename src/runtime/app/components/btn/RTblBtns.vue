@@ -208,7 +208,7 @@ function click(e, per, label, action) {
 
 const showTop = ref("bottom");
 const popupElement = ref(null);
-let widthScreen = ref(window.innerWidth);
+const widthScreen = ref(typeof window === 'undefined' ? 1024 : window.innerWidth);
 
 // Function to update the widthScreen value based on the current window width
 const updateWidth = () => {

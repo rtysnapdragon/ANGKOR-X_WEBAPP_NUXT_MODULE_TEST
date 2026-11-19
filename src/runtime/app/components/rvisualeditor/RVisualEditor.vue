@@ -23,6 +23,8 @@ import RIcon from '../RIcon.vue'
 import RModal from '../RModal.vue'
 import RTooltip from '../RTooltip.vue'
 import RVisualEditorDesignBuilder from './RVisualEditorDesignBuilder.vue'
+import RFileManager from '../filemanager/RFileManager.vue'
+import { kindOfExplorerFile } from '../../composables/useFileExplorer'
 // import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
 import { useUploadProgress } from '../../stores/uploadProgress'
 import { useHttp } from '../../composables/https'
@@ -1198,7 +1200,15 @@ function createMediaView({ node: initial, getPos, editor: ed }) {
       nodes.push(barButton({ icon: ICONS.copy, label: t('rve_copy_link', 'Copy link'), onClick: copyMediaLink }))
     }
     if (a.kind === 'file') nodes.push(barButton({ icon: ICONS.rename, label: t('rve_rename', 'Rename'), onClick: renameMedia }))
-    nodes.push(barButton({ icon: ICONS.retry, label: t('rve_replace', 'Replace'), onClick: replaceMedia }))
+    nodes.push(barButton({
+      icon: ICONS.retry,
+      label: t('rve_replace', 'Replace'),
+      onClick: anchor => openBarMenu(anchor, [
+        { label: t('rve_upload_from_computer', 'Upload from computer'), onClick: replaceMedia },
+        { label: t('rve_from_file_manager', 'From file manager'), onClick: () => openFileManager({ mode: 'replace', kind: node.attrs.kind, pos: getPos() }) },
+        { label: t('rve_from_url', 'From URL'), onClick: () => openMediaUrl(node.attrs.kind, { mode: 'replace', pos: getPos() }) },
+      ]),
+    }))
     nodes.push(barButton({ icon: ICONS.trash, label: t('rve_delete', 'Delete'), onClick: remove }))
     renderVNode(h(Fragment, null, nodes), bar)
     syncMediaBarVisibility()
@@ -1460,6 +1470,7 @@ function buildSlashItems() {
   if (kindAllowed('audio')) add('audio', M, MK, 'Audio', 'rve_audio', 'Upload audio (MP3, WAV, OGG).', 'rve_audio_hint', 'i-lucide-music', ['sound', 'mp3', 'wav', 'ogg'], () => pickFiles('audio'))
   if (kindAllowed('file')) add('file', M, MK, 'File', 'rve_file', 'Attach a PDF, Word, Excel or PowerPoint document.', 'rve_file_hint', 'i-lucide-paperclip', ['pdf', 'word', 'excel', 'powerpoint', 'attachment', 'document'], () => pickFiles('file'))
   if (KINDS.some(k => kindAllowed(k))) add('media-url', M, MK, 'From URL', 'rve_media_from_url', 'Embed media or a document from a link.', 'rve_media_from_url_hint', 'i-lucide-link-2', ['url', 'link', 'embed', 'web'], () => openMediaUrl())
+  if (KINDS.some(k => kindAllowed(k))) add('media-file-manager', M, MK, 'From file manager', 'rve_media_from_file_manager', 'Pick an existing file from the file manager.', 'rve_media_from_file_manager_hint', 'i-lucide-folder-open', ['library', 'manager', 'assets', 'files'], () => openFileManager({ mode: 'insert' }))
   if (on('canvas')) add('design', M, MK, 'Design', 'rve_design', 'Create an image with the design canvas.', 'rve_design_hint', 'i-lucide-palette', ['canva', 'design', 'draw', 'poster', 'canvas', 'shape'], () => openDesign())
   const X = 'Advanced'
   const XK = 'rve_advanced'
@@ -1768,20 +1779,138 @@ function insertMediaUrl(kind, url) {
   return true
 }
 
-const mediaUrl = reactive({ open: false, kind: 'file', url: '', error: '' })
+function explorerFileSrc(file) {
+  return safeUrl(asStr(file?.Url).trim(), opts.value.allowBlobUrls)
+}
+function explorerFileAttrs(file, kind) {
+  const src = explorerFileSrc(file)
+  if (!src) return null
+  const name = asStr(file?.Name).trim() || urlFilename(src)
+  return {
+    kind,
+    src,
+    status: 'ready',
+    filename: name,
+    size: Number(file?.FileSize) || null,
+    mime: asStr(file?.MimeType).trim(),
+    alt: kind === 'image' ? stripExt(name) : '',
+    linked: true,
+    draft: false,
+    uploadId: null,
+    fileId: file?.Id ?? null,
+    error: '',
+  }
+}
+function insertMediaFromExplorer(fileList) {
+  if (!live() || !isEditable.value) return
+  const list = Array.isArray(fileList) ? fileList : [fileList]
+  const nodes = []
+  for (const file of list) {
+    if (!file) continue
+    const kind = kindOfExplorerFile(file)
+    if (!kindAllowed(kind)) {
+      showNotice(t('rve_file_not_allowed', 'This file type is not allowed here.'))
+      continue
+    }
+    const attrs = explorerFileAttrs(file, kind)
+    if (!attrs) {
+      showNotice(t('rve_this_file_not_available', 'This file is not available.'))
+      continue
+    }
+    nodes.push({ type: 'media', attrs })
+  }
+  if (nodes.length) insertBlocks(nodes)
+}
+function mediaNodeAt(pos) {
+  const ed = live()
+  if (!ed || typeof pos !== 'number') return null
+  const node = ed.state.doc.nodeAt(pos)
+  return node?.type?.name === 'media' ? { ed, node } : null
+}
+function replaceMediaWithFile(file, pos) {
+  const found = mediaNodeAt(pos)
+  if (!found || !file) return false
+  const kind = kindOfExplorerFile(file)
+  if (!kindAllowed(kind)) {
+    showNotice(t('rve_file_not_allowed', 'This file type is not allowed here.'))
+    return false
+  }
+  const attrs = explorerFileAttrs(file, kind)
+  if (!attrs) {
+    showNotice(t('rve_this_file_not_available', 'This file is not available.'))
+    return false
+  }
+  found.ed.view.dispatch(found.ed.state.tr.setNodeMarkup(pos, undefined, {
+    ...found.node.attrs,
+    ...attrs,
+    alt: kind === 'image' ? attrs.alt : found.node.attrs.alt,
+  }))
+  return true
+}
+function replaceMediaWithUrl(kind, url, pos) {
+  const found = mediaNodeAt(pos)
+  const src = safeUrl(asStr(url).trim(), opts.value.allowBlobUrls)
+  if (!found || !src || !kindAllowed(kind)) return false
+  const filename = urlFilename(src)
+  const ext = filename.includes('.') ? filename.split('.').pop().toLowerCase() : ''
+  const mime = EXT_MIME[ext] ?? ''
+  found.ed.view.dispatch(found.ed.state.tr.setNodeMarkup(pos, undefined, {
+    ...found.node.attrs,
+    kind,
+    src,
+    status: 'ready',
+    filename,
+    mime,
+    alt: kind === 'image' ? stripExt(filename) : found.node.attrs.alt,
+    linked: true,
+    draft: false,
+    uploadId: null,
+    fileId: null,
+    error: '',
+  }))
+  return true
+}
+
+const fileManager = reactive({ open: false, mode: 'insert', kind: 'image', targetPos: null, multiple: true })
+const fileManagerSelectMode = computed(() => fileManager.mode === 'replace' ? fileManager.kind : 'any')
+const fileManagerAccept = computed(() => {
+  const kinds = fileManager.mode === 'replace' ? [fileManager.kind] : KINDS.filter(kindAllowed)
+  return kinds.flatMap(k => MEDIA_MIME[k] ?? []).join(',')
+})
+function openFileManager(options = {}) {
+  if (!KINDS.some(kindAllowed)) return
+  const mode = options.mode === 'replace' ? 'replace' : 'insert'
+  fileManager.mode = mode
+  fileManager.kind = KINDS.includes(options.kind) ? options.kind : (KINDS.find(kindAllowed) || 'file')
+  fileManager.targetPos = typeof options.pos === 'number' ? options.pos : null
+  fileManager.multiple = mode !== 'replace'
+  fileManager.open = true
+}
+function onFileManagerSelect(payload) {
+  const files = Array.isArray(payload) ? payload : [payload]
+  if (!files.length) return
+  if (fileManager.mode === 'replace') replaceMediaWithFile(files[0], fileManager.targetPos)
+  else insertMediaFromExplorer(files)
+}
+
+const mediaUrl = reactive({ open: false, kind: 'file', url: '', error: '', mode: 'insert', pos: null })
 const mediaUrlInput = ref(null)
 const mediaUrlKinds = computed(() => KINDS.filter(k => kindAllowed(k)).map(k => ({ value: k, label: kindLabel(k) })))
-function openMediaUrl(kind) {
+function openMediaUrl(kind, options = {}) {
   const available = mediaUrlKinds.value
   if (!available.length) return
   mediaUrl.kind = available.some(k => k.value === kind) ? kind : available[0].value
   mediaUrl.url = ''
   mediaUrl.error = ''
+  mediaUrl.mode = options.mode === 'replace' ? 'replace' : 'insert'
+  mediaUrl.pos = typeof options.pos === 'number' ? options.pos : null
   mediaUrl.open = true
   nextTick(() => nextTick(() => mediaUrlInput.value?.focus()))
 }
 function submitMediaUrl() {
-  const ok = insertMediaUrl(mediaUrl.kind, mediaUrl.url)
+  const ok = mediaUrl.mode === 'replace'
+    ? replaceMediaWithUrl(mediaUrl.kind, mediaUrl.url, mediaUrl.pos)
+    : insertMediaUrl(mediaUrl.kind, mediaUrl.url)
   if (ok) {
     mediaUrl.open = false
     mediaUrl.url = ''
@@ -3856,6 +3985,7 @@ defineExpose({
   insertFile: (url) => insertMediaUrl('file', url),
   insertMediaUrl,
   openMediaUrl,
+  openFileManager,
   pickFiles,
   loadFromApi: () => loadFromApi(),
   saveToApi: () => saveToApi(),
@@ -4304,10 +4434,21 @@ defineExpose({
           {{ t('rve_cancel', 'Cancel') }}
         </button>
         <button type="button" class="rv-pill rv-pill--primary" :disabled="!mediaUrl.url.trim()" @click="submitMediaUrl">
-          {{ t('rve_insert', 'Insert') }}
+          {{ mediaUrl.mode === 'replace' ? t('rve_replace', 'Replace') : t('rve_insert', 'Insert') }}
         </button>
       </template>
     </RModal>
+
+    <RFileManager
+      v-model:open="fileManager.open"
+      :multiple="fileManager.multiple"
+      :accept="fileManagerAccept"
+      :select-mode="fileManagerSelectMode"
+      :title="t('rfm_title', 'File manager')"
+      :description="t('rfm_powered_by', 'Powered by Angkor-X')"
+      :t="t"
+      @select="onFileManagerSelect"
+    />
 
     <input ref="fileInput" type="file" multiple hidden @change="onPicked">
   </div>

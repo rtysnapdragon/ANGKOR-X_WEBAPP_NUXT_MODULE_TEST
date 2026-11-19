@@ -4,7 +4,7 @@
     :class="{
       focused: isFocused || modelValue,
       error: error,
-      disabled: disabled
+      disabled: disabled,
     }"
   >
     <!-- Overlay Label / Error -->
@@ -12,19 +12,26 @@
       {{ label }}
     </label>
     <!-- hide placeholder when input has value -->
-    <div class="input-wrapper" :class="{ error:'!!erroror'}">
+    <div
+      class="input-wrapper"
+      :class="{ error: !!error }"
+    >
       <input
         :type="type"
         :value="modelValue"
         :placeholder="(isFocused || modelValue) ? '' : placeholder"
         :disabled="disabled"
         @input="$emit('update:modelValue', $event.target.value)"
+        @keydown="$emit('keydown', $event)"
         @focus="isFocused = true"
         @blur="isFocused = false"
-      />
+      >
 
       <!-- 🔥 Trailing slot -->
-      <div v-if="$slots.trailing" class="trailing">
+      <div
+        v-if="$slots.trailing"
+        class="trailing"
+      >
         <slot name="trailing" />
       </div>
     </div>
@@ -38,10 +45,10 @@ defineProps({
   type: { type: String, default: 'text' },
   error: String,
   disabled: { type: Boolean, default: false }, // ✅ NEW
-  placeholder: { type: String, default: '' } // ✅ NEW
+  placeholder: { type: String, default: '' }, // ✅ NEW
 })
 
-defineEmits(['update:modelValue'])
+defineEmits(['update:modelValue', 'keydown'])
 
 const isFocused = ref(false)
 </script>
@@ -112,7 +119,7 @@ $rama-ink: var(--color-bg) !important;
   // &.focused input {
   //   border-color: var(--border);
   // }
-  
+
  /* ✅ ACTIVE / FOCUS ONLY */
   &.focused:not(.error):not(.disabled) {
     label {
@@ -161,7 +168,7 @@ $rama-ink: var(--color-bg) !important;
       color: var(--muted);
     }
   }
-  
+
   /* Error overrides everything */
   &.error {
     input {
