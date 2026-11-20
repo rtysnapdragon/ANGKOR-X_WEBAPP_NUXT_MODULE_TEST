@@ -154,7 +154,7 @@ watch(active, (key) => {
 
 <style lang="scss" scoped>
 .rcd {
-  max-width: 820px;
+  // max-width: 820px;
   margin: 0 auto;
   padding: var(--sp-6);
 

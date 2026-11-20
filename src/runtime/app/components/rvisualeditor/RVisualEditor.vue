@@ -14,7 +14,7 @@ import { TableKit } from '@tiptap/extension-table'
 import { Placeholder, CharacterCount } from '@tiptap/extensions'
 import { Typography } from '@tiptap/extension-typography'
 import { Suggestion } from '@tiptap/suggestion'
-import { onClickOutside, useElementSize } from '@vueuse/core'
+import { onClickOutside, useElementSize, useStorage } from '@vueuse/core'
 import createDOMPurify from 'dompurify'
 import RVToolbar from './RVToolbar.vue'
 import { z } from 'zod'
@@ -28,6 +28,7 @@ import { kindOfExplorerFile } from '../../composables/useFileExplorer'
 // import BtnShowUploadProcess from '../btn/BtnShowUploadProcess.vue'
 import { useUploadProgress } from '../../stores/uploadProgress'
 import { useHttp } from '../../composables/https'
+import apis from '../../helpers/apis'
 import FloatingInput from '../input/FloatingInput.vue'
 
 const appContext = getCurrentInstance()?.appContext
@@ -44,6 +45,18 @@ const props = defineProps({
   uploader: { type: Function, default: null }, // async (file, { onProgress(0..1), signal }) => ({ url })
   options: { type: Object, default: () => ({}) },
   extensions: { type: Array, default: () => [] },
+  mentionItems: { type: Array, default: () => [] },
+  gifs: { type: Array, default: () => [] },
+  gifSearch: { type: Function, default: null },
+  apiKey: { type: String, default: '' },
+  apiToken: { type: String, default: '' },
+  aiApiKey: { type: String, default: '' },
+  aiApiToken: { type: String, default: '' },
+  aiModel: { type: String, default: '' },
+  aiTemperature: { type: [Number, String], default: undefined },
+  aiMaxTokens: { type: [Number, String], default: undefined },
+  aiEndpoints: { type: Object, default: () => ({}) },
+  aiPayload: { type: Object, default: () => ({}) },
   editable: { type: Boolean, default: undefined },
   placeholder: { type: String, default: "Type '/' for commands…" },
   theme: { type: String, default: undefined, validator: (v) => ['light', 'dark', 'system'].includes(v) },
@@ -55,11 +68,14 @@ const props = defineProps({
   autofocus: { type: [Boolean, String, Number], default: false },
   canvasOptions: { type: Object, default: () => ({}) }, // { width, height, background } — default design page
   designs: { type: Object, default: () => ({}) }, // { [imageUrl]: design } — reopen saved designs
+  driveFolderId: { type: [String, Number], default: null },
+  driveMakePublic: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'update:modelValue', 'update', 'change', 'save', 'error', 'focus', 'blur',
-  'upload', 'upload-complete', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved', 'fullscreen',
+  'upload', 'upload-complete', 'media-select', 'object-select', 'object-transform', 'ready', 'design-saved', 'fullscreen', 'mention-select',
+  'ai-response', 'ai-error', 'export',
 ])
 
 // =====================================================================================================
@@ -300,17 +316,17 @@ const FEATURE_KEYS = [
   'indent', 'spacing', 'links', 'tables', 'codeBlock', 'divider', 'callout', 'typography',
   'slashMenu', 'bubbleMenu', 'blockHandle', 'dropFiles', 'media', 'images', 'videos', 'audio', 'files',
   'floatingMedia', 'shapes', 'drawing', 'canvas',
-  'inlineCode', 'pageBreak', 'emoji', 'specialCharacters', 'findReplace', 'source', 'accessibility', 'exportTools',
-  'linkFileActions', 'tableToolbar', 'menuBar', 'fullscreen',
+  'inlineCode', 'pageBreak', 'mentionMenu', 'emoji', 'specialCharacters', 'findReplace', 'source', 'accessibility', 'exportTools',
+  'linkFileActions', 'tableToolbar', 'menuBar', 'fullscreen', 'ai',
 ]
 const PRESETS = {
-  full: {},
+  full: { mentionMenu: true, ai: true },
   standard: { canvas: false, drawing: false, shapes: false, floatingMedia: false, typography: false },
   document: { canvas: false, drawing: false, shapes: false, floatingMedia: false, zoom: true, wordCount: true },
   featureRich: {
     toolbarMode: 'multiline', menuBar: true, tableToolbar: true, linkFileActions: true, inlineCode: true,
-    pageBreak: true, emoji: true, specialCharacters: true, findReplace: true, source: true,
-    accessibility: true, exportTools: true, zoom: true, wordCount: true, fullscreen: true,
+    pageBreak: true, mentionMenu: true, emoji: true, specialCharacters: true, findReplace: true, source: true,
+    accessibility: true, exportTools: true, zoom: true, wordCount: true, fullscreen: true, ai: true,
   },
   article: {
     toolbarMode: 'ribbon', tableToolbar: true, linkFileActions: true, inlineCode: true, pageBreak: true,
@@ -385,15 +401,18 @@ const optShape = {
   // `fonts` is both a feature flag (true | 'hidden' | 'disabled' | false) and the font-list config.
   fonts: z.union([flag, z.array(z.object({ key: z.string().regex(FAMILY_RE), group: z.string().optional(), stack: z.string().optional() })).min(1)]),
   fontSizes: z.array(z.number().int().min(6).max(200)).min(1),
+  flags: z.any(),
 }
 const OPT_DEFAULTS = {
   ...Object.fromEntries(FEATURE_KEYS.map((k) => [k, true])),
   preset: 'full', theme: 'system', appearance: 'paper', toolbarMode: 'ribbon', fullscreenMode: 'body', editable: true, emitDebounce: 300, allowBlobUrls: false,
   fonts: DEFAULT_FONTS, fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96],
+  flags: true,
   wordCount: true,
   zoom: false,
   inlineCode: false,
   pageBreak: false,
+  mentionMenu: false,
   emoji: false,
   specialCharacters: false,
   findReplace: false,
@@ -404,6 +423,7 @@ const OPT_DEFAULTS = {
   linkFileActions: true,
   tableToolbar: true,
   fullscreen: false,
+  ai: false,
 }
 const DEPENDS_ON = { images: 'media', videos: 'media', audio: 'media', files: 'media', dropFiles: 'media' }
 const inherit = (parent, child) => {
@@ -670,6 +690,69 @@ const RVPageBreak = Node.create({
     return {
       insertPageBreak: () => ({ chain }) => chain().insertContent({ type: this.name }).run(),
     }
+  },
+})
+
+function mentionText(value, fallback = '') {
+  if (value === null || value === undefined || value === '') return fallback
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : fallback
+}
+const RVMention = Node.create({
+  name: 'mention',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return {
+      id: { default: '', parseHTML: el => el.getAttribute('data-id') || '', renderHTML: attrs => ({ 'data-id': attrs.id || '' }) },
+      label: { default: '', parseHTML: el => el.getAttribute('data-label') || (el.textContent || '').replace(/^@/, ''), renderHTML: attrs => ({ 'data-label': attrs.label || '' }) },
+      avatarUrl: { default: '', parseHTML: el => el.getAttribute('data-avatar') || '', renderHTML: attrs => ({ 'data-avatar': attrs.avatarUrl || '' }) },
+    }
+  },
+  parseHTML() { return [{ tag: 'span[data-type="mention"]' }] },
+  renderHTML({ node }) { return ['span', { 'data-type': 'mention', 'class': 'rv-mention' }, `@${mentionText(node.attrs.label, mentionText(node.attrs.id, 'user'))}`] },
+  renderText({ node }) { return `@${mentionText(node.attrs.label, mentionText(node.attrs.id, 'user'))}` },
+  addCommands() {
+    return {
+      insertMention: attrs => ({ chain }) => chain().insertContent({ type: this.name, attrs: attrs || {} }).run(),
+    }
+  },
+})
+
+const RVInlineFlag = Node.create({
+  name: 'inlineFlag',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  draggable: false,
+  addAttributes() {
+    return {
+      src: { default: null },
+      alt: { default: '' },
+      code: { default: '' },
+    }
+  },
+  parseHTML() {
+    return [{
+      tag: 'img[data-rv-flag]',
+      getAttrs: (el) => {
+        const src = safeUrl(el.getAttribute('src') || '', opts.value.allowBlobUrls)
+        return src ? { src, alt: el.getAttribute('alt') || '', code: el.getAttribute('data-rv-flag') || '' } : false
+      },
+    }]
+  },
+  renderHTML({ node }) {
+    return ['img', {
+      src: node.attrs.src,
+      alt: node.attrs.alt || '',
+      'data-rv-flag': node.attrs.code || '1',
+      class: 'rv-inline-flag',
+      draggable: 'false',
+      loading: 'lazy',
+      decoding: 'async',
+    }]
   },
 })
 
@@ -1497,6 +1580,12 @@ function buildSlashItems() {
   if (on('codeBlock')) add('code', X, XK, 'Code', 'rve_code', 'Capture a code snippet.', 'rve_code_hint', 'i-lucide-square-code', ['pre', 'snippet', 'code'], (e) => e.chain().focus().toggleCodeBlock().run())
   if (on('pageBreak')) add('page-break', X, XK, 'Page break', 'rve_page_break', 'Start a new printed page.', 'rve_page_break_hint', 'i-lucide-scissors', ['page', 'break', 'print'], (e) => e.chain().focus().insertPageBreak().run())
   if (on('emoji')) add('emoji', X, XK, 'Stickers & emoji', 'rve_emoji', 'Open the sticker picker.', 'rve_emoji_hint', 'i-lucide-smile', ['emoji', 'sticker', 'stickers', 'smile'], () => toggleStickers())
+  if (on('mentionMenu')) add('mention', X, XK, 'Mention user', 'rve_mention_user', 'Tag a user with @mention.', 'rve_mention_user_hint', 'i-lucide-at-sign', ['user', 'users', 'mention', 'tag'], () => openMention())
+  if (on('ai')) {
+    const AK = 'rve_ai'
+    add('ai-ask', X, AK, 'Ask AI', 'rve_ai_ask', 'Ask a question about your document.', 'rve_ai_ask_hint', 'i-lucide-message-circle', ['ai', 'ask', 'chat'], () => openAiChat())
+    add('ai-improve', X, AK, 'Improve writing', 'rve_ai_improve_writing', 'Rewrite the selection for clarity.', 'rve_ai_improve_writing_hint', 'i-lucide-wand-sparkles', ['ai', 'improve', 'rewrite'], () => runAiAction('improve'))
+  }
   if (on('specialCharacters')) add('special-characters', X, XK, 'Special character', 'rve_special_character', 'Insert a symbol or special character.', 'rve_special_character_hint', 'i-lucide-type', ['symbol', 'character'], (e) => e.chain().focus().insertContent('©').run())
   add('date', X, XK, 'Date', 'rve_date', 'Insert today’s date.', 'rve_date_hint', 'i-lucide-calendar', ['today', 'time'], (e) => e.chain().focus().insertContent(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })).run())
   return list.map((it) => {
@@ -1547,6 +1636,169 @@ const RVSlash = Extension.create({
           onUpdate: (p) => setSlash(p, false),
           onKeyDown: (p) => slashKey(p.event),
           onExit: () => { slash.open = false },
+        }),
+      }),
+    ]
+  },
+})
+
+const mention = reactive({ open: false, items: [], index: 0, rect: null, command: null, query: '' })
+const mentionApiItems = ref([])
+const mentionLoaded = ref(false)
+const mentionLoading = ref(false)
+const mentionEl = ref(null)
+let mentionRequest = null
+let mentionLoadPromise = null
+const mentionStyle = computed(() => {
+  const r = mention.rect
+  if (!r || !import.meta.client) return { visibility: 'hidden' }
+  const left = `${Math.max(8, Math.min(r.left, window.innerWidth - 320))}px`
+  const below = window.innerHeight - r.bottom
+  return below < 320 && r.top > below ? { left, bottom: `${window.innerHeight - r.top + 8}px`, maxHeight: `${Math.min(380, r.top - 16)}px` } : { left, top: `${r.bottom + 8}px`, maxHeight: `${Math.min(380, below - 16)}px` }
+})
+watch(() => mention.index, async () => {
+  await nextTick()
+  mentionEl.value?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
+})
+function mentionAvatar(item) {
+  const avatar = item?.avatar ?? item?.Avatar ?? item?.AvatarUrl ?? item?.avatarUrl ?? item?.image ?? item?.Image
+  if (typeof avatar === 'string') return avatar
+  if (isObj(avatar)) return mentionText(avatar.src ?? avatar.url ?? avatar.AvatarUrl ?? avatar.avatarUrl)
+  return ''
+}
+function normalizeMentionItem(item, index = 0) {
+  if (typeof item === 'string') return { id: item, label: item, description: '', avatar: '', raw: item }
+  const id = mentionText(item?.id ?? item?.userId ?? item?.UserId ?? item?.value ?? item?.LoginName ?? item?.Username ?? item?.Email, mentionText(index))
+  const label = mentionText(item?.label ?? item?.DisplayName ?? item?.displayName ?? item?.FullName ?? item?.fullName ?? item?.name ?? item?.Name ?? item?.Username ?? item?.username ?? item?.LoginName ?? item?.Email, id)
+  const description = mentionText(item?.description ?? item?.email ?? item?.Email ?? item?.PositionName ?? item?.DepartmentName ?? item?.RoleName)
+  return { id, label, description, avatar: mentionAvatar(item), raw: item }
+}
+function extractMentionRows(response) {
+  if (Array.isArray(response)) return response
+  if (!isObj(response)) return []
+  const keys = ['items', 'Items', 'data', 'Data', 'rows', 'Rows', 'result', 'Result', 'list', 'List', 'users', 'Users']
+  for (const key of keys) if (Array.isArray(response[key])) return response[key]
+  for (const key of keys) if (isObj(response[key])) {
+    const rows = extractMentionRows(response[key])
+    if (rows.length) return rows
+  }
+  return []
+}
+const mentionSource = computed(() => {
+  const map = new Map()
+  const provided = asArray(props.mentionItems).map((item, index) => normalizeMentionItem(item, index))
+  const loaded = mentionApiItems.value.map((item, index) => normalizeMentionItem(item, index + provided.length))
+  for (const item of [...provided, ...loaded]) if (item.id && !map.has(item.id)) map.set(item.id, item)
+  return [...map.values()]
+})
+const filterMention = (query) => {
+  const q = mentionText(query).trim().toLowerCase()
+  const items = mentionSource.value
+  const matched = q ? items.filter(item => [item.label, item.id, item.description, item.raw?.Email, item.raw?.Username, item.raw?.LoginName].some(value => mentionText(value).toLowerCase().includes(q))) : items
+  return matched.slice(0, 50)
+}
+function mentionInitials(label) {
+  const parts = mentionText(label).trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return '?'
+  return `${parts[0][0]}${parts.length > 1 ? parts[parts.length - 1][0] : ''}`.toUpperCase()
+}
+async function ensureMentionItems() {
+  if (mentionSource.value.length || !import.meta.client || mentionLoaded.value) return
+  if (mentionLoadPromise) return mentionLoadPromise
+  mentionLoading.value = true
+  mentionLoadPromise = (async () => {
+    try {
+      const { data: responseRef, error } = await useHttp(apis.user.list, {
+        method: 'POST',
+        data: { Email: '', LoginName: '', Phone: '', Search: '', Status: [1, 3, 4], UserId: '', UserType: [] },
+        alertError: false,
+      })
+      const err = error?.value ?? error
+      if (!err) mentionApiItems.value = extractMentionRows(responseRef?.value ?? responseRef)
+    }
+    catch (err) {
+      warn('Could not load mention users:', err)
+    }
+    finally {
+      mentionLoaded.value = true
+      mentionLoading.value = false
+      mentionLoadPromise = null
+      if (mentionRequest && mention.open) setMention(mentionRequest, false)
+    }
+  })()
+  return mentionLoadPromise
+}
+function setMention(p, reset) {
+  mentionRequest = p
+  mention.query = mentionText(p.query)
+  mention.open = true
+  mention.items = filterMention(mention.query)
+  mention.rect = p.clientRect?.() ?? null
+  mention.command = p.command
+  if (reset || mention.index >= mention.items.length) mention.index = 0
+}
+function closeMention() {
+  mention.open = false
+  mentionRequest = null
+  return true
+}
+function mentionKey(event) {
+  if (!mention.open || !event) return false
+  if (event.key === 'Escape') return closeMention()
+  const n = mention.items.length
+  if (!n) return false
+  if (event.key === 'ArrowDown') {
+    mention.index = (mention.index + 1) % n
+    return true
+  }
+  if (event.key === 'ArrowUp') {
+    mention.index = (mention.index - 1 + n) % n
+    return true
+  }
+  if (event.key === 'Enter' || event.key === 'Tab') {
+    mention.command(mention.items[mention.index])
+    return true
+  }
+  return false
+}
+function openMention() {
+  if (!on('mentionMenu') || !isEditable.value) return
+  const e = live()
+  if (!e) return
+  e.chain().focus().insertContent('@').run()
+}
+function insertUserMention(item, editorInstance = null) {
+  const normalized = normalizeMentionItem(item)
+  const e = editorInstance ?? any()
+  e?.chain().focus().insertContent({ type: 'mention', attrs: { id: normalized.id, label: normalized.label, avatarUrl: normalized.avatar } }).insertContent(' ').run()
+  emit('mention-select', normalized.raw ?? normalized)
+}
+const RVMentionSuggestion = Extension.create({
+  name: 'rvMention',
+  addProseMirrorPlugins() {
+    return [
+      Suggestion({
+        editor: this.editor,
+        pluginKey: new PluginKey('rvMention'),
+        char: '@',
+        allowSpaces: false,
+        allow: ({ state, range }) => !state.doc.resolve(range.from).parent.type.spec.code,
+        items: ({ query }) => {
+          void ensureMentionItems()
+          return filterMention(query)
+        },
+        command: ({ editor: e, range, props: item }) => {
+          e.chain().focus().deleteRange(range).run()
+          insertUserMention(item, e)
+        },
+        render: () => ({
+          onStart: (p) => {
+            void ensureMentionItems()
+            setMention(p, true)
+          },
+          onUpdate: p => setMention(p, false),
+          onKeyDown: p => mentionKey(p.event),
+          onExit: () => closeMention(),
         }),
       }),
     ]
@@ -3268,6 +3520,8 @@ function buildExtensions() {
   if (on('spacing') || on('indent')) list.push(RVBlockStyle)
   if (on('callout')) list.push(RVCallout)
   if (on('pageBreak')) list.push(RVPageBreak)
+  if (on('mentionMenu')) list.push(RVMention, RVMentionSuggestion)
+  if (on('emoji')) list.push(RVInlineFlag)
   if (on('media')) list.push(RVMedia)
   if (on('typography')) list.push(Typography)
   if (on('slashMenu')) list.push(RVSlash)
@@ -3593,7 +3847,8 @@ function onRootKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openLink() }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's' && hasApiSave.value) { e.preventDefault(); void saveToApi() }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f' && vis('findReplace')) { e.preventDefault(); toggleFind() }
-  if (e.key === 'Escape') { blockMenu.open = false; menuOpen.value = null; sourceOpen.value = false; findOpen.value = false; specialOpen.value = false; stickersOpen.value = false }
+  if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === 'a' && vis('ai')) { e.preventDefault(); openAiChat() }
+  if (e.key === 'Escape') { blockMenu.open = false; menuOpen.value = null; sourceOpen.value = false; findOpen.value = false; specialOpen.value = false; stickersOpen.value = false; closeAiPanels() }
 }
 
 const TABLE_DOCK_TOOLS = [
@@ -3660,41 +3915,246 @@ function updateTableDock() {
 }
 watch(() => tick.value, () => { updateTableDock() })
 
-const STICKER_GROUPS = [
+const emojiItem = (value, name = value, keywords = '') => ({ value, name, keywords, kind: 'emoji' })
+const gifItem = (value, name, keywords = '') => ({ value, name, keywords, kind: 'gif' })
+const flagItem = (value, name, keywords = '', code = '') => ({ value, name, keywords, kind: 'flag', code })
+const emojiItems = (values, keywords = '') => values.map(value => emojiItem(value, value, keywords))
+const normalizeGifItems = (items = []) => (Array.isArray(items) ? items : []).map((item) => {
+  if (typeof item === 'string') return gifItem(item, 'GIF', '')
+  const value = item?.value ?? item?.url ?? item?.src ?? ''
+  if (!value) return null
+  return gifItem(value, item?.name ?? item?.title ?? 'GIF', item?.keywords ?? item?.query ?? '')
+}).filter(Boolean)
+const flagUrl = code => `https://flagcdn.com/${String(code).toLowerCase()}.svg`
+const normalizeFlagItems = (items = []) => (Array.isArray(items) ? items : []).map((item) => {
+  if (typeof item === 'string') {
+    if (/^[a-z]{2}(?:-[a-z0-9]{2,3})?$/i.test(item)) {
+      return flagItem(flagUrl(item), item.toUpperCase(), item.toLowerCase(), item.toUpperCase())
+    }
+    return flagItem(item, 'Flag', '')
+  }
+  const code = asStr(item?.code).trim()
+  const value = item?.value ?? item?.url ?? item?.src ?? (code ? flagUrl(code) : '')
+  if (!value) return null
+  const name = asStr(item?.name ?? item?.label).trim() || code || 'Flag'
+  const keywords = asStr(item?.keywords).trim() || `${code} ${name}`.toLowerCase()
+  return flagItem(value, name, keywords, code || '')
+}).filter(Boolean)
+const COUNTRIES = [
+  ['AD', 'Andorra'], ['AE', 'United Arab Emirates'], ['AF', 'Afghanistan'], ['AG', 'Antigua and Barbuda'], ['AI', 'Anguilla'], ['AL', 'Albania'], ['AM', 'Armenia'], ['AO', 'Angola'], ['AQ', 'Antarctica'], ['AR', 'Argentina'], ['AS', 'American Samoa'], ['AT', 'Austria'], ['AU', 'Australia'], ['AW', 'Aruba'], ['AX', 'Aland Islands'], ['AZ', 'Azerbaijan'],
+  ['BA', 'Bosnia and Herzegovina'], ['BB', 'Barbados'], ['BD', 'Bangladesh'], ['BE', 'Belgium'], ['BF', 'Burkina Faso'], ['BG', 'Bulgaria'], ['BH', 'Bahrain'], ['BI', 'Burundi'], ['BJ', 'Benin'], ['BL', 'Saint Barthelemy'], ['BM', 'Bermuda'], ['BN', 'Brunei Darussalam'], ['BO', 'Bolivia'], ['BQ', 'Bonaire, Sint Eustatius and Saba'], ['BR', 'Brazil'], ['BS', 'Bahamas'], ['BT', 'Bhutan'], ['BV', 'Bouvet Island'], ['BW', 'Botswana'], ['BY', 'Belarus'], ['BZ', 'Belize'],
+  ['CA', 'Canada'], ['CC', 'Cocos (Keeling) Islands'], ['CD', 'Congo, Democratic Republic of the'], ['CF', 'Central African Republic'], ['CG', 'Congo'], ['CH', 'Switzerland'], ['CI', 'Cote d\'Ivoire'], ['CK', 'Cook Islands'], ['CL', 'Chile'], ['CM', 'Cameroon'], ['CN', 'China'], ['CO', 'Colombia'], ['CR', 'Costa Rica'], ['CU', 'Cuba'], ['CV', 'Cabo Verde'], ['CW', 'Curacao'], ['CX', 'Christmas Island'], ['CY', 'Cyprus'], ['CZ', 'Czechia'],
+  ['DE', 'Germany'], ['DJ', 'Djibouti'], ['DK', 'Denmark'], ['DM', 'Dominica'], ['DO', 'Dominican Republic'], ['DZ', 'Algeria'],
+  ['EC', 'Ecuador'], ['EE', 'Estonia'], ['EG', 'Egypt'], ['EH', 'Western Sahara'], ['ER', 'Eritrea'], ['ES', 'Spain'], ['ET', 'Ethiopia'],
+  ['FI', 'Finland'], ['FJ', 'Fiji'], ['FK', 'Falkland Islands'], ['FM', 'Micronesia'], ['FO', 'Faroe Islands'], ['FR', 'France'],
+  ['GA', 'Gabon'], ['GB', 'United Kingdom'], ['GD', 'Grenada'], ['GE', 'Georgia'], ['GF', 'French Guiana'], ['GG', 'Guernsey'], ['GH', 'Ghana'], ['GI', 'Gibraltar'], ['GL', 'Greenland'], ['GM', 'Gambia'], ['GN', 'Guinea'], ['GP', 'Guadeloupe'], ['GQ', 'Equatorial Guinea'], ['GR', 'Greece'], ['GS', 'South Georgia and the South Sandwich Islands'], ['GT', 'Guatemala'], ['GU', 'Guam'], ['GW', 'Guinea-Bissau'], ['GY', 'Guyana'],
+  ['HK', 'Hong Kong'], ['HM', 'Heard Island and McDonald Islands'], ['HN', 'Honduras'], ['HR', 'Croatia'], ['HT', 'Haiti'], ['HU', 'Hungary'],
+  ['ID', 'Indonesia'], ['IE', 'Ireland'], ['IL', 'Israel'], ['IM', 'Isle of Man'], ['IN', 'India'], ['IO', 'British Indian Ocean Territory'], ['IQ', 'Iraq'], ['IR', 'Iran'], ['IS', 'Iceland'], ['IT', 'Italy'],
+  ['JE', 'Jersey'], ['JM', 'Jamaica'], ['JO', 'Jordan'], ['JP', 'Japan'],
+  ['KE', 'Kenya'], ['KG', 'Kyrgyzstan'], ['KH', 'Cambodia'], ['KI', 'Kiribati'], ['KM', 'Comoros'], ['KN', 'Saint Kitts and Nevis'], ['KP', 'Korea (DPR)'], ['KR', 'Korea (Republic)'], ['KW', 'Kuwait'], ['KY', 'Cayman Islands'], ['KZ', 'Kazakhstan'],
+  ['LA', 'Lao PDR'], ['LB', 'Lebanon'], ['LC', 'Saint Lucia'], ['LI', 'Liechtenstein'], ['LK', 'Sri Lanka'], ['LR', 'Liberia'], ['LS', 'Lesotho'], ['LT', 'Lithuania'], ['LU', 'Luxembourg'], ['LV', 'Latvia'], ['LY', 'Libya'],
+  ['MA', 'Morocco'], ['MC', 'Monaco'], ['MD', 'Moldova'], ['ME', 'Montenegro'], ['MF', 'Saint Martin (French part)'], ['MG', 'Madagascar'], ['MH', 'Marshall Islands'], ['MK', 'North Macedonia'], ['ML', 'Mali'], ['MM', 'Myanmar'], ['MN', 'Mongolia'], ['MO', 'Macao'], ['MP', 'Northern Mariana Islands'], ['MQ', 'Martinique'], ['MR', 'Mauritania'], ['MS', 'Montserrat'], ['MT', 'Malta'], ['MU', 'Mauritius'], ['MV', 'Maldives'], ['MW', 'Malawi'], ['MX', 'Mexico'], ['MY', 'Malaysia'], ['MZ', 'Mozambique'],
+  ['NA', 'Namibia'], ['NC', 'New Caledonia'], ['NE', 'Niger'], ['NF', 'Norfolk Island'], ['NG', 'Nigeria'], ['NI', 'Nicaragua'], ['NL', 'Netherlands'], ['NO', 'Norway'], ['NP', 'Nepal'], ['NR', 'Nauru'], ['NU', 'Niue'], ['NZ', 'New Zealand'],
+  ['OM', 'Oman'],
+  ['PA', 'Panama'], ['PE', 'Peru'], ['PF', 'French Polynesia'], ['PG', 'Papua New Guinea'], ['PH', 'Philippines'], ['PK', 'Pakistan'], ['PL', 'Poland'], ['PM', 'Saint Pierre and Miquelon'], ['PN', 'Pitcairn'], ['PR', 'Puerto Rico'], ['PS', 'Palestine'], ['PT', 'Portugal'], ['PW', 'Palau'], ['PY', 'Paraguay'],
+  ['QA', 'Qatar'],
+  ['RE', 'Reunion'], ['RO', 'Romania'], ['RS', 'Serbia'], ['RU', 'Russia'], ['RW', 'Rwanda'],
+  ['SA', 'Saudi Arabia'], ['SB', 'Solomon Islands'], ['SC', 'Seychelles'], ['SD', 'Sudan'], ['SE', 'Sweden'], ['SG', 'Singapore'], ['SH', 'Saint Helena, Ascension and Tristan da Cunha'], ['SI', 'Slovenia'], ['SJ', 'Svalbard and Jan Mayen'], ['SK', 'Slovakia'], ['SL', 'Sierra Leone'], ['SM', 'San Marino'], ['SN', 'Senegal'], ['SO', 'Somalia'], ['SR', 'Suriname'], ['SS', 'South Sudan'], ['ST', 'Sao Tome and Principe'], ['SV', 'El Salvador'], ['SX', 'Sint Maarten (Dutch part)'], ['SY', 'Syria'], ['SZ', 'Eswatini'],
+  ['TC', 'Turks and Caicos Islands'], ['TD', 'Chad'], ['TF', 'French Southern Territories'], ['TG', 'Togo'], ['TH', 'Thailand'], ['TJ', 'Tajikistan'], ['TK', 'Tokelau'], ['TL', 'Timor-Leste'], ['TM', 'Turkmenistan'], ['TN', 'Tunisia'], ['TO', 'Tonga'], ['TR', 'Turkiye'], ['TT', 'Trinidad and Tobago'], ['TV', 'Tuvalu'], ['TW', 'Taiwan'], ['TZ', 'Tanzania'],
+  ['UA', 'Ukraine'], ['UG', 'Uganda'], ['UM', 'U.S. Minor Outlying Islands'], ['US', 'United States'], ['UY', 'Uruguay'], ['UZ', 'Uzbekistan'],
+  ['VA', 'Holy See'], ['VC', 'Saint Vincent and the Grenadines'], ['VE', 'Venezuela'], ['VG', 'Virgin Islands (British)'], ['VI', 'Virgin Islands (U.S.)'], ['VN', 'Viet Nam'], ['VU', 'Vanuatu'],
+  ['WF', 'Wallis and Futuna'], ['WS', 'Samoa'],
+  ['YE', 'Yemen'], ['YT', 'Mayotte'],
+  ['ZA', 'South Africa'], ['ZM', 'Zambia'], ['ZW', 'Zimbabwe'],
+]
+const COUNTRY_FLAGS = COUNTRIES.map(([code, name]) => flagItem(flagUrl(code), name, `${code.toLowerCase()} ${name.toLowerCase()}`, code))
+const REGION_FLAGS = [
+  flagItem(flagUrl('eu'), 'European Union', 'eu europe european union', 'EU'),
+  flagItem(flagUrl('un'), 'United Nations', 'un united nations international', 'UN'),
+  flagItem(flagUrl('xk'), 'Kosovo', 'xk kosovo', 'XK'),
+  flagItem(flagUrl('gb-eng'), 'England', 'england gb-eng united kingdom', 'GB-ENG'),
+  flagItem(flagUrl('gb-sct'), 'Scotland', 'scotland gb-sct united kingdom', 'GB-SCT'),
+  flagItem(flagUrl('gb-wls'), 'Wales', 'wales gb-wls united kingdom', 'GB-WLS'),
+  flagItem(flagUrl('gb-nir'), 'Northern Ireland', 'northern ireland gb-nir united kingdom', 'GB-NIR'),
+]
+const GIF_GROUPS = [
   {
-    id: 'smileys', name: 'Smileys', items: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊'],
+    id: 'trending', name: 'Trending GIFs', items: [
+      gifItem('https://media.giphy.com/media/3og0IyHYXtcm2VQpig/giphy.gif', 'Way to go', 'thumbs up yes approve great'),
+      gifItem('https://media.giphy.com/media/Z4la7mxhim0Le/giphy.gif', 'Happy dance', 'happy celebrate excited'),
+      gifItem('https://media.giphy.com/media/xTiTnk7cRvop40CYLu/giphy.gif', 'Clapping', 'clap applause bravo'),
+      gifItem('https://media.giphy.com/media/cFSbwZr4i0hVe/giphy.gif', 'Happy dance', 'dance celebrate'),
+      gifItem('https://media.giphy.com/media/xT77XWum9yH7zNkFW0/giphy.gif', 'Wow', 'wow surprise amazing'),
+      gifItem('https://media.giphy.com/media/3o7aTzm7USlf7kk1VK/giphy.gif', 'True love', 'love heart romance'),
+      gifItem('https://media.giphy.com/media/l2Sq5GffrCyUMEXjW/giphy.gif', 'Perfect cat', 'cat perfect cute'),
+      gifItem('https://media.giphy.com/media/vFKqnCdLPNOKc/giphy.gif', 'Celebrate', 'celebrate yes dance'),
+    ],
   },
   {
-    id: 'people', name: 'People', items: ['👋', '🤚', '🖐', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁', '👅', '👄', '💋', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '👩', '🧓', '👴', '👵', '👮', '👲', '👳', '👷', '💂', '🕵️', '👨‍💻', '👩‍💻', '👨‍🏫', '👩‍🏫', '👨‍🍳', '👩‍🍳', '👨‍🎤', '👩‍🎤', '👨‍🚀', '👩‍🚀', '🧑‍✈️', '👩‍⚕️', '👨‍⚕️', '👩‍🎓', '👨‍🎓'],
+    id: 'reactions', name: 'Reaction GIFs', items: [
+      gifItem('https://media.giphy.com/media/3oEdva9BUHPIs2SkGk/giphy.gif', 'Thank you', 'thanks thank you gratitude'),
+      gifItem('https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', 'Blow your mind', 'wow mind blown surprise'),
+      gifItem('https://media.giphy.com/media/OPU6wzx8JrHna/giphy.gif', 'Sad cry', 'sad cry upset'),
+      gifItem('https://media.giphy.com/media/l3q30CfhSfZM4XzSU/giphy.gif', 'Happy tears', 'cry happy excited tears'),
+      gifItem('https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif', 'Excuse me', 'wow surprise excuse'),
+      gifItem('https://media.giphy.com/media/3ov9jSmllAIKuthAe4/giphy.gif', 'Thumbs up', 'yes ok approve'),
+      gifItem('https://media.giphy.com/media/9DgjJSVSUyBrlBgSw4/giphy.gif', 'Laugh through tears', 'lol laugh cry'),
+      gifItem('https://media.giphy.com/media/xT9DPC0o6lUwV4QCAM/giphy.gif', 'Crying', 'cry sad emotional'),
+    ],
   },
   {
-    id: 'animals', name: 'Animals', items: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🐌', '🦋', '🐞', '🐜', '🪲', '🐢', '🐍', '🦎', '🐙', '🦑', '🦐', '🦀', '🐠', '🐟', '🐬', '🐳', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🕊', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿', '🦔'],
+    id: 'love', name: 'Love & hugs GIFs', items: [
+      gifItem('https://media.giphy.com/media/Hp4lpOT1Ns60o/giphy.gif', 'I love you hug', 'love hug kiss'),
+      gifItem('https://media.giphy.com/media/26xBFU3WDQ1OQXoWI/giphy.gif', 'I love you', 'love you romance'),
+      gifItem('https://media.giphy.com/media/l4Ki4biBSwhjyrS48/giphy.gif', 'Love flower', 'love flower romance'),
+      gifItem('https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif', 'Valentines love', 'valentine love heart'),
+      gifItem('https://media.giphy.com/media/l2R0aKwejYr8ycKAg/giphy.gif', 'Happy love', 'love happy you'),
+      gifItem('https://media.giphy.com/media/3oFzm92x7J1NQPNBew/giphy.gif', 'Hug', 'hug care comfort'),
+    ],
   },
   {
-    id: 'food', name: 'Food', items: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '☕', '🍵', '🧃', '🥤', '🍺', '🍻', '🥂', '🍷', '🍸', '🍹', '🧉'],
-  },
-  {
-    id: 'activities', name: 'Activities', items: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸', '🥌', '🎿', '⛷', '🏂', '🏋️‍♀️', '🏋️‍♂️', '🤼', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🎯', '🎮', '🕹', '🎲', '🧩', '🎨', '🎭', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗'],
-  },
-  {
-    id: 'travel', name: 'Travel', items: ['🚗', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🛵', '🏍', '🛺', '🚲', '🛴', '🚀', '🛸', '✈️', '🛩', '🛫', '🛬', '🪂', '🚁', '🚂', '🚆', '🚇', '🚊', '🚝', '🚞', '🚋', '⛵', '🛥', '🚤', '🛳', '⛴', '⛽', '🗺', '🧭', '🗼', '🗽', '🏰', '🏯', '🏟', '🎡', '🎢', '🎠', '⛲', '⛱', '🏖', '🏝', '🏜', '🌋', '🏔', '⛰', '🗻', '🏕', '🏠', '🏡', '🏢', '🏬', '🏭', '🏥', '🏦', '🏨', '🏫', '🏛', '🏗', '🧱', '🪜', '🛠', '⚙️', '🔧', '🔨', '🧰', '🧲', '🧪', '🧬', '🔬', '🔭', '🛰', '🌍', '🌎', '🌏', '🌐'],
-  },
-  {
-    id: 'objects', name: 'Objects', items: ['💻', '🖥', '🖨', '⌨️', '🖱', '🖲', '💽', '💾', '💿', '📀', '📱', '📲', '☎️', '📞', '📟', '📠', '📺', '📻', '🎙', '🎚', '🎛', '⏰', '⏱', '⏲', '🕰', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯', '🪔', '🧯', '🛢', '💸', '💵', '💴', '💶', '💷', '💰', '💳', '🧾', '💎', '⚖️', '🔗', '⛓', '🛡', '⚔️', '🪓', '🔪', '🗡', '🔮', '🪄', '📿', '🎁', '🎈', '🎉', '🎊', '🎏', '🎀', '🎗', '🎫', '🎟', '📯', '📜', '📃', '📄', '📑', '📋', '📌', '📍', '📎', '🖇', '📐', '📏', '✂️', '🗂', '🗃', '🗄', '🗑', '🔒', '🔓', '🔑', '🗝', '🔩', '🧫'],
-  },
-  {
-    id: 'symbols', name: 'Symbols', items: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚡', '☀️', '🌤', '⛅', '🌥', '☁️', '🌦', '🌧', '⛈', '🌩', '🌨', '❄️', '☃️', '⛄', '🌬', '💨', '💧', '💦', '🫧', '☔', '☂️', '🌈', '🌫', '🌪', '🌊', '🔥', '💥', '💫', '⭐', '🌟', '✨', '☄️', '💯', '💢', '🔔', '🔕', '🎵', '🎶', '♠️', '♣️', '♥️', '♦️', '🃏', '🀄', '🎴', '🔇', '🔈', '🔉', '🔊', '📢', '📣', '✅', '❌', '❎', '➕', '➖', '➗', '✖️', '♾', '💲', '💱', '™️', '©️', '®️', '‼️', '⁉️', '❓', '❔', '❗', '❕', '〰️', '➰', '➿', '🔱', '⚜️'],
-  },
-  {
-    id: 'flags', name: 'Flags', items: ['🏳️', '🏴', '🏁', '🚩', '🏳️‍🌈', '🏳️‍⚧️', '🇰🇭', '🇺🇸', '🇬🇧', '🇫🇷', '🇩🇪', '🇪🇸', '🇮🇹', '🇯🇵', '🇰🇷', '🇨🇳', '🇻🇳', '🇹🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇵🇭', '🇦🇺', '🇨🇦', '🇧🇷', '🇮🇳', '🇷🇺', '🇺🇦', '🇪🇺', '🇦🇪', '🇿🇦'],
+    id: 'funny', name: 'Funny GIFs', items: [
+      gifItem('https://media.giphy.com/media/7XADiFeY6fhnItpkiA/giphy.gif', 'Cat wink', 'cat wink funny'),
+      gifItem('https://media.giphy.com/media/xULW8xV2tnhxt0jTzy/giphy.gif', 'High five cat', 'cat high five'),
+      gifItem('https://media.giphy.com/media/Nkko2AtLJiEEg/giphy.gif', 'Dancing', 'dance funny'),
+      gifItem('https://media.giphy.com/media/l3V0lsGtTMSB5YNgc/giphy.gif', 'Dude dancing', 'dance celebrate'),
+      gifItem('https://media.giphy.com/media/3ohhwut9VL65wjUjx6/giphy.gif', 'Laughing', 'lol laugh funny'),
+      gifItem('https://media.giphy.com/media/3ornjGU4aAW64iiPvy/giphy.gif', 'Happy', 'happy excited'),
+      gifItem('https://media.giphy.com/media/3ohhwKaxwA4VZcFyGQ/giphy.gif', 'Applause', 'clap applause'),
+      gifItem('https://media.giphy.com/media/3o6gb7ljSEi0lBN7rO/giphy.gif', 'Standing ovation', 'clap applause bravo'),
+    ],
   },
 ]
-const STICKER_GROUPS_WITH_ALL = [
-  { id: 'all', name: 'All stickers', items: [...new Set(STICKER_GROUPS.flatMap(group => group.items))] },
-  ...STICKER_GROUPS,
+const EMOJI_GROUPS = [
+  { id: 'smileys', name: 'Smileys', items: emojiItems(['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊']) },
+  { id: 'people', name: 'People', items: emojiItems(['👋', '🤚', '🖐', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁', '👅', '👄', '💋', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '👩', '🧓', '👴', '👵', '👮', '👲', '👳', '👷', '💂', '🕵️', '👨‍💻', '👩‍💻', '👨‍🏫', '👩‍🏫', '👨‍🍳', '👩‍🍳', '👨‍🎤', '👩‍🎤', '👨‍🚀', '👩‍🚀', '🧑‍✈️', '👩‍⚕️', '👨‍⚕️', '👩‍🎓', '👨‍🎓']) },
+  { id: 'animals', name: 'Animals', items: emojiItems(['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🐌', '🦋', '🐞', '🐜', '🪲', '🐢', '🐍', '🦎', '🐙', '🦑', '🦐', '🦀', '🐠', '🐟', '🐬', '🐳', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🕊', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿', '🦔', '🪿', '🫎', '🫏']) },
+  { id: 'food', name: 'Food', items: emojiItems(['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '☕', '🍵', '🧃', '🥤', '🍺', '🍻', '🥂', '🍷', '🍸', '🍹', '🧉', '🍋‍🟩', '🫚', '🫛']) },
+  { id: 'activities', name: 'Activities', items: emojiItems(['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸', '🥌', '🎿', '⛷', '🏂', '🏋️‍♀️', '🏋️‍♂️', '🤼', '🤸', '⛹️', '🤺', '🤾', '🏌️', '🏇', '🧘', '🏄', '🏊', '🤽', '🚣', '🧗', '🚵', '🚴', '🎯', '🎮', '🕹', '🎲', '🧩', '🎨', '🎭', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗']) },
+  { id: 'travel', name: 'Travel', items: emojiItems(['🚗', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🛵', '🏍', '🛺', '🚲', '🛴', '🚀', '🛸', '✈️', '🛩', '🛫', '🛬', '🪂', '🚁', '🚂', '🚆', '🚇', '🚊', '🚝', '🚞', '🚋', '⛵', '🛥', '🚤', '🛳', '⛴', '⛽', '🗺', '🧭', '🗼', '🗽', '🏰', '🏯', '🏟', '🎡', '🎢', '🎠', '⛲', '⛱', '🏖', '🏝', '🏜', '🌋', '🏔', '⛰', '🗻', '🏕', '🏠', '🏡', '🏢', '🏬', '🏭', '🏥', '🏦', '🏨', '🏫', '🏛', '🏗', '🧱', '🪜', '🛠', '⚙️', '🔧', '🔨', '🧰', '🧲', '🧪', '🧬', '🔬', '🔭', '🛰', '🌍', '🌎', '🌏', '🌐']) },
+  { id: 'objects', name: 'Objects', items: emojiItems(['💻', '🖥', '🖨', '⌨️', '🖱', '🖲', '💽', '💾', '💿', '📀', '📱', '📲', '☎️', '📞', '📟', '📠', '📺', '📻', '🎙', '🎚', '🎛', '⏰', '⏱', '⏲', '🕰', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯', '🪔', '🧯', '🛢', '💸', '💵', '💴', '💶', '💷', '💰', '💳', '🧾', '💎', '⚖️', '🔗', '⛓', '🛡', '⚔️', '🪓', '🔪', '🗡', '🔮', '🪄', '📿', '🎁', '🎈', '🎉', '🎊', '🎏', '🎀', '🎗', '🎫', '🎟', '📯', '📜', '📃', '📄', '📑', '📋', '📌', '📍', '📎', '🖇', '📐', '📏', '✂️', '🗂', '🗃', '🗄', '🗑', '🔒', '🔓', '🔑', '🗝', '🔩', '🧫', '🪫', '🪪', '🛜']) },
+  { id: 'symbols', name: 'Symbols', items: emojiItems(['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚡', '☀️', '🌤', '⛅', '🌥', '☁️', '🌦', '🌧', '⛈', '🌩', '🌨', '❄️', '☃️', '⛄', '🌬', '💨', '💧', '💦', '🫧', '☔', '☂️', '🌈', '🌫', '🌪', '🌊', '🔥', '💥', '💫', '⭐', '🌟', '✨', '☄️', '💯', '💢', '🔔', '🔕', '🎵', '🎶', '♠️', '♣️', '♥️', '♦️', '🃏', '🀄', '🎴', '🔇', '🔈', '🔉', '🔊', '📢', '📣', '✅', '❌', '❎', '➕', '➖', '➗', '✖️', '♾', '💲', '💱', '™️', '©️', '®️', '‼️', '⁉️', '❓', '❔', '❗', '❕', '〰️', '➰', '➿', '🔱', '⚜️', '🩷', '🩵', '🩶', '🩸', '🪬']) },
+  { id: 'new', name: 'New emoji', items: emojiItems(['🫠', '🫢', '🫣', '🫡', '🫶', '🫰', '🫵', '🫴', '🫳', '🫱', '🫲', '🫭', '🫨', '🫩', '🫪', '🫫', '🫬', '🫧', '🫦', '🫅', '🫄', '🧌', '🪾', '🪺', '🪹', '🪸', '🪷', '🪶', '🪽', '🫜', '🪱', '🪰', '🗿']) },
 ]
+const STICKER_PACKS = [
+  { id: 'reactions', name: 'Reactions', items: [
+    emojiItem('🤣👍', 'LOL plus thumbs up', 'lol laugh yes'),
+    emojiItem('😍💕', 'Love', 'love heart'),
+    emojiItem('🥳🎉', 'Celebrate', 'party celebrate'),
+    emojiItem('😎🔥', 'Cool', 'cool fire'),
+    emojiItem('🤔💭', 'Thinking', 'think thought'),
+    emojiItem('😭😂', 'Cry laughing', 'lol cry'),
+    emojiItem('🙌✨', 'Celebrate', 'thanks celebrate'),
+    emojiItem('🫶💕', 'Heart hands', 'love care'),
+    emojiItem('🤗💜', 'Hug', 'hug love'),
+    emojiItem('😴💤', 'Sleeping', 'sleep tired'),
+    emojiItem('🤯💥', 'Mind blown', 'wow surprise'),
+    emojiItem('👍🙏', 'Thanks', 'thanks please'),
+  ] },
+  { id: 'greetings', name: 'Greetings', items: [
+    emojiItem('👋😊', 'Hello', 'hello hi'),
+    emojiItem('☀️🌞', 'Good morning', 'morning'),
+    emojiItem('🌙✨', 'Good night', 'night'),
+    emojiItem('🎉🎊', 'Congratulations', 'congrats celebrate'),
+    emojiItem('🎂🥳', 'Happy birthday', 'birthday'),
+    emojiItem('🎁❤️', 'Gift', 'gift love'),
+    emojiItem('🙌👏', 'Well done', 'bravo applause'),
+    emojiItem('🫡👍', 'Understood', 'ok yes'),
+  ] },
+]
+const DEFAULT_FLAG_GROUPS = [
+  { id: 'countries', name: 'Countries', items: COUNTRY_FLAGS },
+  { id: 'international', name: 'International & regions', items: REGION_FLAGS },
+]
+const STICKER_MODES = [
+  { id: 'emoji', name: 'Emoji', icon: 'i-lucide-smile' },
+  { id: 'stickers', name: 'Stickers', icon: 'i-lucide-sticker' },
+  { id: 'gifs', name: 'GIFs', icon: 'i-lucide-film' },
+  { id: 'flags', name: 'Flags', icon: 'i-lucide-flag' },
+]
+const recentStickers = useStorage('rv-recent-stickers', [])
+const stickerMode = ref('emoji')
+const stickerQuery = ref('')
 const stickerGroup = ref('all')
-const visibleStickers = computed(() => STICKER_GROUPS_WITH_ALL.find(group => group.id === stickerGroup.value)?.items ?? [])
+const gifSearchResults = ref([])
+const gifSearchBusy = ref(false)
+let gifSearchTimer = null
+const resolvedFlagGroups = computed(() => {
+  const cfg = opts.value.flags
+  if (cfg === false) return []
+  if (Array.isArray(cfg)) {
+    const items = normalizeFlagItems(cfg)
+    return items.length ? [{ id: 'flags', name: 'Flags', items }] : []
+  }
+  if (isObj(cfg)) {
+    const groups = []
+    const custom = normalizeFlagItems(cfg.items ?? cfg.custom ?? cfg.flags ?? [])
+    if (custom.length) groups.push({ id: 'custom-flags', name: cfg.name ?? 'Flags', items: custom })
+    const countriesCfg = cfg.countries ?? cfg.country
+    const regionsCfg = cfg.regions ?? cfg.international ?? cfg.region
+    const countries = Array.isArray(countriesCfg) ? normalizeFlagItems(countriesCfg) : (countriesCfg === false ? [] : COUNTRY_FLAGS)
+    const regions = Array.isArray(regionsCfg) ? normalizeFlagItems(regionsCfg) : (regionsCfg === false ? [] : REGION_FLAGS)
+    if (countries.length) groups.push({ id: 'countries', name: 'Countries', items: countries })
+    if (regions.length) groups.push({ id: 'international', name: 'International & regions', items: regions })
+    return groups.length ? groups : DEFAULT_FLAG_GROUPS
+  }
+  return DEFAULT_FLAG_GROUPS
+})
+const modeGroups = computed(() => {
+  if (stickerMode.value === 'gifs') {
+    const groups = [...GIF_GROUPS]
+    const custom = normalizeGifItems(props.gifs)
+    if (custom.length) groups.unshift({ id: 'custom', name: 'GIFs', items: custom })
+    if (typeof props.gifSearch === 'function' && (stickerQuery.value.trim() || gifSearchResults.value.length || gifSearchBusy.value)) {
+      groups.unshift({ id: 'search', name: 'Search results', items: gifSearchResults.value })
+    }
+    return groups
+  }
+  const flags = resolvedFlagGroups.value
+  if (stickerMode.value === 'flags') return flags
+  if (stickerMode.value === 'stickers') return [...STICKER_PACKS, ...flags]
+  return [...EMOJI_GROUPS, ...flags]
+})
+const stickerGroupsWithAll = computed(() => [
+  { id: 'all', name: 'All', items: modeGroups.value.flatMap(group => group.items) },
+  { id: 'recent', name: 'Recent', items: recentStickers.value },
+  ...modeGroups.value,
+])
+const visibleStickers = computed(() => {
+  const group = stickerGroupsWithAll.value.find(item => item.id === stickerGroup.value) ?? stickerGroupsWithAll.value[0]
+  const query = stickerQuery.value.trim().toLowerCase()
+  const items = group?.items ?? []
+  if (!query) return items
+  return items.filter(item => `${item.name ?? ''} ${item.keywords ?? ''} ${item.value ?? ''}`.toLowerCase().includes(query))
+})
+watch(stickerMode, () => {
+  stickerGroup.value = 'all'
+  stickerQuery.value = ''
+  gifSearchResults.value = []
+})
+watch([stickerMode, stickerQuery, () => props.gifSearch], ([mode, query, searchFn]) => {
+  if (gifSearchTimer) clearTimeout(gifSearchTimer)
+  if (mode !== 'gifs' || typeof searchFn !== 'function') {
+    gifSearchResults.value = []
+    gifSearchBusy.value = false
+    return
+  }
+  const q = String(query || '').trim()
+  gifSearchTimer = setTimeout(async () => {
+    gifSearchBusy.value = true
+    try {
+      const res = await searchFn(q)
+      gifSearchResults.value = normalizeGifItems(res)
+      if (q) stickerGroup.value = 'search'
+    }
+    catch {
+      gifSearchResults.value = []
+    }
+    finally {
+      gifSearchBusy.value = false
+    }
+  }, q ? 300 : 0)
+}, { immediate: true })
 const SPECIALS = ['©', '®', '™', '€', '£', '¥', '¢', '§', '¶', '•', '—', '–', '…', '°', '±', '×', '÷', '→', '←', '↑', '↓', '✓', '✗', '∞', '≠', '≤', '≥', 'α', 'β', 'π']
 function toggleSpecial() {
   specialOpen.value = !specialOpen.value
@@ -3702,6 +4162,7 @@ function toggleSpecial() {
     findOpen.value = false
     sourceOpen.value = false
     stickersOpen.value = false
+    closeAiPanels()
   }
 }
 function insertSpecial(value) {
@@ -3714,17 +4175,448 @@ function toggleStickers() {
     findOpen.value = false
     sourceOpen.value = false
     specialOpen.value = false
+    closeAiPanels()
   }
 }
-function insertSticker(value) {
-  chain().insertContent(value).run()
+function insertSticker(item) {
+  if (!item) return
+  if (item.kind === 'gif') {
+    insertMediaUrl('image', item.value)
+  }
+  else if (item.kind === 'flag') {
+    const src = safeUrl(asStr(item.value).trim(), opts.value.allowBlobUrls)
+    if (!src) {
+      emit('error', { source: 'media', code: 'invalid-url', error: new Error(t('rve_invalid_media_url', 'Invalid or disallowed media URL.')) })
+      return
+    }
+    if (any()?.schema?.nodes?.inlineFlag) {
+      chain().insertContent({ type: 'inlineFlag', attrs: { src, alt: item.name || item.code || 'Flag', code: item.code || '' } }).run()
+    }
+    else {
+      chain().insertContent(`<img src="${src}" alt="${escapeHtml(item.name || item.code || 'Flag')}" data-rv-flag="${escapeHtml(item.code || '1')}" class="rv-inline-flag" draggable="false" loading="lazy" decoding="async">`).run()
+    }
+  }
+  else {
+    chain().insertContent(item.value).run()
+  }
+  const key = `${item.kind}|${item.value}`
+  const next = [item, ...recentStickers.value.filter(entry => `${entry.kind}|${entry.value}` !== key)].slice(0, 36)
+  recentStickers.value = next
   stickersOpen.value = false
 }
 function currentHtml() { return any() ? sanitizeHTML(any().getHTML()) : '' }
 function currentJson() { return any() ? buildEnvelope(any()) : null }
-function downloadFile(name, content, type) {
+
+const AI_ENDPOINTS = {
+  ask: apis.aiChat.ask,
+  commands: apis.aiChat.commands,
+  improve: apis.aiChat.improveWriting,
+  continue: apis.aiChat.continueWriting,
+  grammar: apis.aiChat.fixGrammar,
+  shorter: apis.aiChat.adjustLength,
+  longer: apis.aiChat.adjustLength,
+  tone: apis.aiChat.changeTone,
+  translate: apis.aiChat.translate,
+  commandsGet: apis.aiChat.commandsGet,
+  tonesGet: apis.aiChat.tonesGet,
+  languagesGet: apis.aiChat.languagesGet,
+}
+const AI_QUICK_ACTIONS = [
+  { id: 'ask', icon: 'i-lucide-message-circle', labelKey: 'rve_ai_ask', label: 'Ask AI' },
+  { id: 'commands', icon: 'i-lucide-terminal', labelKey: 'rve_ai_commands', label: 'Chat commands' },
+  { id: 'improve', icon: 'i-lucide-wand-sparkles', labelKey: 'rve_ai_improve_writing', label: 'Improve writing' },
+  { id: 'continue', icon: 'i-lucide-pen-line', labelKey: 'rve_ai_continue_writing', label: 'Continue writing' },
+  { id: 'grammar', icon: 'i-lucide-spell-check-2', labelKey: 'rve_ai_fix_grammar', label: 'Fix grammar & spelling' },
+  { id: 'shorter', icon: 'i-lucide-minimize-2', labelKey: 'rve_ai_make_shorter', label: 'Make shorter' },
+  { id: 'longer', icon: 'i-lucide-maximize-2', labelKey: 'rve_ai_make_longer', label: 'Make longer' },
+  { id: 'tone', icon: 'i-lucide-gauge', labelKey: 'rve_ai_change_tone', label: 'Change tone' },
+  { id: 'language', icon: 'i-lucide-languages', labelKey: 'rve_ai_translate', label: 'Translate' },
+]
+const AI_REWRITE = {
+  improve: { endpoint: 'improve', labelKey: 'rve_ai_improve_writing', label: 'Improve writing', mode: 'replace' },
+  continue: { endpoint: 'continue', labelKey: 'rve_ai_continue_writing', label: 'Continue writing', mode: 'insert' },
+  grammar: { endpoint: 'grammar', labelKey: 'rve_ai_fix_grammar', label: 'Fix grammar & spelling', mode: 'replace' },
+  shorter: { endpoint: 'shorter', labelKey: 'rve_ai_make_shorter', label: 'Make shorter', mode: 'replace', extra: { Length: 'shorter', Action: 'shorter', Instruction: 'Make shorter' } },
+  longer: { endpoint: 'longer', labelKey: 'rve_ai_make_longer', label: 'Make longer', mode: 'replace', extra: { Length: 'longer', Action: 'longer', Instruction: 'Make longer' } },
+  tone: { endpoint: 'tone', labelKey: 'rve_ai_change_tone', label: 'Change tone', mode: 'replace' },
+  translate: { endpoint: 'translate', labelKey: 'rve_ai_translate', label: 'Translate', mode: 'replace' },
+}
+const AI_FALLBACK_TONES = [
+  { code: 'professional', label: 'Professional', nativeLabel: '' },
+  { code: 'friendly', label: 'Friendly', nativeLabel: '' },
+  { code: 'confident', label: 'Confident', nativeLabel: '' },
+  { code: 'casual', label: 'Casual', nativeLabel: '' },
+  { code: 'formal', label: 'Formal', nativeLabel: '' },
+  { code: 'concise', label: 'Concise', nativeLabel: '' },
+  { code: 'persuasive', label: 'Persuasive', nativeLabel: '' },
+  { code: 'empathetic', label: 'Empathetic', nativeLabel: '' },
+  { code: 'neutral', label: 'Neutral', nativeLabel: '' },
+  { code: 'enthusiastic', label: 'Enthusiastic', nativeLabel: '' },
+]
+const AI_FALLBACK_LANGUAGES = [
+  { code: 'km', label: 'Khmer', nativeLabel: 'ខ្មែរ' },
+  { code: 'zh-CN', label: 'Chinese (Simplified)', nativeLabel: '简体中文' },
+  { code: 'en', label: 'English', nativeLabel: '' },
+  { code: 'zh-TW', label: 'Chinese (Traditional)', nativeLabel: '繁體中文' },
+  { code: 'vi', label: 'Vietnamese', nativeLabel: 'Tiếng Việt' },
+  { code: 'th', label: 'Thai', nativeLabel: 'ไทย' },
+  { code: 'fr', label: 'French', nativeLabel: 'Français' },
+  { code: 'es', label: 'Spanish', nativeLabel: 'Español' },
+  { code: 'ja', label: 'Japanese', nativeLabel: '日本語' },
+  { code: 'ko', label: 'Korean', nativeLabel: '한국어' },
+]
+const AI_FALLBACK_COMMANDS = [
+  { code: 'summarize', label: 'Summarize', nativeLabel: '' },
+  { code: 'rewrite', label: 'Rewrite', nativeLabel: '' },
+  { code: 'expand', label: 'Expand', nativeLabel: '' },
+  { code: 'shorten', label: 'Shorten', nativeLabel: '' },
+  { code: 'brainstorm', label: 'Brainstorm ideas', nativeLabel: '' },
+  { code: 'outline', label: 'Create an outline', nativeLabel: '' },
+  { code: 'simplify', label: 'Simplify', nativeLabel: '' },
+  { code: 'proofread', label: 'Proofread', nativeLabel: '' },
+]
+const ai = reactive({
+  quickOpen: false,
+  chatOpen: false,
+  view: 'actions',
+  loading: false,
+  action: '',
+  error: '',
+  notice: '',
+  prompt: '',
+  messages: [],
+  lastAnswer: '',
+  useSelection: true,
+  tone: 'professional',
+  language: 'km',
+  command: '',
+  tones: [],
+  languages: [],
+  commands: [],
+  loaded: { tones: false, languages: false, commands: false },
+})
+const aiMessagesEl = ref(null)
+let aiController = null
+const aiToneOptions = computed(() => ai.tones.length ? ai.tones : AI_FALLBACK_TONES)
+const aiLanguageOptions = computed(() => ai.languages.length ? ai.languages : AI_FALLBACK_LANGUAGES)
+const aiCommandOptions = computed(() => ai.commands.length ? ai.commands : AI_FALLBACK_COMMANDS)
+const aiViewTitle = computed(() => {
+  if (ai.view === 'tone') return t('rve_ai_select_tone', 'Select tone')
+  if (ai.view === 'language') return t('rve_ai_select_language', 'Select language')
+  if (ai.view === 'commands') return t('rve_ai_commands', 'Chat commands')
+  return t('rve_ai_quick_actions', 'AI Quick Actions')
+})
+watch(() => ai.messages.length, async () => {
+  await nextTick()
+  if (aiMessagesEl.value) aiMessagesEl.value.scrollTop = aiMessagesEl.value.scrollHeight
+})
+function aiText(value, fallback = '') {
+  if (value == null) return fallback
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (isObj(value)) return aiText(value.Label ?? value.label ?? value.Name ?? value.name ?? value.NativeLabel ?? value.nativeLabel ?? value.Code ?? value.code ?? value.Value ?? value.value, fallback)
+  return fallback
+}
+function aiOptions(response) {
+  const rows = response?.Options ?? response?.options ?? response?.Data ?? response?.data ?? response?.Items ?? response?.items ?? response?.List ?? response?.list ?? response
+  if (!Array.isArray(rows)) return []
+  return rows.map((item) => {
+    const code = aiText(item?.Code ?? item?.code ?? item?.Value ?? item?.value ?? item?.Id ?? item?.id)
+    const label = aiText(item?.Label ?? item?.label ?? item?.Name ?? item?.name, code)
+    const nativeLabel = aiText(item?.NativeLabel ?? item?.nativeLabel)
+    return { code, label, nativeLabel }
+  }).filter(item => item.code)
+}
+function aiAnswer(response) {
+  if (typeof response === 'string') return response
+  if (!isObj(response)) return ''
+  const keys = ['Answer', 'answer', 'Text', 'text', 'Result', 'result', 'Content', 'content', 'Output', 'output', 'Message', 'message']
+  for (const key of keys) {
+    const value = response[key]
+    if (typeof value === 'string' || typeof value === 'number') return String(value)
+  }
+  if (Array.isArray(response.choices)) return aiText(response.choices[0]?.message?.content ?? response.choices[0]?.text)
+  return ''
+}
+function aiEndpoint(key) {
+  return (isObj(props.aiEndpoints) && props.aiEndpoints[key]) || AI_ENDPOINTS[key] || ''
+}
+function aiSelectContext() {
+  const e = any()
+  if (!e) return { text: '', selected: '', before: '', after: '', from: 0, to: 0, whole: true }
+  const doc = e.state.doc
+  const { from, to } = e.state.selection
+  const selected = ai.useSelection ? doc.textBetween(from, to, '\n') : ''
+  const all = doc.textBetween(0, doc.content.size, '\n')
+  return {
+    text: selected || all,
+    selected,
+    before: doc.textBetween(Math.max(0, from - 1200), from, '\n'),
+    after: doc.textBetween(to, Math.min(doc.content.size, to + 400), '\n'),
+    from,
+    to,
+    whole: !selected,
+  }
+}
+function aiBasePayload(extra = {}) {
+  const ctx = aiSelectContext()
+  const payload = {
+    Text: ctx.text,
+    Prompt: aiText(extra.Prompt ?? ai.prompt),
+    Context: ctx.before,
+    Selection: ctx.selected,
+    Suffix: ctx.after,
+    Language: ai.language,
+    Tone: ai.tone,
+    Command: ai.command,
+    History: ai.messages.slice(-8).map(message => ({ Role: message.role, Content: message.text })),
+    ...extra,
+    ...(isObj(props.aiPayload) ? props.aiPayload : {}),
+  }
+  const key = String(props.aiApiKey || props.apiKey || '')
+  const token = String(props.aiApiToken || props.apiToken || '')
+  if (key) payload.ApiKey = key
+  if (token) payload.ApiToken = token
+  if (props.aiModel) payload.Model = props.aiModel
+  if (props.aiTemperature !== undefined && props.aiTemperature !== null && props.aiTemperature !== '') payload.Temperature = Number(props.aiTemperature)
+  if (props.aiMaxTokens !== undefined && props.aiMaxTokens !== null && props.aiMaxTokens !== '') payload.MaxTokens = Number(props.aiMaxTokens)
+  return { payload, ctx }
+}
+function aiErrorText(err) {
+  if (err?.name === 'CanceledError' || err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return t('rve_ai_stopped', 'AI request stopped.')
+  const message = aiText(err?.response?.data?.Message ?? err?.response?.data?.message ?? err?.Message ?? err?.message)
+  return message || t('rve_ai_error', 'AI request failed.')
+}
+async function aiRequest(key, extra = {}) {
+  const url = aiEndpoint(key)
+  if (!url) throw new Error(t('rve_ai_error', 'AI request failed.'))
+  aiController = new AbortController()
+  const { payload, ctx } = aiBasePayload(extra)
+  try {
+    const { data, error } = await useHttp(url, { method: 'POST', data: payload, alertError: false, signal: aiController.signal })
+    const err = error?.value ?? error
+    if (err) throw err
+    return { answer: aiAnswer(data?.value ?? data), ctx }
+  }
+  finally {
+    aiController = null
+  }
+}
+async function aiFetchOptions(key, field) {
+  if (ai.loaded[field]) return
+  const url = aiEndpoint(key)
+  if (!url) return
+  try {
+    const { data, error } = await useHttp(url, { method: 'POST', data: { Search: '' }, alertError: false })
+    const err = error?.value ?? error
+    if (err) throw err
+    const found = aiOptions(data?.value ?? data)
+    if (found.length) ai[field] = found
+  }
+  catch (err) {
+    warn(`Could not load AI ${field}:`, err)
+  }
+  finally {
+    ai.loaded[field] = true
+  }
+}
+async function aiLoadMenus() {
+  await Promise.all([aiFetchOptions('commandsGet', 'commands'), aiFetchOptions('tonesGet', 'tones'), aiFetchOptions('languagesGet', 'languages')])
+}
+function aiToHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .split(/\n{2,}/)
+    .map(block => `<p>${block.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+function aiApplyAnswer(answer, ctx, mode = 'replace') {
+  const e = live()
+  if (!e || !answer) return
+  const html = sanitizeHTML(aiToHtml(answer))
+  if (mode === 'insert') e.chain().focus().insertContentAt(ctx.to, html).run()
+  else if (ctx.whole) e.chain().focus().insertContentAt({ from: 0, to: e.state.doc.content.size }, html).run()
+  else e.chain().focus().insertContentAt({ from: ctx.from, to: ctx.to }, html).run()
+  schedule()
+}
+function aiPushMessage(role, text) {
+  ai.messages.push({ id: `${Date.now()}-${Math.random()}`, role, text: String(text ?? '') })
+}
+function stopAi() {
+  aiController?.abort()
+  aiController = null
+  ai.loading = false
+  ai.action = ''
+}
+function closeAiPanels() {
+  ai.quickOpen = false
+  ai.chatOpen = false
+}
+function openAiQuickActions() {
+  if (!on('ai')) return
+  ai.quickOpen = true
+  ai.chatOpen = false
+  ai.view = 'actions'
+  ai.error = ''
+  ai.notice = ''
+}
+function toggleAiQuickActions() {
+  if (ai.quickOpen) closeAiPanels()
+  else openAiQuickActions()
+}
+function openAiChat(prompt = '') {
+  if (!on('ai')) return
+  ai.chatOpen = true
+  ai.quickOpen = false
+  ai.error = ''
+  ai.notice = ''
+  if (prompt) ai.prompt = String(prompt)
+  void aiLoadMenus()
+}
+async function runRewriteAction(id, extra = {}) {
+  const config = AI_REWRITE[id]
+  if (!config || !on('ai') || !isEditable.value) return ''
+  ai.loading = true
+  ai.action = id
+  ai.error = ''
+  ai.notice = ''
+  try {
+    const { answer, ctx } = await aiRequest(config.endpoint, { ...(config.extra ?? {}), ...extra })
+    if (!answer) throw new Error(t('rve_ai_no_result', 'No result returned.'))
+    aiApplyAnswer(answer, ctx, config.mode)
+    ai.lastAnswer = answer
+    aiPushMessage('assistant', `${t(config.labelKey, config.label)}:\n${answer}`)
+    ai.notice = `${t(config.labelKey, config.label)} · ${t('rve_ai_applied', 'Applied')}`
+    emit('ai-response', { action: id, answer })
+    return answer
+  }
+  catch (err) {
+    const message = aiErrorText(err)
+    if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') ai.notice = message
+    else ai.error = message
+    emit('ai-error', { action: id, error: err })
+    return ''
+  }
+  finally {
+    ai.loading = false
+    ai.action = ''
+  }
+}
+async function sendAiChat(text = ai.prompt, endpointKey = 'ask') {
+  const prompt = String(text ?? '').trim()
+  if (!prompt || ai.loading) return ''
+  ai.chatOpen = true
+  ai.quickOpen = false
+  ai.error = ''
+  ai.notice = ''
+  aiPushMessage('user', prompt)
+  ai.prompt = ''
+  ai.loading = true
+  ai.action = endpointKey
+  try {
+    const { answer } = await aiRequest(endpointKey, { Prompt: prompt })
+    if (!answer) throw new Error(t('rve_ai_no_result', 'No result returned.'))
+    aiPushMessage('assistant', answer)
+    ai.lastAnswer = answer
+    emit('ai-response', { action: endpointKey, answer })
+    return answer
+  }
+  catch (err) {
+    const message = aiErrorText(err)
+    if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') ai.notice = message
+    else ai.error = message
+    emit('ai-error', { action: endpointKey, error: err })
+    return ''
+  }
+  finally {
+    ai.loading = false
+    ai.action = ''
+  }
+}
+function sendAiChatFromInput() {
+  const raw = String(ai.prompt ?? '').trim()
+  if (!raw) return
+  const parts = raw.split(/\s+/)
+  const token = parts[0] ?? ''
+  const code = token.startsWith('/') ? token.slice(1).toLowerCase() : ''
+  const command = code ? aiCommandOptions.value.find(option => option.code.toLowerCase() === code) : null
+  if (command) {
+    ai.command = command.code
+    void sendAiChat(parts.slice(1).join(' ') || aiSelectContext().text, 'commands')
+    return
+  }
+  void sendAiChat(raw)
+}
+async function runAiCommand(code) {
+  ai.command = code
+  const rest = String(ai.prompt ?? '').replace(/^\/\S+\s*/, '').trim()
+  ai.prompt = ''
+  return sendAiChat(rest || aiSelectContext().text, 'commands')
+}
+async function runAiTone(code) {
+  ai.tone = code
+  return runRewriteAction('tone', { Tone: code, TargetTone: code })
+}
+async function runAiTranslate(code) {
+  ai.language = code
+  return runRewriteAction('translate', { Language: code, TargetLanguage: code })
+}
+async function runAiAction(id, options = {}) {
+  if (!on('ai') || !isEditable.value) return ''
+  if (id === 'ask') {
+    const prompt = String(options.prompt ?? '')
+    if (prompt) void sendAiChat(prompt)
+    else openAiChat()
+    return ''
+  }
+  if (id === 'commands') {
+    openAiChat()
+    ai.view = 'commands'
+    return ''
+  }
+  if (id === 'tone' || id === 'language') {
+    openAiQuickActions()
+    ai.view = id
+    return ''
+  }
+  return runRewriteAction(id, options)
+}
+function aiInsertLastAnswer() {
+  if (!ai.lastAnswer) return
+  aiApplyAnswer(ai.lastAnswer, aiSelectContext(), 'insert')
+  ai.chatOpen = false
+}
+async function aiCopyLastAnswer() {
+  if (!ai.lastAnswer) return
+  try {
+    await navigator.clipboard.writeText(ai.lastAnswer)
+    showNotice(t('rve_ai_copied', 'AI answer copied.'))
+  }
+  catch {
+    showNotice(t('rve_copy_link_failed', 'Could not copy the link.'))
+  }
+}
+
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPES[ch])
+}
+function safeFileName(value) {
+  return String(value ?? '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'document'
+}
+function documentTitle() {
+  if (import.meta.client) {
+    const parsed = new DOMParser().parseFromString(currentHtml(), 'text/html')
+    const heading = parsed.querySelector('h1, h2, p')
+    const text = heading?.textContent?.trim()
+    if (text) return safeFileName(text)
+  }
+  return 'document'
+}
+function downloadBlob(name, blob) {
   if (!import.meta.client) return
-  const blob = new Blob([content], { type })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -3732,26 +4624,93 @@ function downloadFile(name, content, type) {
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
-function exportHtml() { downloadFile('document.html', currentHtml(), 'text/html;charset=utf-8') }
-function exportJson() { downloadFile('document.json', JSON.stringify(currentJson(), null, 2), 'application/json;charset=utf-8') }
+function downloadFile(name, content, type) {
+  downloadBlob(name, new Blob([content], { type }))
+}
+function buildWordHtml() {
+  const name = escapeHtml(documentTitle())
+  const base = import.meta.client ? `<base href="${escapeHtml(location.origin)}/">` : ''
+  return `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">${base}<title>${name}</title><style>@page{size:A4;margin:20mm}body{font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;color:#111}img{max-width:100%}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px}blockquote{border-left:3px solid #999;margin-left:0;padding-left:12px}pre,code{font-family:Consolas,monospace}a{color:#0645ad}</style></head><body>${currentHtml()}</body></html>`
+}
+function exportHtml() {
+  const name = `${documentTitle()}.html`
+  downloadFile(name, currentHtml(), 'text/html;charset=utf-8')
+  emit('export', { format: 'html', name })
+}
+function exportJson() {
+  const name = `${documentTitle()}.json`
+  downloadFile(name, JSON.stringify(currentJson(), null, 2), 'application/json;charset=utf-8')
+  emit('export', { format: 'json', name })
+}
+function exportWord() {
+  const name = `${documentTitle()}.doc`
+  downloadBlob(name, new Blob([buildWordHtml()], { type: 'application/msword' }))
+  emit('export', { format: 'word', name })
+  showNotice(t('rve_word_exported', 'Word document downloaded.'))
+}
 async function copyHtml() {
-  try { await navigator.clipboard.writeText(currentHtml()); showNotice(t('rve_html_copied', 'HTML copied to clipboard.')) }
-  catch { showNotice(t('rve_copy_link_failed', 'Could not copy the link.')) }
+  try {
+    await navigator.clipboard.writeText(currentHtml())
+    showNotice(t('rve_html_copied', 'HTML copied to clipboard.'))
+  }
+  catch {
+    showNotice(t('rve_copy_link_failed', 'Could not copy the link.'))
+  }
+}
+function exportPdf() {
+  if (!import.meta.client) return
+  const name = documentTitle()
+  const win = window.open('', '_blank')
+  if (!win) {
+    showNotice(t('rve_popup_blocked', 'Allow pop-ups to export PDF.'))
+    return
+  }
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(name)}</title><style>@page{size:A4;margin:18mm}body{font-family:system-ui,sans-serif;line-height:1.6;margin:0;color:#111}img{max-width:100%}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:6px 10px;page-break-inside:avoid}h1,h2,h3{page-break-after:avoid}</style></head><body>${currentHtml()}</body></html>`)
+  win.document.close()
+  setTimeout(() => {
+    win.focus()
+    win.print()
+    showNotice(t('rve_pdf_dialog', 'Choose Save as PDF in the print dialog.'))
+  }, 300)
+  emit('export', { format: 'pdf', name })
 }
 function printDocument() {
-  if (!import.meta.client) return
-  const win = window.open('', '_blank')
-  if (!win) return
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${t('rve_document', 'Document')}</title><style>body{font-family:system-ui,sans-serif;line-height:1.6;margin:48px;color:#111}img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:6px 10px}</style></head><body>${currentHtml()}</body></html>`)
-  win.document.close()
-  setTimeout(() => win.print(), 300)
+  exportPdf()
+}
+async function exportToDrive(format = 'word') {
+  if (!import.meta.client) return null
+  const name = documentTitle()
+  let fileName = `${name}.doc`
+  let blob = new Blob([buildWordHtml()], { type: 'application/msword' })
+  if (format === 'html') {
+    fileName = `${name}.html`
+    blob = new Blob([currentHtml()], { type: 'text/html;charset=utf-8' })
+  }
+  else if (format === 'json') {
+    fileName = `${name}.json`
+    blob = new Blob([JSON.stringify(currentJson(), null, 2)], { type: 'application/json;charset=utf-8' })
+  }
+  const form = new FormData()
+  form.append('file', new File([blob], fileName, { type: blob.type }))
+  if (props.driveFolderId != null) form.append('folder_id', String(props.driveFolderId))
+  form.append('make_public', String(props.driveMakePublic))
+  const { data, error: err } = await useHttp(apis.oauth2.upload, { method: 'POST', body: form })
+  if (err?.value) {
+    const message = err.value?.Message ?? err.value?.message ?? t('rve_drive_failed', 'Drive upload failed.')
+    showNotice(message)
+    emit('export', { format: `drive:${format}`, name: fileName, status: 'error', error: message })
+    return null
+  }
+  showNotice(t('rve_drive_saved', 'Saved to Drive.'))
+  emit('export', { format: `drive:${format}`, name: fileName, status: 'success', result: data.value })
+  return data.value
 }
 function toggleSource() {
   sourceOpen.value = !sourceOpen.value
-  if (sourceOpen.value) { sourceText.value = currentHtml(); findOpen.value = false; specialOpen.value = false; stickersOpen.value = false }
+  if (sourceOpen.value) { sourceText.value = currentHtml(); findOpen.value = false; specialOpen.value = false; stickersOpen.value = false; closeAiPanels() }
 }
 function applySource() { live()?.commands.setContent(sanitizeHTML(sourceText.value), { emitUpdate: true }); sourceOpen.value = false; showNotice(t('rve_source_applied', 'Source applied.')) }
-function toggleFind() { findOpen.value = !findOpen.value; if (findOpen.value) { sourceOpen.value = false; specialOpen.value = false; stickersOpen.value = false; findMessage.value = '' } }
+function toggleFind() { findOpen.value = !findOpen.value; if (findOpen.value) { sourceOpen.value = false; specialOpen.value = false; stickersOpen.value = false; findMessage.value = ''; closeAiPanels() } }
 function findMatches(query) {
   const e = any()
   const q = String(query ?? '').trim().toLowerCase()
@@ -3911,18 +4870,24 @@ const toolbarActions = computed(() => [
     icon: isFullscreen.value ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2',
     active: isFullscreen.value, show: vis('fullscreen'), quick: true, run: () => void toggleFullscreen(),
   },
+  { id: 'ai-quick', label: 'AI Quick Actions', icon: 'i-lucide-sparkles', show: () => vis('ai') && isEditable.value, run: toggleAiQuickActions },
+  { id: 'ai-chat', label: 'AI Chat', icon: 'i-lucide-message-square-text', show: () => vis('ai') && isEditable.value, run: () => openAiChat() },
   { id: 'inline-code', label: 'Inline code', icon: 'i-lucide-code', show: vis('inlineCode'), run: () => chain().toggleCode().run() },
   { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', show: vis('pageBreak'), run: () => chain().insertPageBreak().run() },
   { id: 'emoji', label: 'Stickers & emoji', icon: 'i-lucide-smile', show: vis('emoji'), run: () => toggleStickers() },
+  { id: 'mention', label: 'Mention user', icon: 'i-lucide-at-sign', show: () => vis('mentionMenu') && isEditable.value, run: openMention },
   { id: 'special', label: 'Special characters', icon: 'i-lucide-type', show: vis('specialCharacters'), run: toggleSpecial },
   { id: 'find', label: 'Find and replace', icon: 'i-lucide-search', show: vis('findReplace'), run: toggleFind },
   { id: 'source', label: 'Source editing', icon: 'i-lucide-file-code-2', show: vis('source'), run: toggleSource },
   { id: 'accessibility', label: 'Accessibility check', icon: 'i-lucide-accessibility', show: vis('accessibility'), run: runAccessibility },
+  { id: 'export-word', label: 'Export Word', icon: 'i-lucide-file-type', show: vis('exportTools'), run: exportWord },
+  { id: 'export-pdf', label: 'Export PDF', icon: 'i-lucide-file-text', show: vis('exportTools'), run: exportPdf },
+  { id: 'export-drive', label: 'Save to Drive', icon: 'i-lucide-cloud-upload', show: vis('exportTools'), run: () => void exportToDrive() },
   { id: 'download-html', label: 'Download HTML', icon: 'i-lucide-download', show: vis('exportTools'), run: exportHtml },
   { id: 'download-json', label: 'Download JSON', icon: 'i-lucide-file-json-2', show: vis('exportTools'), run: exportJson },
   { id: 'copy-html', label: 'Copy HTML', icon: 'i-lucide-copy', show: vis('exportTools'), run: () => void copyHtml() },
   { id: 'print', label: 'Print', icon: 'i-lucide-printer', show: vis('exportTools'), run: printDocument },
-].filter((i) => i.show))
+].filter(i => i.show))
 const menuDefs = computed(() => [
   {
     id: 'file', label: 'File', icon: 'i-lucide-file',
@@ -3930,6 +4895,9 @@ const menuDefs = computed(() => [
       { id: 'clear', label: 'New document', icon: 'i-lucide-file-plus', group: 'Document', show: () => isEditable.value, run: () => clearContent() },
       { id: 'load', label: 'Load from API', icon: 'i-lucide-cloud-download', group: 'Document', show: () => hasApiLoad.value, run: () => void loadFromApi() },
       { id: 'save', label: 'Save', icon: 'i-lucide-save', group: 'Document', kbd: 'Ctrl+S', show: () => hasApiSave.value, run: () => void saveToApi() },
+      { id: 'export-word', label: 'Export Word', icon: 'i-lucide-file-type', group: 'Export', show: () => vis('exportTools'), run: exportWord },
+      { id: 'export-pdf', label: 'Export PDF', icon: 'i-lucide-file-text', group: 'Export', show: () => vis('exportTools'), run: exportPdf },
+      { id: 'export-drive', label: 'Save to Drive', icon: 'i-lucide-cloud-upload', group: 'Export', show: () => vis('exportTools'), run: () => void exportToDrive() },
       { id: 'download-html', label: 'Download HTML', icon: 'i-lucide-download', group: 'Export', show: () => vis('exportTools'), run: exportHtml },
       { id: 'download-json', label: 'Download JSON', icon: 'i-lucide-file-json-2', group: 'Export', show: () => vis('exportTools'), run: exportJson },
       { id: 'print', label: 'Print', icon: 'i-lucide-printer', group: 'Export', kbd: 'Ctrl+P', show: () => vis('exportTools'), run: printDocument },
@@ -3946,6 +4914,21 @@ const menuDefs = computed(() => [
     ],
   },
   {
+    id: 'ai', label: 'AI', icon: 'i-lucide-sparkles',
+    items: [
+      { id: 'ai-chat', label: 'AI Chat', icon: 'i-lucide-message-square-text', group: 'AI', show: () => vis('ai') && isEditable.value, run: () => openAiChat() },
+      { id: 'ai-ask', label: 'Ask AI', icon: 'i-lucide-message-circle', group: 'AI', show: () => vis('ai') && isEditable.value, run: () => runAiAction('ask') },
+      { id: 'ai-commands', label: 'Chat commands', icon: 'i-lucide-terminal', group: 'AI', show: () => vis('ai') && isEditable.value, run: () => runAiAction('commands') },
+      { id: 'ai-improve', label: 'Improve writing', icon: 'i-lucide-wand-sparkles', group: 'Writing', show: () => vis('ai') && isEditable.value, run: () => runAiAction('improve') },
+      { id: 'ai-continue', label: 'Continue writing', icon: 'i-lucide-pen-line', group: 'Writing', show: () => vis('ai') && isEditable.value, run: () => runAiAction('continue') },
+      { id: 'ai-grammar', label: 'Fix grammar & spelling', icon: 'i-lucide-spell-check-2', group: 'Writing', show: () => vis('ai') && isEditable.value, run: () => runAiAction('grammar') },
+      { id: 'ai-shorter', label: 'Make shorter', icon: 'i-lucide-minimize-2', group: 'Transform', show: () => vis('ai') && isEditable.value, run: () => runAiAction('shorter') },
+      { id: 'ai-longer', label: 'Make longer', icon: 'i-lucide-maximize-2', group: 'Transform', show: () => vis('ai') && isEditable.value, run: () => runAiAction('longer') },
+      { id: 'ai-tone', label: 'Change tone', icon: 'i-lucide-gauge', group: 'Transform', show: () => vis('ai') && isEditable.value, run: () => runAiAction('tone') },
+      { id: 'ai-translate', label: 'Translate', icon: 'i-lucide-languages', group: 'Transform', show: () => vis('ai') && isEditable.value, run: () => runAiAction('language') },
+    ],
+  },
+  {
     id: 'insert', label: 'Insert', icon: 'i-lucide-plus',
     items: [
       { id: 'image', label: 'Image', icon: 'i-lucide-image', group: 'Media', show: () => kindAllowed('image'), run: () => pickFiles('image') },
@@ -3956,6 +4939,7 @@ const menuDefs = computed(() => [
       { id: 'table', label: 'Table', icon: 'i-lucide-table', group: 'Content', show: () => usable('tables'), run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
       { id: 'page-break', label: 'Page break', icon: 'i-lucide-scissors', group: 'Content', show: () => vis('pageBreak'), run: () => chain().insertPageBreak().run() },
       { id: 'emoji', label: 'Stickers & emoji', icon: 'i-lucide-smile', group: 'Content', show: () => vis('emoji'), run: () => toggleStickers() },
+      { id: 'mention', label: 'Mention user', icon: 'i-lucide-at-sign', group: 'Content', show: () => vis('mentionMenu') && isEditable.value, run: openMention },
       { id: 'special', label: 'Special characters', icon: 'i-lucide-type', group: 'Content', show: () => vis('specialCharacters'), run: toggleSpecial },
     ],
   },
@@ -4046,6 +5030,8 @@ onBeforeUnmount(() => {
   }
   cancelAnimationFrame(hoverRaf)
   cancelAnimationFrame(bubbleRaf)
+  aiController?.abort()
+  aiController = null
 })
 
 // =====================================================================================================
@@ -4068,15 +5054,32 @@ defineExpose({
   destroy: () => { any()?.destroy() },
   insertFiles: (files) => insertFiles(files),
   insertImage: (fileOrUrl) => (typeof fileOrUrl === 'string' ? insertMediaUrl('image', fileOrUrl) : insertFiles([fileOrUrl])),
-  insertVideo: (url) => insertMediaUrl('video', url),
-  insertAudio: (url) => insertMediaUrl('audio', url),
-  insertFile: (url) => insertMediaUrl('file', url),
+  insertVideo: url => insertMediaUrl('video', url),
+  insertAudio: url => insertMediaUrl('audio', url),
+  insertFile: url => insertMediaUrl('file', url),
   insertMediaUrl,
+  openMention,
+  insertUserMention,
+  openAiQuickActions,
+  toggleAiQuickActions,
+  openAiChat,
+  closeAiPanels,
+  runAiAction,
+  runAiCommand,
+  runAiTone,
+  runAiTranslate,
+  sendAiChat,
+  stopAi,
+  aiState: () => ({ ...ai, messages: ai.messages.slice(), loaded: { ...ai.loaded } }),
   openMediaUrl,
   openFileManager,
   pickFiles,
   loadFromApi: () => loadFromApi(),
   saveToApi: () => saveToApi(),
+  exportWord,
+  exportPdf,
+  exportToDrive,
+  buildWordHtml,
   flushPendingUploads: () => flushPendingUploads(),
   clearPendingUploads: () => clearPendingUploads(),
   reloadApi: () => loadFromApi(),
@@ -4217,10 +5220,10 @@ defineExpose({
       v-if="stickersOpen && vis('emoji')"
       class="rv-util-panel rv-util-panel--stickers"
       role="dialog"
-      :aria-label="t('rve_stickers', 'Stickers')"
+      :aria-label="t('rve_stickers', 'Stickers, emoji & GIFs')"
     >
       <div class="rv-util-panel__head">
-        <strong><RIcon name="i-lucide-smile" /> {{ t('rve_stickers', 'Stickers') }}</strong>
+        <strong><RIcon name="i-lucide-smile-plus" /> {{ t('rve_stickers', 'Stickers, emoji & GIFs') }}</strong>
         <button
           type="button"
           class="rv-btn"
@@ -4230,14 +5233,39 @@ defineExpose({
           <UIcon name="i-lucide-x" />
         </button>
       </div>
+      <div class="rv-sticker__modes" role="tablist" :aria-label="t('rve_sticker_modes', 'Sticker types')">
+        <button
+          v-for="mode in STICKER_MODES"
+          :key="mode.id"
+          type="button"
+          role="tab"
+          class="rv-sticker__mode"
+          :class="{ 'is-active': stickerMode === mode.id }"
+          :aria-selected="stickerMode === mode.id"
+          @click="stickerMode = mode.id"
+        >
+          <UIcon :name="mode.icon" />
+          {{ tl(mode.name) }}
+        </button>
+      </div>
+      <div class="rv-sticker__search-wrap">
+        <UIcon name="i-lucide-search" class="rv-sticker__search-icon" />
+        <input
+          v-model="stickerQuery"
+          type="search"
+          class="rv-input rv-sticker__search"
+          :placeholder="t('rve_search_stickers', 'Search emoji, stickers, GIFs, flags...')"
+          :aria-label="t('rve_search_stickers', 'Search emoji, stickers, GIFs, flags...')"
+        >
+      </div>
       <div
         class="rv-sticker__groups"
         role="group"
         :aria-label="t('rve_sticker_categories', 'Sticker categories')"
       >
         <button
-          v-for="group in STICKER_GROUPS_WITH_ALL"
-          :key="group.id"
+          v-for="group in stickerGroupsWithAll"
+          :key="`${stickerMode}-${group.id}`"
           type="button"
           class="rv-sticker__group"
           :class="{ 'is-active': stickerGroup === group.id }"
@@ -4247,18 +5275,34 @@ defineExpose({
           {{ tl(group.name) }}
         </button>
       </div>
-      <div class="rv-sticker__grid">
+      <div
+        v-if="visibleStickers.length"
+        class="rv-sticker__grid"
+        :class="{ 'rv-sticker__grid--gifs': stickerMode === 'gifs', 'rv-sticker__grid--flags': stickerMode === 'flags' || stickerMode === 'stickers' }"
+      >
         <button
           v-for="(sticker, index) in visibleStickers"
-          :key="`${sticker}-${index}`"
+          :key="`${sticker.kind}-${sticker.value}-${index}`"
           type="button"
           class="rv-sticker"
-          :aria-label="sticker"
+          :class="{ 'rv-sticker--gif': sticker.kind === 'gif', 'rv-sticker--flag': sticker.kind === 'flag' }"
+          :aria-label="sticker.name || sticker.value"
+          :title="sticker.name || sticker.value"
           @click="insertSticker(sticker)"
         >
-          {{ sticker }}
+          <img
+            v-if="sticker.kind === 'gif' || sticker.kind === 'flag'"
+            :src="sticker.value"
+            :alt="sticker.name || 'Flag'"
+            loading="lazy"
+            decoding="async"
+          >
+          <span v-else>{{ sticker.value }}</span>
         </button>
       </div>
+      <p v-else class="rv-sticker__empty">
+        {{ t('rve_no_stickers', 'No results found') }}
+      </p>
     </div>
 
     <div v-if="a11yResult && vis('accessibility')" class="rv-util-panel rv-util-panel--a11y" role="status" :aria-label="t('rve_accessibility_check', 'Accessibility check')">
@@ -4270,6 +5314,297 @@ defineExpose({
       <p>{{ t('rve_a11y_missing_alt', 'Missing alternative text') }}: {{ a11yResult.emptyAlt }}</p>
       <p>{{ t('rve_a11y_empty_headings', 'Empty headings') }}: {{ a11yResult.emptyHeadings }}</p>
       <p>{{ t('rve_a11y_empty_links', 'Empty links') }}: {{ a11yResult.emptyLinks }}</p>
+    </div>
+
+    <div
+      v-if="ai.quickOpen && vis('ai')"
+      class="rv-util-panel rv-util-panel--ai"
+      role="dialog"
+      :aria-label="t('rve_ai_quick_actions', 'AI Quick Actions')"
+    >
+      <div class="rv-util-panel__head">
+        <div class="rv-ai__title">
+          <button
+            v-if="ai.view !== 'actions'"
+            type="button"
+            class="rv-btn"
+            :aria-label="t('rve_ai_back', 'Back')"
+            @click="ai.view = 'actions'"
+          >
+            <RIcon name="i-lucide-arrow-left" />
+          </button>
+          <strong>
+            <RIcon name="i-lucide-sparkles" />
+            {{ aiViewTitle }}
+          </strong>
+        </div>
+        <button
+          type="button"
+          class="rv-btn"
+          :aria-label="t('rve_close', 'Close')"
+          @click="closeAiPanels"
+        >
+          <RIcon name="i-lucide-x" />
+        </button>
+      </div>
+      <div
+        v-if="ai.view === 'actions'"
+        class="rv-ai__grid"
+      >
+        <button
+          v-for="item in AI_QUICK_ACTIONS"
+          :key="item.id"
+          type="button"
+          class="rv-ai__action"
+          :disabled="ai.loading"
+          @click="runAiAction(item.id)"
+        >
+          <RIcon :name="item.icon" />
+          <span>{{ t(item.labelKey, item.label) }}</span>
+        </button>
+      </div>
+      <div
+        v-else-if="ai.view === 'tone'"
+        class="rv-ai__options"
+      >
+        <button
+          v-for="option in aiToneOptions"
+          :key="option.code"
+          type="button"
+          class="rv-ai__option"
+          :disabled="ai.loading"
+          @click="runAiTone(option.code)"
+        >
+          {{ option.nativeLabel || option.label }}
+        </button>
+      </div>
+      <div
+        v-else-if="ai.view === 'language'"
+        class="rv-ai__options"
+      >
+        <button
+          v-for="option in aiLanguageOptions"
+          :key="option.code"
+          type="button"
+          class="rv-ai__option"
+          :disabled="ai.loading"
+          @click="runAiTranslate(option.code)"
+        >
+          {{ option.nativeLabel || option.label }}
+        </button>
+      </div>
+      <div
+        v-else
+        class="rv-ai__options"
+      >
+        <button
+          v-for="option in aiCommandOptions"
+          :key="option.code"
+          type="button"
+          class="rv-ai__option"
+          @click="runAiCommand(option.code)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+      <div
+        v-if="ai.loading"
+        class="rv-ai__status"
+      >
+        {{ t('rve_ai_loading', 'AI is thinking…') }}
+        <button
+          type="button"
+          class="rv-pill"
+          @click="stopAi"
+        >
+          {{ t('rve_ai_stop', 'Stop') }}
+        </button>
+      </div>
+      <div
+        v-if="ai.error"
+        class="rv-ai__error"
+      >
+        {{ ai.error }}
+      </div>
+      <div
+        v-else-if="ai.notice"
+        class="rv-ai__status"
+      >
+        {{ ai.notice }}
+      </div>
+    </div>
+
+    <div
+      v-if="ai.chatOpen && vis('ai')"
+      class="rv-ai-chat"
+      role="dialog"
+      :aria-label="t('rve_ai_chat', 'AI Chat')"
+    >
+      <div class="rv-ai-chat__head">
+        <strong>
+          <RIcon name="i-lucide-sparkles" />
+          {{ t('rve_ai_chat', 'AI Chat') }}
+        </strong>
+        <button
+          type="button"
+          class="rv-btn"
+          :aria-label="t('rve_close', 'Close')"
+          @click="closeAiPanels"
+        >
+          <RIcon name="i-lucide-x" />
+        </button>
+      </div>
+      <div class="rv-ai-chat__context">
+        <span>{{ t('rve_ai_context', 'Context') }}</span>
+        <select
+          v-model="ai.useSelection"
+          class="rv-ai-chat__select"
+          :aria-label="t('rve_ai_context', 'Context')"
+        >
+          <option :value="true">
+            {{ t('rve_ai_selection', 'Selection') }}
+          </option>
+          <option :value="false">
+            {{ t('rve_ai_document', 'Whole document') }}
+          </option>
+        </select>
+      </div>
+      <div
+        ref="aiMessagesEl"
+        class="rv-ai-chat__messages"
+      >
+        <div
+          v-if="!ai.messages.length"
+          class="rv-ai-chat__empty"
+        >
+          {{ t('rve_ai_chat_hint', 'Ask anything, or use a quick command below.') }}
+        </div>
+        <div
+          v-for="message in ai.messages"
+          :key="message.id"
+          class="rv-ai-chat__msg"
+          :class="`is-${message.role}`"
+        >
+          <span class="rv-ai-chat__role">
+            {{ message.role === 'user' ? t('rve_ai_you', 'You') : t('rve_ai_assistant', 'AI') }}
+          </span>
+          <div class="rv-ai-chat__bubble">
+            {{ message.text }}
+          </div>
+        </div>
+        <div
+          v-if="ai.loading"
+          class="rv-ai-chat__loading"
+        >
+          {{ t('rve_ai_loading', 'AI is thinking…') }}
+        </div>
+      </div>
+      <div
+        v-if="ai.error"
+        class="rv-ai__error"
+      >
+        {{ ai.error }}
+      </div>
+      <div
+        v-else-if="ai.notice"
+        class="rv-ai__status"
+      >
+        {{ ai.notice }}
+      </div>
+      <div
+        class="rv-ai-chat__chips"
+        :aria-label="t('rve_ai_chat_command', 'Quick command')"
+      >
+        <button
+          v-for="option in aiCommandOptions"
+          :key="option.code"
+          type="button"
+          class="rv-ai-chat__chip"
+          @click="runAiCommand(option.code)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+      <div class="rv-ai-chat__controls">
+        <label>
+          <span>{{ t('rve_ai_tone', 'Tone') }}</span>
+          <select
+            v-model="ai.tone"
+            class="rv-ai-chat__select"
+            :aria-label="t('rve_ai_select_tone', 'Select tone')"
+          >
+            <option
+              v-for="option in aiToneOptions"
+              :key="option.code"
+              :value="option.code"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+        <label>
+          <span>{{ t('rve_ai_language', 'Language') }}</span>
+          <select
+            v-model="ai.language"
+            class="rv-ai-chat__select"
+            :aria-label="t('rve_ai_select_language', 'Select language')"
+          >
+            <option
+              v-for="option in aiLanguageOptions"
+              :key="option.code"
+              :value="option.code"
+            >
+              {{ option.nativeLabel || option.label }}
+            </option>
+          </select>
+        </label>
+      </div>
+      <div class="rv-ai-chat__composer">
+        <textarea
+          v-model="ai.prompt"
+          class="rv-ai-chat__input"
+          rows="3"
+          :placeholder="t('rve_ai_chat_placeholder', 'Ask AI or type / for commands…')"
+          :aria-label="t('rve_ai_chat_placeholder', 'Ask AI or type / for commands…')"
+          @keydown.enter.exact.prevent="sendAiChatFromInput"
+          @keydown.esc.prevent="closeAiPanels"
+        />
+        <button
+          v-if="ai.loading"
+          type="button"
+          class="rv-pill"
+          @click="stopAi"
+        >
+          {{ t('rve_ai_stop', 'Stop') }}
+        </button>
+        <button
+          v-else
+          type="button"
+          class="rv-pill rv-pill--primary"
+          :disabled="!ai.prompt"
+          @click="sendAiChatFromInput"
+        >
+          {{ t('rve_ai_send', 'Send') }}
+        </button>
+      </div>
+      <div class="rv-ai-chat__foot">
+        <button
+          type="button"
+          class="rv-pill"
+          :disabled="!ai.lastAnswer"
+          @click="aiInsertLastAnswer"
+        >
+          {{ t('rve_ai_insert', 'Insert') }}
+        </button>
+        <button
+          type="button"
+          class="rv-pill"
+          :disabled="!ai.lastAnswer"
+          @click="aiCopyLastAnswer"
+        >
+          {{ t('rve_ai_copy', 'Copy') }}
+        </button>
+      </div>
     </div>
 
     <!-- ================= Document ================= -->
@@ -4384,6 +5719,59 @@ defineExpose({
         </div>
       </template>
       <div v-else class="rv-slash__empty">{{ t('rve_no_results', 'No results') }}</div>
+    </div>
+
+    <div
+      v-if="mention.open && vis('mentionMenu')"
+      ref="mentionEl"
+      class="rv-slash rv-mention-menu"
+      role="listbox"
+      :aria-label="t('rve_mention_users', 'Mention users')"
+      :style="mentionStyle"
+    >
+      <div
+        v-if="mention.items.length"
+        class="rv-slash__section"
+      >
+        <div class="rv-slash__group">
+          {{ t('rve_users', 'Users') }}
+        </div>
+        <button
+          v-for="(item, index) in mention.items"
+          :key="item.id || index"
+          type="button"
+          class="rv-slash__item rv-mention-menu__item"
+          role="option"
+          :aria-selected="index === mention.index"
+          @mousedown.prevent="mention.command(item)"
+          @mousemove="mention.index = index"
+        >
+          <span class="rv-mention-menu__avatar">
+            <img
+              v-if="item.avatar"
+              :src="item.avatar"
+              :alt="item.label"
+            >
+            <span v-else>{{ mentionInitials(item.label) }}</span>
+          </span>
+          <span class="rv-slash__text">
+            <strong>{{ item.label }}</strong>
+            <small v-if="item.description">{{ item.description }}</small>
+          </span>
+        </button>
+      </div>
+      <div
+        v-else-if="mentionLoading"
+        class="rv-slash__empty"
+      >
+        {{ t('rve_loading_users', 'Loading users…') }}
+      </div>
+      <div
+        v-else
+        class="rv-slash__empty"
+      >
+        {{ t('rve_no_results', 'No results') }}
+      </div>
     </div>
 
     <Teleport v-if="tableDock.visible" :to="tableDockTarget">
@@ -4761,7 +6149,24 @@ defineExpose({
   cursor: pointer;
   &:hover { background: color-mix(in srgb, var(--color-primary) 11%, transparent); color: var(--color-primary); }
 }
-.rv-sticker__groups { display: flex; flex-wrap: wrap; gap: 4px; }
+.rv-sticker__modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-sticker__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  cursor: pointer;
+  &:hover { color: var(--color-w-b-1); background: var(--bg-hover); }
+  &.is-active { color: var(--color-primary); border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 11%, transparent); }
+}
+.rv-sticker__search-wrap { position: relative; }
+.rv-sticker__search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--c-muted); pointer-events: none; }
+.rv-sticker__search { width: 100%; padding-left: 2rem; }
+.rv-sticker__groups { display: flex; flex-wrap: wrap; gap: 4px; max-height: 5.5rem; overflow-y: auto; }
 .rv-sticker__group {
   padding: 4px 10px;
   font-size: 0.75rem;
@@ -4780,6 +6185,9 @@ defineExpose({
   overflow-y: auto;
   padding: 2px;
 }
+.rv-sticker__grid--gifs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rv-sticker__grid--flags { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.rv-sticker__grid--flags .rv-sticker { min-height: 2.25rem; }
 .rv-sticker {
   display: grid;
   place-items: center;
@@ -4790,9 +6198,30 @@ defineExpose({
   border: 1px solid var(--border-card);
   border-radius: 8px;
   cursor: pointer;
+  overflow: hidden;
   &:hover { background: color-mix(in srgb, var(--color-primary) 11%, transparent); transform: scale(1.05); }
+  &.rv-sticker--gif, &.rv-sticker--flag { padding: 0; }
+  &.rv-sticker--gif { min-height: 5.5rem; }
+  &.rv-sticker--flag { min-height: 2.25rem; padding: 3px; }
+  &.rv-sticker--gif img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  &.rv-sticker--flag img { width: 100%; height: 100%; object-fit: contain; display: block; }
 }
-@media (max-width: 640px) { .rv-sticker__grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.rv-sticker__empty { margin: 0; font-size: 0.8125rem; color: var(--c-muted); text-align: center; padding: 1rem 0; }
+:deep(.rv-inline-flag) {
+  display: inline-block;
+  width: 1.35em;
+  height: 1em;
+  object-fit: cover;
+  vertical-align: -0.15em;
+  margin: 0 1px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-card) 70%, transparent);
+}
+@media (max-width: 640px) {
+  .rv-sticker__grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .rv-sticker__grid--gifs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rv-sticker__grid--flags { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
 .rv-util-panel--a11y p { margin: 0; font-size: 0.8125rem; }
 .rv-table-dock {
   position: fixed;
@@ -5103,6 +6532,34 @@ defineExpose({
 }
 .rv-slash__text { display: grid; line-height: 1.3; strong { font-size: 0.875rem; font-weight: 500; } small { font-size: 0.75rem; color: var(--c-muted); } }
 .rv-slash__empty { padding: 12px; font-size: 0.875rem; color: var(--c-muted); }
+.rv-mention-menu { width: 20rem; }
+.rv-mention-menu__item { gap: 10px; }
+.rv-mention-menu__avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-content));
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+}
+.rv-mention-menu__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rv-prose .rv-mention {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  margin: 0 1px;
+  font-weight: 500;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border-radius: 4px;
+  white-space: nowrap;
+}
 
 // ---- page ------------------------------------------------------------------------------------------------
 .rv-body { flex: 1 1 auto; background: var(--bg-wrapper);}
@@ -5512,6 +6969,68 @@ defineExpose({
   background: color-mix(in srgb, var(--d-bg) 70%, transparent); color: var(--d-muted);
 }
 .r-design__pct { width: 40px; text-align: right; color: var(--d-muted); font-variant-numeric: tabular-nums; }
+
+.rv-util-panel--ai { width: min(34rem, calc(100% - 32px)); }
+.rv-ai__title { display: inline-flex; align-items: center; gap: 8px; }
+.rv-ai__title strong { display: inline-flex; align-items: center; gap: 8px; }
+.rv-ai__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rv-ai__action {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  min-height: 72px; padding: 10px 8px; text-align: center; font-size: 0.8125rem;
+  color: var(--color-w-b-1); background: var(--bg-hover); border: 1px solid var(--border-card); border-radius: 8px; cursor: pointer;
+  &:hover:not(:disabled) { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-hover)); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.rv-ai__options { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-ai__option {
+  padding: 6px 10px; font-size: 0.8125rem; color: var(--color-w-b-1);
+  background: var(--bg-hover); border: 1px solid var(--border-card); border-radius: 999px; cursor: pointer;
+  &:hover:not(:disabled) { border-color: var(--color-primary); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.rv-ai__status { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--c-muted); }
+.rv-ai__error { padding: 6px 8px; font-size: 0.75rem; color: #fff; background: #dc2626; border-radius: 6px; }
+
+.rv-ai-chat {
+  position: absolute; z-index: 49; top: 84px; right: 16px;
+  display: grid; gap: 8px; width: min(26rem, calc(100% - 32px));
+  padding: 12px; color: var(--color-w-b-1); background: var(--bg-content);
+  border: 1px solid var(--border-card); border-radius: 10px; box-shadow: var(--glass-shadow);
+}
+.rv-ai-chat__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
+.rv-ai-chat__head strong { display: inline-flex; align-items: center; gap: 8px; }
+.rv-ai-chat__context { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--c-muted); }
+.rv-ai-chat__messages {
+  display: grid; align-content: start; gap: 10px; max-height: min(20rem, calc(100vh - 320px));
+  padding: 8px; overflow-y: auto; background: var(--bg-hover); border: 1px solid var(--border-card); border-radius: 8px;
+}
+.rv-ai-chat__empty, .rv-ai-chat__loading { padding: 18px 10px; text-align: center; font-size: 0.8125rem; color: var(--c-muted); }
+.rv-ai-chat__msg { display: grid; gap: 4px; }
+.rv-ai-chat__role { font-size: 0.6875rem; font-weight: 600; color: var(--c-muted); text-transform: uppercase; }
+.rv-ai-chat__bubble {
+  max-width: 92%; padding: 8px 10px; font-size: 0.8125rem; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 8px;
+}
+.rv-ai-chat__msg.is-user .rv-ai-chat__bubble { margin-left: auto; color: #fff; background: var(--color-primary); }
+.rv-ai-chat__msg.is-assistant .rv-ai-chat__bubble { background: var(--bg-content); border: 1px solid var(--border-card); }
+.rv-ai-chat__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-ai-chat__chip {
+  padding: 4px 8px; font-size: 0.6875rem; color: var(--c-muted);
+  background: var(--bg-hover); border: 1px solid var(--border-card); border-radius: 999px; cursor: pointer;
+  &:hover { color: var(--color-w-b-1); border-color: var(--color-primary); }
+}
+.rv-ai-chat__controls { display: flex; gap: 8px; }
+.rv-ai-chat__controls label { display: grid; flex: 1; gap: 4px; font-size: 0.6875rem; color: var(--c-muted); }
+.rv-ai-chat__select {
+  width: 100%; min-width: 0; padding: 6px 8px; font: inherit; font-size: 0.75rem;
+  color: var(--color-w-b-1); background: var(--bg-hover); border: 1px solid var(--border-card); border-radius: 6px;
+}
+.rv-ai-chat__composer { display: flex; flex-direction: column; gap: 8px; }
+.rv-ai-chat__input {
+  width: 100%; padding: 8px 10px; font: inherit; font-size: 0.8125rem; line-height: 1.5;
+  color: var(--color-w-b-1); background: var(--bg-hover); border: 1px solid var(--border-card); border-radius: 6px; resize: vertical;
+}
+.rv-ai-chat__foot { display: flex; gap: 8px; }
 
 @media (prefers-reduced-motion: reduce) { .rv-editor * { transition: none !important; } }
 </style>

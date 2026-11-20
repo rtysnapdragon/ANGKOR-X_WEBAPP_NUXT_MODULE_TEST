@@ -1,163 +1,150 @@
-// ─── RTableHeader.vue ─────────────────────────────────────────────────────────
+// ─── RPagination.vue ──────────────────────────────────────────────────────────
 
 <template>
   <div class="rty-pagination">
-      <!-- Left -->
-      <div class="pagination-left">
-        <div class="flex gap-1.5 whitespace-nowrap">
-          <span>{{ t('total_records') }}</span>
-          <span>{{ total }}</span>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <RSelectRecord v-if="options.paging" v-model="selected" :loading="loading" @select="selectRecords(selected)" mode="nuxtui" />
-        
-        <!-- <div class="pagination-goto">
-          <span>{{ t('go_to_page') }}</span>
-          <UInput
-            v-model="gotoPage"
-            min="1"
-            :max="totalPages"
-            size="lg"
-            :ui="uiInput"
-            :disabled="isDisabled"
-            @keyup.enter="commitGoto"
-            @blur="commitGoto"
-            @update:model-value="onGotoPage"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            @input="onGotoInput($event.target.value)"
-            @keydown.enter.prevent="commitGoto"
-          />
-        </div>
-         -->
-        <UPagination
-          v-model:page="page"
-          :total="total ?? 100"
-          :items-per-page="totalPages"
-          :disabled="loading"
-          :show-edges="true"
-          :sibling-count="1"
-          :page-count="pageCount"
-          :max="5"
-          size="xs"
-          color="primary"
-          active-color="primary"
-          :ui="uiPagination"
-          class="pagination-right"
-        >
-          <template #first="{ onClick, canGoFirst }">
-            <slot name="first">
-              <RTooltip :text="t('first')">
-                <UButton icon="ri-arrow-left-double-fill"  
-                class="rtl:[&_span:first-child]:rotate-180 pagination justify-center"
-                :class="[!canGoFirst ? 'opacity-low' : '']" :disabled="canGoFirst || loading" @click="onClick" :ui="{ rounded: 'rounded-[10px]'}"/>
-                <!-- class="rtl:[&_span:first-child]:rotate-180 pagination bg-default dark:text-white text-gray-900 justify-center" -->
-              </RTooltip>
-            </slot>
-          </template>
-
-          <template #prev="{ onClick, canGoPrevious }">
-            <slot name="prev">
-              <RTooltip :text="t('previous')">
-                <UButton icon="ri-arrow-left-s-line" 
-                class="rtl:[&_span:first-child]:rotate-180 pagination justify-center"
-                :class="[!canGoPrevious ? 'opacity-low' : '']" :disabled="canGoPrev || loading" @click="onClick"  :ui="{ rounded: 'rounded-[10px]'}"/>
-              </RTooltip>
-            </slot>
-          </template>
-
-          <template #next="{ onClick, canGoNext }">
-            <slot name="next">
-              <RTooltip :text="t('next')">
-                <UButton icon="ri-arrow-right-s-line" 
-                class="rtl:[&_span:last-child]:rotate-180 pagination justify-center"
-                :class="[!canGoNext ? 'opacity-low' : '']" :disabled="canGoNext || loading" @click="onClick"  :ui="{ rounded: 'rounded-[10px]'}"/>
-              </RTooltip>
-            </slot>
-          </template>
-
-          <template #last="{ onClick, canGoLast}">
-            <slot name="last">
-              <RTooltip :text="t('last')">
-                <UButton icon="ri-arrow-right-double-line"
-                class="rtl:[&_span:last-child]:rotate-180 pagination justify-center"
-                :class="[!canGoLast ? 'opacity-low' : '']" :disabled="canGoLast || loading" @click="onClick"  :ui="{ rounded: 'rounded-[10px]'}" />
-              </RTooltip>
-            </slot>
-          </template>
-
-
-          <!-- <template #ellipsis>
-            <slot name="ellipsis">
-              <RTooltip :text="String(index) ?? 'OK'">
-                <UButton :label="String(item)"  :variant="active ? 'solid' : 'ghost'" class="pagination-page-btn" />
-              </RTooltip>
-            </slot>
-          </template> -->
-          
-          <template #item="{ item, active }">
-            <slot name="item" :item="item" :active="active">  
-    
-              <RTooltip :text="`${t('page')} ${String(item.value)}`">
-                <UButton :label="String(item.value)"  :variant="active ? 'solid' : 'ghost'" class="pagination-page-btn"  :disabled="totalPages <= 0 || loading"/>
-              </RTooltip>
-              
-              <!-- <RTooltip
-              v-for="p in pageCount"
-              :key="p"
-              :text="`${t('page')} ${String(p)}`"
-            >
-              <UButton
-                :label="String(p)"
-                :variant="p === pageModel ? 'solid' : 'ghost'"
-                @click="pageModel = p"
-              />
-            </RTooltip> -->
-            </slot>
-          </template>
-        </UPagination>
+    <div class="pagination-left">
+      <div class="flex gap-1.5 whitespace-nowrap">
+        <span>{{ t('total_records') }}</span>
+        <span>{{ Number(total) || 0 }}</span>
       </div>
     </div>
+
+    <div class="flex gap-2">
+      <RSelectRecord
+        v-if="options.paging !== false"
+        v-model="selected"
+        :items="recordItems"
+        :loading="Boolean(loading)"
+        mode="nuxtui"
+        @select="selectRecords"
+      />
+
+      <UPagination
+        v-model:page="pageModel"
+        :total="Number(total) || 0"
+        :items-per-page="itemsPerPageValue"
+        :disabled="Boolean(loading)"
+        :show-edges="true"
+        :sibling-count="1"
+        size="xs"
+        color="primary"
+        active-color="primary"
+        :ui="uiPagination"
+        class="pagination-right"
+      >
+        <template #first="{ page: currentPage }">
+          <slot name="first">
+            <RTooltip :text="t('first')">
+              <UButton
+                icon="ri-arrow-left-double-fill"
+                class="rtl:[&_span:first-child]:rotate-180 pagination justify-center"
+                :disabled="currentPage <= 1 || loading"
+                @click="pageModel = 1"
+              />
+            </RTooltip>
+          </slot>
+        </template>
+
+        <template #prev="{ page: currentPage }">
+          <slot name="prev">
+            <RTooltip :text="t('previous')">
+              <UButton
+                icon="ri-arrow-left-s-line"
+                class="rtl:[&_span:first-child]:rotate-180 pagination justify-center"
+                :disabled="currentPage <= 1 || loading"
+                @click="pageModel = currentPage - 1"
+              />
+            </RTooltip>
+          </slot>
+        </template>
+
+        <template #item="{ item, page: currentPage }">
+          <slot name="item" :item="item" :active="currentPage === item.value">
+            <RTooltip :text="`${t('page')} ${String(item.value)}`">
+              <UButton
+                :label="String(item.value)"
+                :variant="currentPage === item.value ? 'solid' : 'ghost'"
+                class="pagination-page-btn"
+                :disabled="loading"
+                @click="pageModel = item.value"
+              />
+            </RTooltip>
+          </slot>
+        </template>
+
+        <template #next="{ page: currentPage, pageCount: nextPageCount }">
+          <slot name="next">
+            <RTooltip :text="t('next')">
+              <UButton
+                icon="ri-arrow-right-s-line"
+                class="rtl:[&_span:last-child]:rotate-180 pagination justify-center"
+                :disabled="currentPage >= nextPageCount || loading"
+                @click="pageModel = currentPage + 1"
+              />
+            </RTooltip>
+          </slot>
+        </template>
+
+        <template #last="{ pageCount: lastPageCount }">
+          <slot name="last">
+            <RTooltip :text="t('last')">
+              <UButton
+                icon="ri-arrow-right-double-line"
+                class="rtl:[&_span:last-child]:rotate-180 pagination justify-center"
+                :disabled="page >= lastPageCount || loading"
+                @click="pageModel = lastPageCount"
+              />
+            </RTooltip>
+          </slot>
+        </template>
+      </UPagination>
+    </div>
+  </div>
 </template>
 
 <script setup>
-// UPagination slots: first, prev, item, next, last. ellipsis
-// item :  { page: number; pageCount: number; item: { type: "ellipsis"; } | { type: "page"; value: number; }; index: number; }
-// ellipsis	: { ui: object; }
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+
 const { t } = useI18n()
 const selected = defineModel('selected')
-const page = defineModel('page')
-console.log("Selected in pagination ------------> ", selected.value)
-const props = defineProps(['pageCount', 'total', 'options', 'totalPages', 'loading'])
+const page = defineModel('page', { default: 1 })
+
+const props = defineProps({
+  total: { type: [Number, String], default: 0 },
+  itemsPerPage: { type: [Number, String], default: 10 },
+  items: { type: Array, default: () => [] },
+  options: { type: Object, default: () => ({}) },
+  loading: { type: Boolean, default: false },
+})
+
 const emits = defineEmits(['changePagination', 'selectRecords'])
 
-const gotoPage = ref('')
-const total = computed(() => props.total)
-console.log("Total records pagination --------------> ", total.value)
 const options = computed(() => props.options ?? {})
-const pageCount = computed(() => props.pageCount)
-const totalPages = computed(() => props.totalPages)
-const loading = computed(() => props.loading)
+const total = computed(() => Number(props.total) || 0)
+const itemsPerPageValue = computed(() => Math.max(1, Number(props.itemsPerPage) || 10))
+const recordItems = computed(() => {
+  const items = props.items?.length ? props.items : [10, 25, 50, 100]
+  return items.map(item => Number(item) || 10)
+})
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / itemsPerPageValue.value)))
 
-watch(total, () => {
-  const maxPage = Math.ceil(total.value / pageCount.value)
-
-  if (page.value > maxPage) {
-    page.value = maxPage || 1
-  }
+const pageModel = computed({
+  get: () => Math.min(Math.max(1, Number(page.value) || 1), pageCount.value),
+  set: (value) => {
+    page.value = Math.min(Math.max(1, Number(value) || 1), pageCount.value)
+  },
 })
 
-watch(page, (n) => {
-  if (isNotEmpty(n)) {
-    gotoPage.value = String(page)
-    emits('changePagination',n)
-  }
+watch(pageCount, (max) => {
+  if ((Number(page.value) || 1) > max) page.value = max
 })
 
-function selectRecords(selected) {
-  emits("selectRecords",selected)
+watch(page, (value) => {
+  if (value != null) emits('changePagination', value)
+})
+
+function selectRecords(value) {
+  emits('selectRecords', value)
 }
 
 const uiPagination = {

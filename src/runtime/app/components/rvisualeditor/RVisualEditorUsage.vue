@@ -3,9 +3,11 @@
 // Media uploads here use a simulated uploader that returns blob: URLs, which is why the demos pass
 // `allowBlobUrls: true`. In production, pass :upload-api (or :uploader) that returns persistent URLs.
 import { Extension } from '@tiptap/core'
-import {useStorage, StorageSerializers } from '@vueuse/core'
-definePageMeta({layout:'navbar'})
+import { useStorage, StorageSerializers } from '@vueuse/core'
+
+definePageMeta({ layout: 'navbar' })
 const cases = [
+  { value: 'all', label: 'All features', icon: 'i-lucide-sparkles' },
   { value: 'notion', label: 'Notion style', icon: 'i-lucide-notebook-pen' },
   { value: 'ribbon', label: 'Word ribbon', icon: 'i-lucide-layout-template' },
   { value: 'compact', label: 'Compact toolbar', icon: 'i-lucide-panel-top' },
@@ -32,7 +34,7 @@ const cases = [
   { value: 'layout', label: 'Responsive layout', icon: 'i-lucide-smartphone' },
   { value: 'readonly', label: 'Read-only', icon: 'i-lucide-lock' },
 ]
-const current = ref('notion')
+const current = ref('all')
 
 // ---- simulated uploader (progress + abort + failures for files named "fail*") -------------------------
 const demoOptions = { allowBlobUrls: true }
@@ -49,7 +51,7 @@ const demoUploader = (file, { onProgress, signal }) => new Promise((resolve, rej
 
 // ---- shared sample content ----------------------------------------------------------------------------
 const t = (text, marks) => ({ type: 'text', text, ...(marks ? { marks } : {}) })
-const p = (text) => ({ type: 'paragraph', content: [t(text)] })
+const p = text => ({ type: 'paragraph', content: [t(text)] })
 const sampleEnvelope = {
   schema: 'rvisual.document',
   version: 1,
@@ -90,8 +92,8 @@ const sampleEnvelope = {
   fonts: [],
 }
 const sampleHtml = '<h2>From HTML</h2><p>Loaded via <strong>setContent</strong> as a <em>sanitized</em> HTML string.</p><ul><li>One</li><li>Two</li></ul>'
-const clone = (v) => JSON.parse(JSON.stringify(v))
-const pretty = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2))
+const clone = v => JSON.parse(JSON.stringify(v))
+const pretty = v => (typeof v === 'string' ? v : JSON.stringify(v, null, 2))
 
 // ---- cases state ---------------------------------------------------------------------------------------
 const notion = ref(null)
@@ -107,7 +109,7 @@ const circular = {}
 circular.self = circular
 const robustCases = [
   { label: 'modelValue = null', props: { modelValue: null } },
-  { label: "modelValue = '' (empty string)", props: { modelValue: '' } },
+  { label: 'modelValue = \'\' (empty string)', props: { modelValue: '' } },
   { label: 'modelValue = [] (empty array)', props: { modelValue: [] } },
   { label: 'modelValue = {} (empty object)', props: { modelValue: {} } },
   { label: 'modelValue = whitespace', props: { modelValue: '   ' } },
@@ -129,7 +131,7 @@ const logUpload = (e) => {
   uploadLog.value.unshift({ id: crypto.randomUUID(), t: new Date().toLocaleTimeString(), text: `${e.phase}: ${e.file?.name ?? ''}${e.error ? ` — ${e.error.message}` : ''}` })
   uploadLog.value.length = Math.min(uploadLog.value.length, 10)
 }
-const logError = (e) => logUpload({ phase: `error (${e.source}${e.code ? `/${e.code}` : ''})`, file: e.file, error: e.error })
+const logError = e => logUpload({ phase: `error (${e.source}${e.code ? `/${e.code}` : ''})`, file: e.file, error: e.error })
 const uploadKinds = ref(['image', 'video', 'audio', 'file'])
 const kindItems = ['image', 'video', 'audio', 'file']
 const uploadAPIExample = `<RVisualEditor
@@ -170,8 +172,8 @@ function trackSaveUpload(e) {
 function onSaveComplete(e) { saveComplete.value = e }
 function collectFileIds(uploads, group) {
   return (uploads ?? [])
-    .filter((u) => (group === 'image' ? u.kind === 'image' : u.kind !== 'image') && u.fileId)
-    .map((u) => u.fileId)
+    .filter(u => (group === 'image' ? u.kind === 'image' : u.kind !== 'image') && u.fileId)
+    .map(u => u.fileId)
 }
 async function waitForSaveUploads() {
   if (!saveEd.value?.isUploading?.()) return
@@ -265,6 +267,154 @@ featureRichDoc.value.doc.content.push({
   content: [t('File link: '), t('sample.pdf', [{ type: 'link', attrs: { href: '/sample.pdf' } }])],
 })
 
+const allMentionItems = [
+  { id: 'u1', label: 'Sophea Chan', description: 'Product Manager', avatar: '' },
+  { id: 'u2', label: 'Dara Kim', description: 'Design Lead', avatar: '' },
+  { id: 'u3', label: 'Rithy Peng', description: 'Engineering', avatar: '' },
+]
+const allFeaturesDoc = ref(clone(sampleEnvelope))
+allFeaturesDoc.value.doc.content.push({
+  type: 'paragraph',
+  content: [
+    t('Mention: '),
+    { type: 'mention', attrs: { id: 'u1', label: 'Sophea Chan', avatarUrl: '' } },
+    t(' — type @ to insert a teammate.'),
+  ],
+})
+const allFeaturesOptions = {
+  ...demoOptions,
+  preset: 'full',
+  theme: 'system',
+  appearance: 'paper',
+  toolbarMode: 'multiline',
+  fullscreenMode: 'body',
+  emitDebounce: 300,
+  toolbar: true,
+  footer: true,
+  history: true,
+  wordCount: true,
+  zoom: true,
+  textFormatting: true,
+  fonts: true,
+  colors: true,
+  headings: true,
+  alignment: true,
+  lists: true,
+  blockquote: true,
+  indent: true,
+  spacing: true,
+  links: true,
+  tables: true,
+  codeBlock: true,
+  divider: true,
+  callout: true,
+  typography: true,
+  slashMenu: true,
+  bubbleMenu: true,
+  blockHandle: true,
+  dropFiles: true,
+  media: true,
+  images: true,
+  videos: true,
+  audio: true,
+  files: true,
+  floatingMedia: true,
+  shapes: true,
+  drawing: true,
+  canvas: true,
+  inlineCode: true,
+  pageBreak: true,
+  mentionMenu: true,
+  emoji: true,
+  specialCharacters: true,
+  findReplace: true,
+  source: true,
+  accessibility: true,
+  exportTools: true,
+  linkFileActions: true,
+  tableToolbar: true,
+  menuBar: true,
+  fullscreen: true,
+  ai: true,
+  fontSizes: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96],
+}
+const allEd = ref(null)
+const allResult = ref('')
+const allEvents = ref([])
+const allApiKey = ref('')
+const allApiToken = ref('')
+const allAiModel = ref('')
+const allAiTemperature = ref('')
+const allAiMaxTokens = ref('')
+const allEditable = ref(true)
+function logAll(name, detail = '') {
+  allEvents.value.unshift({ id: crypto.randomUUID(), t: new Date().toLocaleTimeString(), name, detail })
+  allEvents.value.length = Math.min(allEvents.value.length, 12)
+}
+function callAll(label, fn) {
+  const value = fn()
+  allResult.value = `${label}\n${value === undefined ? '(undefined)' : pretty(value)}`
+}
+function runAll(label, fn) {
+  fn()
+  logAll(label)
+}
+function toggleAllEditable() {
+  allEditable.value = !allEditable.value
+  allEd.value?.setEditable?.(allEditable.value)
+  logAll('setEditable', allEditable.value)
+}
+const allApiActions = [
+  { label: 'getEditor()', run: () => callAll('getEditor()', () => !!allEd.value?.getEditor?.()) },
+  { label: 'getHTML()', run: () => callAll('getHTML()', () => allEd.value?.getHTML?.()) },
+  { label: 'getJSON()', run: () => callAll('getJSON()', () => allEd.value?.getJSON?.()) },
+  { label: 'getText()', run: () => callAll('getText()', () => allEd.value?.getText?.()) },
+  { label: 'setContent(HTML)', run: () => runAll('setContent(HTML)', () => allEd.value?.setContent?.(sampleHtml)) },
+  { label: 'setContent(envelope)', run: () => runAll('setContent(envelope)', () => allEd.value?.setContent?.(sampleEnvelope)) },
+  { label: 'clearContent()', run: () => runAll('clearContent()', () => allEd.value?.clearContent?.()) },
+  { label: 'focus(\'end\')', run: () => runAll('focus(end)', () => allEd.value?.focus?.('end')) },
+  { label: 'blur()', run: () => runAll('blur()', () => allEd.value?.blur?.()) },
+  { label: 'undo()', run: () => callAll('undo()', () => allEd.value?.undo?.()) },
+  { label: 'redo()', run: () => callAll('redo()', () => allEd.value?.redo?.()) },
+  { label: 'setEditable()', run: toggleAllEditable },
+  { label: 'toggleFullscreen()', run: () => runAll('toggleFullscreen()', () => allEd.value?.toggleFullscreen?.()) },
+  { label: 'isFullscreen()', run: () => callAll('isFullscreen()', () => allEd.value?.isFullscreen?.()) },
+  { label: 'insertImage(url)', run: () => runAll('insertImage(url)', () => allEd.value?.insertImage?.('https://picsum.photos/seed/rv-all/900/500')) },
+  { label: 'insertVideo(url)', run: () => runAll('insertVideo(url)', () => allEd.value?.insertVideo?.('https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4')) },
+  { label: 'insertAudio(url)', run: () => runAll('insertAudio(url)', () => allEd.value?.insertAudio?.('https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3')) },
+  { label: 'insertFile(url)', run: () => runAll('insertFile(url)', () => allEd.value?.insertFile?.('/sample.pdf')) },
+  { label: 'insertMediaUrl(image)', run: () => runAll('insertMediaUrl(image)', () => allEd.value?.insertMediaUrl?.('image', 'https://picsum.photos/seed/rv-media/800/450')) },
+  { label: 'pickFiles(image)', run: () => runAll('pickFiles(image)', () => allEd.value?.pickFiles?.('image')) },
+  { label: 'openFileManager()', run: () => runAll('openFileManager()', () => allEd.value?.openFileManager?.()) },
+  { label: 'openMediaUrl(image)', run: () => runAll('openMediaUrl(image)', () => allEd.value?.openMediaUrl?.('image')) },
+  { label: 'openMention()', run: () => runAll('openMention()', () => allEd.value?.openMention?.()) },
+  { label: 'insertUserMention()', run: () => runAll('insertUserMention()', () => allEd.value?.insertUserMention?.(allMentionItems[0])) },
+  { label: 'openAiQuickActions()', run: () => runAll('openAiQuickActions()', () => allEd.value?.openAiQuickActions?.()) },
+  { label: 'toggleAiQuickActions()', run: () => runAll('toggleAiQuickActions()', () => allEd.value?.toggleAiQuickActions?.()) },
+  { label: 'openAiChat()', run: () => runAll('openAiChat()', () => allEd.value?.openAiChat?.()) },
+  { label: 'closeAiPanels()', run: () => runAll('closeAiPanels()', () => allEd.value?.closeAiPanels?.()) },
+  { label: 'runAiAction(improve)', run: () => runAll('runAiAction(improve)', () => allEd.value?.runAiAction?.('improve')) },
+  { label: 'runAiCommand(summarize)', run: () => runAll('runAiCommand(summarize)', () => allEd.value?.runAiCommand?.('summarize')) },
+  { label: 'runAiTone(friendly)', run: () => runAll('runAiTone(friendly)', () => allEd.value?.runAiTone?.('friendly')) },
+  { label: 'runAiTranslate(km)', run: () => runAll('runAiTranslate(km)', () => allEd.value?.runAiTranslate?.('km')) },
+  { label: 'sendAiChat(...)', run: () => runAll('sendAiChat(...)', () => allEd.value?.sendAiChat?.('Explain this document.')) },
+  { label: 'stopAi()', run: () => runAll('stopAi()', () => allEd.value?.stopAi?.()) },
+  { label: 'aiState()', run: () => callAll('aiState()', () => allEd.value?.aiState?.()) },
+  { label: 'loadFromApi()', run: () => runAll('loadFromApi()', () => allEd.value?.loadFromApi?.()) },
+  { label: 'saveToApi()', run: () => runAll('saveToApi()', () => allEd.value?.saveToApi?.()) },
+  { label: 'exportWord()', run: () => runAll('exportWord()', () => allEd.value?.exportWord?.()) },
+  { label: 'exportPdf()', run: () => runAll('exportPdf()', () => allEd.value?.exportPdf?.()) },
+  { label: 'exportToDrive(word)', run: () => callAll('exportToDrive(word)', () => allEd.value?.exportToDrive?.('word')) },
+  { label: 'exportToDrive(html)', run: () => callAll('exportToDrive(html)', () => allEd.value?.exportToDrive?.('html')) },
+  { label: 'reloadApi()', run: () => runAll('reloadApi()', () => allEd.value?.reloadApi?.()) },
+  { label: 'apiState()', run: () => callAll('apiState()', () => allEd.value?.apiState?.()) },
+  { label: 'flushPendingUploads()', run: () => callAll('flushPendingUploads()', () => allEd.value?.flushPendingUploads?.()) },
+  { label: 'clearPendingUploads()', run: () => runAll('clearPendingUploads()', () => allEd.value?.clearPendingUploads?.()) },
+  { label: 'getUploadQueue()', run: () => callAll('getUploadQueue()', () => allEd.value?.getUploadQueue?.()) },
+  { label: 'isUploading()', run: () => callAll('isUploading()', () => allEd.value?.isUploading?.()) },
+  { label: 'destroy()', color: 'error', run: () => runAll('destroy() — reload to restore', () => allEd.value?.destroy?.()) },
+]
+
 const fullscreenDoc = ref(clone(sampleEnvelope))
 const fullscreenEd = ref(null)
 const fullscreenActive = ref(false)
@@ -299,15 +449,15 @@ const outputItems = [{ label: 'json (envelope)', value: 'json' }, { label: 'html
 const outValue = ref(null)
 
 const presets = {
-  full: {},
-  minimal: { fonts: false, colors: false, headings: false, alignment: false, lists: false, blockquote: false, indent: false, spacing: false, tables: false, codeBlock: false, divider: false, callout: false, slashMenu: false, bubbleMenu: false, blockHandle: false, media: false },
-  writer: { fonts: 'hidden', colors: false, tables: false, codeBlock: false, spacing: 'disabled', indent: 'disabled', media: false },
-  mixed: { colors: 'disabled', tables: 'disabled', links: 'hidden', images: 'disabled' },
+  'full': {},
+  'minimal': { fonts: false, colors: false, headings: false, alignment: false, lists: false, blockquote: false, indent: false, spacing: false, tables: false, codeBlock: false, divider: false, callout: false, slashMenu: false, bubbleMenu: false, blockHandle: false, media: false },
+  'writer': { fonts: 'hidden', colors: false, tables: false, codeBlock: false, spacing: 'disabled', indent: 'disabled', media: false },
+  'mixed': { colors: 'disabled', tables: 'disabled', links: 'hidden', images: 'disabled' },
   'no toolbar (Notion)': { toolbar: false },
   'no menus': { slashMenu: false, bubbleMenu: false, blockHandle: false },
 }
 const preset = ref('full')
-const presetItems = Object.keys(presets).map((k) => ({ label: k, value: k }))
+const presetItems = Object.keys(presets).map(k => ({ label: k, value: k }))
 const flagValue = ref(null)
 
 const themeValue = ref(clone(sampleEnvelope))
@@ -346,237 +496,820 @@ const roValue = ref(clone(sampleEnvelope))
 </script>
 
 <template>
-    <div class="demo">
-      <aside class="demo__nav" aria-label="Usage cases">
-        <h1 class="demo__title">RVisualEditor</h1>
-        <nav>
-          <UButton
-            v-for="c in cases"
-            :key="c.value"
-            :icon="c.icon"
-            :label="c.label"
-            :variant="current === c.value ? 'soft' : 'ghost'"
-            color="neutral"
-            size="sm"
-            block
-            class="demo__navbtn"
-            :aria-current="current === c.value ? 'page' : undefined"
-            @click="current = c.value"
+  <div class="demo">
+    <aside
+      class="demo__nav"
+      aria-label="Usage cases"
+    >
+      <h1 class="demo__title">
+        RVisualEditor
+      </h1>
+      <nav>
+        <UButton
+          v-for="c in cases"
+          :key="c.value"
+          :icon="c.icon"
+          :label="c.label"
+          :variant="current === c.value ? 'soft' : 'ghost'"
+          color="neutral"
+          size="sm"
+          block
+          class="demo__navbtn"
+          :aria-current="current === c.value ? 'page' : undefined"
+          @click="current = c.value"
+        />
+      </nav>
+    </aside>
+
+    <main class="demo__main">
+      <section
+        v-if="current === 'all'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Every feature in one editor: word-style menu bar, multiline toolbar, all formatting tools, colors, fonts, tables with table dock, media drop/upload/paste, link + file actions, inline code, page break, callouts, emoji, special characters, table of contents, find/replace, source view, accessibility check, exports, full screen, Fabric design canvas, hover bubble menu, block handles, slash menu, "/" commands, "@" mentions, and AI Quick Actions + AI Chat. Leave credentials blank to use the backend LLM7 default.
+        </p>
+        <div class="demo__row">
+          <UInput
+            v-model="allApiKey"
+            placeholder="API key (optional)"
+            aria-label="API key"
           />
-        </nav>
-      </aside>
+          <UInput
+            v-model="allApiToken"
+            placeholder="API token (optional)"
+            aria-label="API token"
+          />
+          <UInput
+            v-model="allAiModel"
+            placeholder="Model (optional)"
+            aria-label="Model"
+          />
+          <UInput
+            v-model="allAiTemperature"
+            placeholder="Temperature"
+            aria-label="Temperature"
+          />
+          <UInput
+            v-model="allAiMaxTokens"
+            placeholder="Max tokens"
+            aria-label="Max tokens"
+          />
+        </div>
+        <RVisualEditor
+          ref="allEd"
+          v-model="allFeaturesDoc"
+          :uploader="demoUploader"
+          :mention-items="allMentionItems"
+          :api-key="allApiKey"
+          :api-token="allApiToken"
+          :ai-api-key="allApiKey"
+          :ai-api-token="allApiToken"
+          :ai-model="allAiModel"
+          :ai-temperature="allAiTemperature"
+          :ai-max-tokens="allAiMaxTokens"
+          :options="allFeaturesOptions"
+          :canvas-options="canvasOptions"
+          :allowed-media="['image', 'video', 'audio', 'file']"
+          :max-file-size="2 * 1024 * 1024"
+          :min-height="620"
+          :max-width="1200"
+          :editable="allEditable"
+          theme="system"
+          placeholder="Type / for commands, @ to mention, or ask AI..."
+          @ready="logAll('ready')"
+          @update="logAll('update')"
+          @change="logAll('change')"
+          @save="(e) => logAll('save', pretty(e))"
+          @error="(e) => logAll('error', e?.message ?? '')"
+          @focus="logAll('focus')"
+          @blur="logAll('blur')"
+          @upload="(e) => logAll('upload', e.phase)"
+          @upload-complete="(e) => logAll('upload-complete', e?.url ?? '')"
+          @media-select="(m) => logAll('media-select', m?.kind ?? '')"
+          @object-select="(o) => logAll('object-select', o?.type ?? '')"
+          @object-transform="(o) => logAll('object-transform', o?.type ?? '')"
+          @design-saved="(e) => logAll('design-saved', pretty(e))"
+          @fullscreen="(active) => logAll('fullscreen', active)"
+          @mention-select="(m) => logAll('mention-select', m?.label ?? '')"
+          @ai-response="(e) => logAll('ai-response', e?.action ?? '')"
+          @ai-error="(e) => logAll('ai-error', e?.error?.message ?? '')"
+          @export="(e) => logAll('export', pretty(e))"
+        />
+        <p class="demo__note">
+          Every exposed method can be driven from the template ref:
+        </p>
+        <div class="demo__buttons">
+          <UButton
+            v-for="action in allApiActions"
+            :key="action.label"
+            size="sm"
+            :color="action.color ?? 'neutral'"
+            :label="action.label"
+            @click="action.run"
+          />
+        </div>
+        <pre class="demo__code">
+            {{ allResult || 'Call an API method to see its result here.' }}
+          </pre>
+        <ul class="demo__log">
+          <li
+            v-for="e in allEvents"
+            :key="e.id"
+          >
+            <time>
+              {{ e.t }}
+            </time>
+            <strong>
+              {{ e.name }}
+            </strong>
+            <span>
+              {{ e.detail }}
+            </span>
+          </li>
+        </ul>
+      </section>
 
-      <main class="demo__main">
-          <section v-if="current === 'notion'" class="demo__case">
-            <p class="demo__note"><strong>Notion mode:</strong> no toolbar, seamless page. Click the page and press <kbd>/</kbd> — every tool appears instantly. Hover a block for <b>+</b> and the drag grip; select text for the floating toolbar; drag files from your desktop onto the page.</p>
-            <RVisualEditor v-model="notion" :uploader="demoUploader" :options="{ ...demoOptions, toolbar: false, footer: false, appearance: 'notion' ,fullscreen: true}" :min-height="520" />
-          </section>
+      <section
+        v-else-if="current === 'notion'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          <strong>Notion mode:</strong> no toolbar, seamless page. Click the page and press <kbd>/</kbd> — every tool appears instantly. Hover a block for <b>+</b> and the drag grip; select text for the floating toolbar; drag files from your desktop onto the page.
+        </p>
+        <RVisualEditor
+          v-model="notion"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, toolbar: false, footer: false, appearance: 'notion', fullscreen: true }"
+          :min-height="520"
+        />
+      </section>
 
-          <section v-else-if="current === 'ribbon'" class="demo__case">
-            <p class="demo__note"><strong>Word-style ribbon:</strong> Home / Insert / Layout tabs with labelled groups, a quick-access undo/redo, a table-size grid picker, and a contextual <b>Table</b> tab that appears when the cursor is in a table (double-click a tab or use the chevron to collapse). The optional footer shows counts and upload status.</p>
-            <RVisualEditor v-model="ribbon" :uploader="demoUploader" :options="{ ...demoOptions, toolbarMode: 'ribbon', appearance: 'paper', zoom: true }" :min-height="560" />
-          </section>
+      <section
+        v-else-if="current === 'ribbon'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          <strong>Word-style ribbon:</strong> Home / Insert / Layout tabs with labelled groups, a quick-access undo/redo, a table-size grid picker, and a contextual <b>Table</b> tab that appears when the cursor is in a table (double-click a tab or use the chevron to collapse). The optional footer shows counts and upload status.
+        </p>
+        <RVisualEditor
+          v-model="ribbon"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, toolbarMode: 'ribbon', appearance: 'paper', zoom: true }"
+          :min-height="560"
+        />
+      </section>
 
-          <section v-else-if="current === 'compact'" class="demo__case">
-            <p class="demo__note"><strong>Compact toolbar</strong> (<code>toolbarMode: 'compact'</code>), like Nuxt UI's UEditor: one wrapping row, icon-only buttons with tooltips and shortcut hints, Insert tools inline.</p>
-            <RVisualEditor v-model="compactDoc" :uploader="demoUploader" :options="{ ...demoOptions, toolbarMode: 'compact', appearance: 'notion' }" :min-height="420" />
-          </section>
+      <section
+        v-else-if="current === 'compact'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          <strong>Compact toolbar</strong> (<code>toolbarMode: 'compact'</code>), like Nuxt UI's UEditor: one wrapping row, icon-only buttons with tooltips and shortcut hints, Insert tools inline.
+        </p>
+        <RVisualEditor
+          v-model="compactDoc"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, toolbarMode: 'compact', appearance: 'notion' }"
+          :min-height="420"
+        />
+      </section>
 
-          <section v-else-if="current === 'footer'" class="demo__case">
-            <p class="demo__note">The footer is optional: <code>options.footer</code>. Inside it, <code>wordCount</code> and <code>zoom</code> are independent flags.</p>
-            <div class="demo__row">
-              <USwitch v-model="footerOn" label="footer" />
-              <USwitch v-model="footerCounts" label="wordCount" />
-              <USwitch v-model="footerZoom" label="zoom" />
-            </div>
-            <RVisualEditor :key="`${footerOn}-${footerCounts}-${footerZoom}`" v-model="footerDoc" :uploader="demoUploader" :options="{ ...demoOptions, footer: footerOn, wordCount: footerCounts, zoom: footerZoom }" :min-height="360" />
-          </section>
+      <section
+        v-else-if="current === 'footer'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          The footer is optional: <code>options.footer</code>. Inside it, <code>wordCount</code> and <code>zoom</code> are independent flags.
+        </p>
+        <div class="demo__row">
+          <USwitch
+            v-model="footerOn"
+            label="footer"
+          />
+          <USwitch
+            v-model="footerCounts"
+            label="wordCount"
+          />
+          <USwitch
+            v-model="footerZoom"
+            label="zoom"
+          />
+        </div>
+        <RVisualEditor
+          :key="`${footerOn}-${footerCounts}-${footerZoom}`"
+          v-model="footerDoc"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, footer: footerOn, wordCount: footerCounts, zoom: footerZoom }"
+          :min-height="360"
+        />
+      </section>
 
-          <section v-else-if="current === 'robust'" class="demo__case">
-            <p class="demo__note">Null, undefined, empty strings/arrays/objects, invalid options, junk extensions and hostile content. None of these may throw; bad values fall back to safe defaults (open the console in dev to see the warnings).</p>
-            <div class="demo__robust">
-              <div v-for="c in robustCases" :key="c.label">
-                <p class="demo__note"><code>{{ c.label }}</code></p>
-                <RVisualEditor v-bind="c.props" :min-height="120" :options="{ toolbar: false, footer: false, blockHandle: false, ...(c.props.options ?? {}) }" />
-              </div>
-            </div>
-          </section>
-
-          <section v-else-if="current === 'uploads'" class="demo__case">
-            <p class="demo__note">Drop, paste (screenshots) or pick files. Try a file named <code>fail.png</code> to see the error + Retry state, remove a block mid-upload to abort it, or exceed the 2 MB limit. Resize images with the side handles; click one for align / alt text / delete; type a caption below it.</p>
-            <div class="demo__row">
-              <span class="demo__note">Allowed kinds:</span>
-              <UCheckboxGroup v-model="uploadKinds" :items="kindItems" orientation="horizontal" />
-            </div>
-            <RVisualEditor mode='ribbon'
-              :key="uploadKinds.join()"
-              ref="uploadEd"
-              v-model="uploadDoc"
-              :uploader="demoUploader"
-              :allowed-media="uploadKinds"
-              :max-file-size="2 * 1024 * 1024"
-              :options="{ ...demoOptions }"
-              :min-height="420"
-              @upload="logUpload"
-              @error="logError"
-              @media-select="(m) => log('media-select', m.kind)"
+      <section
+        v-else-if="current === 'robust'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Null, undefined, empty strings/arrays/objects, invalid options, junk extensions and hostile content. None of these may throw; bad values fall back to safe defaults (open the console in dev to see the warnings).
+        </p>
+        <div class="demo__robust">
+          <div
+            v-for="c in robustCases"
+            :key="c.label"
+          >
+            <p class="demo__note">
+              <code>{{ c.label }}</code>
+            </p>
+            <RVisualEditor
+              v-bind="c.props"
+              :min-height="120"
+              :options="{ toolbar: false, footer: false, blockHandle: false, ...(c.props.options ?? {}) }"
             />
-            <div class="demo__buttons">
-              <UButton size="sm" icon="i-lucide-upload" label="pickFiles()" @click="uploadEd?.pickFiles(null)" />
-              <UButton size="sm" color="neutral" label="insertImage(url)" @click="uploadEd?.insertImage('https://picsum.photos/seed/rv/900/500')" />
-              <UButton size="sm" color="neutral" :label="`isUploading(): ${uploadEd?.isUploading?.() ?? false}`" />
-            </div>
-            <ul class="demo__log"><li v-for="e in uploadLog" :key="e.id"><time>{{ e.t }}</time> <strong>{{ e.text }}</strong></li></ul>
-          </section>
+          </div>
+        </div>
+      </section>
 
-          <section v-else-if="current === 'uploadapi'" class="demo__case">
-            <p class="demo__note">Production wiring. The component never stores binaries in the document: it uploads, then keeps only the persistent URL returned by your server. Blob/data URLs are rejected unless <code>allowBlobUrls</code> is set (demos only). SVGs are sanitized client-side before upload; your server must still validate content and serve user files safely.</p>
-            <pre class="demo__code">{{ uploadAPIExample }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'uploads'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Drop, paste (screenshots) or pick files. Try a file named <code>fail.png</code> to see the error + Retry state, remove a block mid-upload to abort it, or exceed the 2 MB limit. Resize images with the side handles; click one for align / alt text / delete; type a caption below it.
+        </p>
+        <div class="demo__row">
+          <span class="demo__note">Allowed kinds:</span>
+          <UCheckboxGroup
+            v-model="uploadKinds"
+            :items="kindItems"
+            orientation="horizontal"
+          />
+        </div>
+        <RVisualEditor
+          :key="uploadKinds.join()"
+          ref="uploadEd"
+          v-model="uploadDoc"
+          mode="ribbon"
+          :uploader="demoUploader"
+          :allowed-media="uploadKinds"
+          :max-file-size="2 * 1024 * 1024"
+          :options="{ ...demoOptions }"
+          :min-height="420"
+          @upload="logUpload"
+          @error="logError"
+          @media-select="(m) => log('media-select', m.kind)"
+        />
+        <div class="demo__buttons">
+          <UButton
+            size="sm"
+            icon="i-lucide-upload"
+            label="pickFiles()"
+            @click="uploadEd?.pickFiles(null)"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="insertImage(url)"
+            @click="uploadEd?.insertImage('https://picsum.photos/seed/rv/900/500')"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            :label="`isUploading(): ${uploadEd?.isUploading?.() ?? false}`"
+          />
+        </div>
+        <ul class="demo__log">
+          <li
+            v-for="e in uploadLog"
+            :key="e.id"
+          >
+            <time>{{ e.t }}</time> <strong>{{ e.text }}</strong>
+          </li>
+        </ul>
+      </section>
 
-          <section v-else-if="current === 'progress'" class="demo__case">
-            <p class="demo__note">Every editor upload is registered in the shared <code>useUploadProgress()</code> store, so the same <code>BtnShowUploadProcess</code> used across the app tracks files from this editor. The editor footer includes the same button automatically.</p>
-            <div class="demo__row">
-              <BtnShowUploadProcess />
-              <span class="demo__note">isUploading: {{ progressStore.isUploading }} · files: {{ progressStore.allFileMoreUpload.length }} · completed: {{ Object.keys(progressStore.fileCompleted).length }} · failed: {{ progressStore.fileError.length }}</span>
-            </div>
-            <RVisualEditor ref="progressEd" v-model="progressDoc" :uploader="demoUploader" :options="{ ...demoOptions, wordCount: true }" :min-height="320" @upload-complete="onProgressComplete" />
-            <pre class="demo__code">{{ pretty(progressComplete ?? { hint: 'Upload a file to update the shared progress store.' }) }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'uploadapi'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Production wiring. The component never stores binaries in the document: it uploads, then keeps only the persistent URL returned by your server. Blob/data URLs are rejected unless <code>allowBlobUrls</code> is set (demos only). SVGs are sanitized client-side before upload; your server must still validate content and serve user files safely.
+        </p>
+        <pre class="demo__code">{{ uploadAPIExample }}</pre>
+      </section>
 
-          <section v-else-if="current === 'save'" class="demo__case">
-            <p class="demo__note">With <code>deferUpload: true</code>, inserted media stays local until save. Call <code>flushPendingUploads()</code>, wait for uploads to settle, then persist <code>getJSON()</code> plus the <code>fileId</code> values collected from the <code>upload</code> event.</p>
-            <div class="demo__buttons">
-              <UButton size="sm" icon="i-lucide-cloud-upload" label="flushPendingUploads() + snapshot" :disabled="saveEd?.isUploading?.() ?? false" @click="flushAndSave" />
-              <UButton size="sm" color="neutral" :label="`isUploading(): ${saveEd?.isUploading?.() ?? false}`" />
-              <UButton size="sm" color="neutral" :label="`queue: ${saveEd?.getUploadQueue?.()?.length ?? 0}`" />
-            </div>
-            <RVisualEditor ref="saveEd" v-model="saveDoc" :api="saveApi" :uploader="demoUploader" :options="{ ...demoOptions, footer: false, wordCount: true }" :min-height="340" @upload="trackSaveUpload" @upload-complete="onSaveComplete" />
-            <pre class="demo__code">{{ saveResult || 'Upload a file, then click flush + snapshot.' }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'progress'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Every editor upload is registered in the shared <code>useUploadProgress()</code> store, so the same <code>BtnShowUploadProcess</code> used across the app tracks files from this editor. The editor footer includes the same button automatically.
+        </p>
+        <div class="demo__row">
+          <BtnShowUploadProcess />
+          <span class="demo__note">isUploading: {{ progressStore.isUploading }} · files: {{ progressStore.allFileMoreUpload.length }} · completed: {{ Object.keys(progressStore.fileCompleted).length }} · failed: {{ progressStore.fileError.length }}</span>
+        </div>
+        <RVisualEditor
+          ref="progressEd"
+          v-model="progressDoc"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, wordCount: true }"
+          :min-height="320"
+          @upload-complete="onProgressComplete"
+        />
+        <pre class="demo__code">{{ pretty(progressComplete ?? { hint: 'Upload a file to update the shared progress store.' }) }}</pre>
+      </section>
 
-          <section v-else-if="current === 'design'" class="demo__case">
-            <p class="demo__note">The Fabric design canvas is built in and loaded on first use. Enable <code>canvas</code> plus the related media flags, configure the default page with <code>canvasOptions</code>, and persist <code>design-saved</code> to reopen designs later.</p>
-            <RVisualEditor v-model="designDoc" :uploader="demoUploader" :canvas-options="canvasOptions" :options="{ ...demoOptions, appearance: 'paper', toolbarMode: 'ribbon', canvas: true, shapes: true, drawing: true, floatingMedia: true, wordCount: true }" :min-height="520" @design-saved="onDesignSaved" />
-            <pre class="demo__code">{{ designSaved ? pretty(designSaved) : 'Insert or edit an image with the Design tool.' }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'save'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          With <code>deferUpload: true</code>, inserted media stays local until save. Call <code>flushPendingUploads()</code>, wait for uploads to settle, then persist <code>getJSON()</code> plus the <code>fileId</code> values collected from the <code>upload</code> event.
+        </p>
+        <div class="demo__buttons">
+          <UButton
+            size="sm"
+            icon="i-lucide-cloud-upload"
+            label="flushPendingUploads() + snapshot"
+            :disabled="saveEd?.isUploading?.() ?? false"
+            @click="flushAndSave"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            :label="`isUploading(): ${saveEd?.isUploading?.() ?? false}`"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            :label="`queue: ${saveEd?.getUploadQueue?.()?.length ?? 0}`"
+          />
+        </div>
+        <RVisualEditor
+          ref="saveEd"
+          v-model="saveDoc"
+          :api="saveApi"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, footer: false, wordCount: true }"
+          :min-height="340"
+          @upload="trackSaveUpload"
+          @upload-complete="onSaveComplete"
+        />
+        <pre class="demo__code">{{ saveResult || 'Upload a file, then click flush + snapshot.' }}</pre>
+      </section>
 
-          <section v-else-if="current === 'novel'" class="demo__case">
-            <p class="demo__note">The production recipe used by <code>NovelContentCreate.vue</code>: real file-explorer uploads, deferred chapter saves, and file IDs mapped into the chapter payload.</p>
-            <pre class="demo__code">{{ novelRecipe }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'design'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          The Fabric design canvas is built in and loaded on first use. Enable <code>canvas</code> plus the related media flags, configure the default page with <code>canvasOptions</code>, and persist <code>design-saved</code> to reopen designs later.
+        </p>
+        <RVisualEditor
+          v-model="designDoc"
+          :uploader="demoUploader"
+          :canvas-options="canvasOptions"
+          :options="{ ...demoOptions, appearance: 'paper', toolbarMode: 'ribbon', canvas: true, shapes: true, drawing: true, floatingMedia: true, wordCount: true }"
+          :min-height="520"
+          @design-saved="onDesignSaved"
+        />
+        <pre class="demo__code">{{ designSaved ? pretty(designSaved) : 'Insert or edit an image with the Design tool.' }}</pre>
+      </section>
 
-          <section v-else-if="current === 'featureRich'" class="demo__case">
-            <p class="demo__note"><strong>Feature-rich builder preset:</strong> grouped menu bar, multiline toolbar, more tools, source editing, find/replace, accessibility check, export tools, file-link preview/download, and a floating table dock that moves above or below the table depending on viewport space. Open the Link tool on <code>sample.pdf</code> to try the file actions.</p>
-            <RVisualEditor v-model="featureRichDoc" :uploader="demoUploader" :options="{ ...demoOptions, preset: 'featureRich' }" :min-height="560" />
-          </section>
+      <section
+        v-else-if="current === 'novel'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          The production recipe used by <code>NovelContentCreate.vue</code>: real file-explorer uploads, deferred chapter saves, and file IDs mapped into the chapter payload.
+        </p>
+        <pre class="demo__code">{{ novelRecipe }}</pre>
+      </section>
 
-          <section v-else-if="current === 'fullscreen'" class="demo__case">
-            <p class="demo__note">Enable the full-screen button with <code>options.fullscreen: true</code>. Choose <code>options.fullscreenMode: 'body'</code> (default) to fill the browser body like CKEditor, or <code>'window'</code> to use the native Fullscreen API. It also lives under <b>View → Full screen</b> and can be controlled from the exposed <code>toggleFullscreen()</code> / <code>isFullscreen()</code> API.</p>
-            <div class="demo__buttons">
-              <USelect v-model="fullscreenMode" :items="fullscreenModeItems" class="demo__select" aria-label="Fullscreen mode" />
-              <UButton size="sm" icon="i-lucide-maximize-2" label="toggleFullscreen()" @click="fullscreenEd?.toggleFullscreen?.()" />
-              <UButton size="sm" color="neutral" :label="`isFullscreen(): ${fullscreenActive}`" />
-            </div>
-            <RVisualEditor ref="fullscreenEd" v-model="fullscreenDoc" :uploader="demoUploader" :options="{ ...demoOptions, fullscreen: true, fullscreenMode }" :min-height="480" @fullscreen="(active) => fullscreenActive = active" />
-          </section>
+      <section
+        v-else-if="current === 'featureRich'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          <strong>Feature-rich builder preset:</strong> grouped menu bar, multiline toolbar, more tools, source editing, find/replace, accessibility check, export tools, file-link preview/download, and a floating table dock that moves above or below the table depending on viewport space. Open the Link tool on <code>sample.pdf</code> to try the file actions.
+        </p>
+        <RVisualEditor
+          v-model="featureRichDoc"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, preset: 'featureRich' }"
+          :min-height="560"
+        />
+      </section>
 
-          <section v-else-if="current === 'basic'" class="demo__case">
-            <p class="demo__note">Minimal usage. <code>v-model</code> binds the persisted envelope.</p>
-            <RVisualEditor v-model="basic" :uploader="demoUploader" :options="{ ...demoOptions }" />
-            <details class="demo__debug" open><summary>v-model value</summary><pre>{{ pretty(basic) }}</pre></details>
-          </section>
+      <section
+        v-else-if="current === 'fullscreen'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Enable the full-screen button with <code>options.fullscreen: true</code>. Choose <code>options.fullscreenMode: 'body'</code> (default) to fill the browser body like CKEditor, or <code>'window'</code> to use the native Fullscreen API. It also lives under <b>View → Full screen</b> and can be controlled from the exposed <code>toggleFullscreen()</code> / <code>isFullscreen()</code> API.
+        </p>
+        <div class="demo__buttons">
+          <USelect
+            v-model="fullscreenMode"
+            :items="fullscreenModeItems"
+            class="demo__select"
+            aria-label="Fullscreen mode"
+          />
+          <UButton
+            size="sm"
+            icon="i-lucide-maximize-2"
+            label="toggleFullscreen()"
+            @click="fullscreenEd?.toggleFullscreen?.()"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            :label="`isFullscreen(): ${fullscreenActive}`"
+          />
+        </div>
+        <RVisualEditor
+          ref="fullscreenEd"
+          v-model="fullscreenDoc"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, fullscreen: true, fullscreenMode }"
+          :min-height="480"
+          @fullscreen="(active) => fullscreenActive = active"
+        />
+      </section>
 
-          <section v-else-if="current === 'draft'" class="demo__case">
-            <p class="demo__note">Bind <code>v-model</code> to <code>useStorage</code>; reload the page and the draft is restored (media blob URLs do not survive a reload in this demo).</p>
-            <div class="demo__row">
-              <UButton size="sm" color="error" variant="soft" icon="i-lucide-trash-2" label="Discard draft" @click="draft = null" />
-              <span class="demo__note">{{ draftSavedAt ? `Saved locally at ${draftSavedAt}` : 'No local changes yet' }}</span>
-            </div>
-            <RVisualEditor v-model="draft" :uploader="demoUploader" :options="{ ...demoOptions }" />
-          </section>
+      <section
+        v-else-if="current === 'basic'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Minimal usage. <code>v-model</code> binds the persisted envelope.
+        </p>
+        <RVisualEditor
+          v-model="basic"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions }"
+        />
+        <details
+          class="demo__debug"
+          open
+        >
+          <summary>v-model value</summary><pre>{{ pretty(basic) }}</pre>
+        </details>
+      </section>
 
-          <section v-else-if="current === 'form'" class="demo__case">
-            <p class="demo__note">The editor as a form field: validate with <code>getText()</code> and <code>isUploading()</code>, submit <code>getJSON()</code>.</p>
-            <UInput v-model="formTitle" placeholder="Title" aria-label="Title" />
-            <RVisualEditor ref="formEd" v-model="formDoc" :uploader="demoUploader" :options="{ ...demoOptions }" :min-height="260" />
-            <div class="demo__row"><UButton label="Submit" icon="i-lucide-send" @click="submitForm" /></div>
-            <ul v-if="formErrors.length" class="demo__errors" role="alert"><li v-for="e in formErrors" :key="e">{{ e }}</li></ul>
-            <pre v-if="formResult" class="demo__code">{{ formResult }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'draft'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Bind <code>v-model</code> to <code>useStorage</code>; reload the page and the draft is restored (media blob URLs do not survive a reload in this demo).
+        </p>
+        <div class="demo__row">
+          <UButton
+            size="sm"
+            color="error"
+            variant="soft"
+            icon="i-lucide-trash-2"
+            label="Discard draft"
+            @click="draft = null"
+          />
+          <span class="demo__note">{{ draftSavedAt ? `Saved locally at ${draftSavedAt}` : 'No local changes yet' }}</span>
+        </div>
+        <RVisualEditor
+          v-model="draft"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions }"
+        />
+      </section>
 
-          <section v-else-if="current === 'output'" class="demo__case">
-            <p class="demo__note"><code>output</code> controls what v-model emits: the envelope, sanitized HTML, or both.</p>
-            <USelect v-model="output" :items="outputItems" class="demo__select" aria-label="Output mode" />
-            <RVisualEditor :key="output" v-model="outValue" :output="output" :options="{ wordCount: true }" :min-height="260" />
-            <details class="demo__debug" open><summary>Emitted value ({{ output }})</summary><pre>{{ pretty(outValue) }}</pre></details>
-          </section>
+      <section
+        v-else-if="current === 'form'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          The editor as a form field: validate with <code>getText()</code> and <code>isUploading()</code>, submit <code>getJSON()</code>.
+        </p>
+        <UInput
+          v-model="formTitle"
+          placeholder="Title"
+          aria-label="Title"
+        />
+        <RVisualEditor
+          ref="formEd"
+          v-model="formDoc"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions }"
+          :min-height="260"
+        />
+        <div class="demo__row">
+          <UButton
+            label="Submit"
+            icon="i-lucide-send"
+            @click="submitForm"
+          />
+        </div>
+        <ul
+          v-if="formErrors.length"
+          class="demo__errors"
+          role="alert"
+        >
+          <li
+            v-for="e in formErrors"
+            :key="e"
+          >
+            {{ e }}
+          </li>
+        </ul>
+        <pre
+          v-if="formResult"
+          class="demo__code"
+        >{{ formResult }}</pre>
+      </section>
 
-          <section v-else-if="current === 'flags'" class="demo__case">
-            <p class="demo__note">Flags: <code>true</code>, <code>false</code> (absent), <code>'hidden'</code> (works via shortcuts, not shown), <code>'disabled'</code> (shown, inert). Read at creation, so presets remount with <code>:key</code>.</p>
-            <USelect v-model="preset" :items="presetItems" class="demo__select" aria-label="Feature preset" />
-            <pre class="demo__code">:options="{{ pretty(presets[preset]) }}"</pre>
-            <RVisualEditor :key="preset" v-model="flagValue" :uploader="demoUploader" :options="{ ...demoOptions, ...presets[preset], wordCount: true }" :min-height="320" />
-          </section>
+      <section
+        v-else-if="current === 'output'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          <code>output</code> controls what v-model emits: the envelope, sanitized HTML, or both.
+        </p>
+        <USelect
+          v-model="output"
+          :items="outputItems"
+          class="demo__select"
+          aria-label="Output mode"
+        />
+        <RVisualEditor
+          :key="output"
+          v-model="outValue"
+          :output="output"
+          :options="{ wordCount: true }"
+          :min-height="260"
+        />
+        <details
+          class="demo__debug"
+          open
+        >
+          <summary>Emitted value ({{ output }})</summary><pre>{{ pretty(outValue) }}</pre>
+        </details>
+      </section>
 
-          <section v-else-if="current === 'themes'" class="demo__case demo__grid">
-            <div><p class="demo__note"><code>theme="light"</code></p><RVisualEditor v-model="themeValue" theme="light" :options="{ appearance: 'paper' }" :min-height="300" /></div>
-            <div><p class="demo__note"><code>theme="dark"</code> (independent of the page)</p><RVisualEditor v-model="themeValue" theme="dark" :options="{ appearance: 'paper' }" :min-height="300" /></div>
-            <div class="demo__wide"><p class="demo__note"><code>theme="system"</code> (default): host color mode, else OS preference.</p><RVisualEditor v-model="themeValue" theme="system" :min-height="300" /></div>
-          </section>
+      <section
+        v-else-if="current === 'flags'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Flags: <code>true</code>, <code>false</code> (absent), <code>'hidden'</code> (works via shortcuts, not shown), <code>'disabled'</code> (shown, inert). Read at creation, so presets remount with <code>:key</code>.
+        </p>
+        <USelect
+          v-model="preset"
+          :items="presetItems"
+          class="demo__select"
+          aria-label="Feature preset"
+        />
+        <pre class="demo__code">:options="{{ pretty(presets[preset]) }}"</pre>
+        <RVisualEditor
+          :key="preset"
+          v-model="flagValue"
+          :uploader="demoUploader"
+          :options="{ ...demoOptions, ...presets[preset], wordCount: true }"
+          :min-height="320"
+        />
+      </section>
 
-          <section v-else-if="current === 'control'" class="demo__case">
-            <p class="demo__note">Everything exposed through a template ref; safe on a destroyed or uninitialized editor.</p>
-            <div class="demo__buttons">
-              <UButton size="sm" label="getText()" @click="call('getText()', () => ed?.getText())" />
-              <UButton size="sm" label="getHTML()" @click="call('getHTML()', () => ed?.getHTML())" />
-              <UButton size="sm" label="getJSON()" @click="call('getJSON()', () => ed?.getJSON())" />
-              <UButton size="sm" color="neutral" label="setContent(HTML)" @click="ed?.setContent(sampleHtml)" />
-              <UButton size="sm" color="neutral" label="setContent(envelope)" @click="ed?.setContent(sampleEnvelope)" />
-              <UButton size="sm" color="neutral" label="clearContent()" @click="ed?.clearContent()" />
-              <UButton size="sm" color="neutral" label="undo()" @click="ed?.undo()" />
-              <UButton size="sm" color="neutral" label="redo()" @click="ed?.redo()" />
-              <UButton size="sm" color="neutral" label="focus('end')" @click="ed?.focus('end')" />
-              <UButton size="sm" color="neutral" label="blur()" @click="ed?.blur()" />
-              <UButton size="sm" color="neutral" :label="`setEditable(${!runtimeEditable})`" @click="setEditable(!runtimeEditable)" />
-              <UButton size="sm" color="error" variant="soft" label="destroy()" @click="ed?.destroy()" />
-            </div>
-            <RVisualEditor ref="ed" v-model="apiValue" :options="{ wordCount: true }" :min-height="320" />
-            <pre class="demo__code">{{ apiResult || 'Call a getter to see its result here.' }}</pre>
-          </section>
+      <section
+        v-else-if="current === 'themes'"
+        class="demo__case demo__grid"
+      >
+        <div>
+          <p class="demo__note">
+            <code>theme="light"</code>
+          </p><RVisualEditor
+            v-model="themeValue"
+            theme="light"
+            :options="{ appearance: 'paper' }"
+            :min-height="300"
+          />
+        </div>
+        <div>
+          <p class="demo__note">
+            <code>theme="dark"</code> (independent of the page)
+          </p><RVisualEditor
+            v-model="themeValue"
+            theme="dark"
+            :options="{ appearance: 'paper' }"
+            :min-height="300"
+          />
+        </div>
+        <div class="demo__wide">
+          <p class="demo__note">
+            <code>theme="system"</code> (default): host color mode, else OS preference.
+          </p><RVisualEditor
+            v-model="themeValue"
+            theme="system"
+            :min-height="300"
+          />
+        </div>
+      </section>
 
-          <section v-else-if="current === 'events'" class="demo__case">
-            <p class="demo__note">Events: <code>ready</code>, <code>update</code> (every change), <code>change</code> (debounced, serialized), <code>focus</code>, <code>blur</code>.</p>
-            <RVisualEditor v-model="eventValue" :min-height="240" @ready="log('ready')" @update="log('update')" @change="(v) => log('change', `${v.doc.content.length} top-level nodes`)" @focus="log('focus')" @blur="log('blur')" />
-            <ul class="demo__log"><li v-for="e in events" :key="e.id"><time>{{ e.t }}</time> <strong>{{ e.name }}</strong> <span>{{ e.detail }}</span></li></ul>
-          </section>
+      <section
+        v-else-if="current === 'control'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Everything exposed through a template ref; safe on a destroyed or uninitialized editor.
+        </p>
+        <div class="demo__buttons">
+          <UButton
+            size="sm"
+            label="getText()"
+            @click="call('getText()', () => ed?.getText())"
+          />
+          <UButton
+            size="sm"
+            label="getHTML()"
+            @click="call('getHTML()', () => ed?.getHTML())"
+          />
+          <UButton
+            size="sm"
+            label="getJSON()"
+            @click="call('getJSON()', () => ed?.getJSON())"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="setContent(HTML)"
+            @click="ed?.setContent(sampleHtml)"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="setContent(envelope)"
+            @click="ed?.setContent(sampleEnvelope)"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="clearContent()"
+            @click="ed?.clearContent()"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="undo()"
+            @click="ed?.undo()"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="redo()"
+            @click="ed?.redo()"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="focus('end')"
+            @click="ed?.focus('end')"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            label="blur()"
+            @click="ed?.blur()"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            :label="`setEditable(${!runtimeEditable})`"
+            @click="setEditable(!runtimeEditable)"
+          />
+          <UButton
+            size="sm"
+            color="error"
+            variant="soft"
+            label="destroy()"
+            @click="ed?.destroy()"
+          />
+        </div>
+        <RVisualEditor
+          ref="ed"
+          v-model="apiValue"
+          :options="{ wordCount: true }"
+          :min-height="320"
+        />
+        <pre class="demo__code">{{ apiResult || 'Call a getter to see its result here.' }}</pre>
+      </section>
 
-          <section v-else-if="current === 'extension'" class="demo__case">
-            <p class="demo__note">Pass your own Tiptap extensions via <code>:extensions</code>. This one adds a command and <kbd>Ctrl/Cmd + Alt + D</kbd> to insert today's date.</p>
-            <div class="demo__buttons"><UButton size="sm" label="Insert today (command)" @click="extRef?.getEditor()?.chain().focus().insertToday().run()" /></div>
-            <RVisualEditor ref="extRef" v-model="extValue" :extensions="customExtensions" :min-height="240" />
-          </section>
+      <section
+        v-else-if="current === 'events'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Events: <code>ready</code>, <code>update</code> (every change), <code>change</code> (debounced, serialized), <code>focus</code>, <code>blur</code>.
+        </p>
+        <RVisualEditor
+          v-model="eventValue"
+          :min-height="240"
+          @ready="log('ready')"
+          @update="log('update')"
+          @change="(v) => log('change', `${v.doc.content.length} top-level nodes`)"
+          @focus="log('focus')"
+          @blur="log('blur')"
+        />
+        <ul class="demo__log">
+          <li
+            v-for="e in events"
+            :key="e.id"
+          >
+            <time>{{ e.t }}</time> <strong>{{ e.name }}</strong> <span>{{ e.detail }}</span>
+          </li>
+        </ul>
+      </section>
 
-          <section v-else-if="current === 'sync'" class="demo__case demo__grid">
-            <p class="demo__note demo__wide">Two editors bound to one <code>v-model</code>; edits flow across without echo loops.</p>
-            <RVisualEditor v-model="shared" :min-height="300" :options="{ toolbar: false }" />
-            <RVisualEditor v-model="shared" :min-height="300" :options="{ toolbar: false }" />
-          </section>
+      <section
+        v-else-if="current === 'extension'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          Pass your own Tiptap extensions via <code>:extensions</code>. This one adds a command and <kbd>Ctrl/Cmd + Alt + D</kbd> to insert today's date.
+        </p>
+        <div class="demo__buttons">
+          <UButton
+            size="sm"
+            label="Insert today (command)"
+            @click="extRef?.getEditor()?.chain().focus().insertToday().run()"
+          />
+        </div>
+        <RVisualEditor
+          ref="extRef"
+          v-model="extValue"
+          :extensions="customExtensions"
+          :min-height="240"
+        />
+      </section>
 
-          <section v-else-if="current === 'layout'" class="demo__case">
-            <p class="demo__note">The layout adapts to the editor's own container width (compact under 720px: gutter handles hidden, toolbar collapses into the <b>⋯</b> row).</p>
-            <USelect v-model="width" :items="widthItems" class="demo__select" aria-label="Container width" />
-            <div :style="{ width, maxWidth: '100%' }"><RVisualEditor v-model="layoutValue" :min-height="300" :max-width="560" :options="{ appearance: 'paper' }" /></div>
-          </section>
+      <section
+        v-else-if="current === 'sync'"
+        class="demo__case demo__grid"
+      >
+        <p class="demo__note demo__wide">
+          Two editors bound to one <code>v-model</code>; edits flow across without echo loops.
+        </p>
+        <RVisualEditor
+          v-model="shared"
+          :min-height="300"
+          :options="{ toolbar: false }"
+        />
+        <RVisualEditor
+          v-model="shared"
+          :min-height="300"
+          :options="{ toolbar: false }"
+        />
+      </section>
 
-          <section v-else-if="current === 'readonly'" class="demo__case">
-            <p class="demo__note">The <code>editable</code> prop is reactive: toolbar, menus, handles and drops disable themselves.</p>
-            <USwitch v-model="roEditable" label="Editable" />
-            <RVisualEditor v-model="roValue" :editable="roEditable" :min-height="300" :options="{ wordCount: true }" />
-          </section>
+      <section
+        v-else-if="current === 'layout'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          The layout adapts to the editor's own container width (compact under 720px: gutter handles hidden, toolbar collapses into the <b>⋯</b> row).
+        </p>
+        <USelect
+          v-model="width"
+          :items="widthItems"
+          class="demo__select"
+          aria-label="Container width"
+        />
+        <div :style="{ width, maxWidth: '100%' }">
+          <RVisualEditor
+            v-model="layoutValue"
+            :min-height="300"
+            :max-width="560"
+            :options="{ appearance: 'paper' }"
+          />
+        </div>
+      </section>
 
-      </main>
-    </div>
+      <section
+        v-else-if="current === 'readonly'"
+        class="demo__case"
+      >
+        <p class="demo__note">
+          The <code>editable</code> prop is reactive: toolbar, menus, handles and drops disable themselves.
+        </p>
+        <USwitch
+          v-model="roEditable"
+          label="Editable"
+        />
+        <RVisualEditor
+          v-model="roValue"
+          :editable="roEditable"
+          :min-height="300"
+          :options="{ wordCount: true }"
+        />
+      </section>
+    </main>
+  </div>
 </template>
 
 <style lang="scss">

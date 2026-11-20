@@ -1,8 +1,8 @@
 <template>
-  <div class="ocs-footer-wrapper" v-if="options.info || options.paging">
+  <div class="ocs-footer-wrapper" v-if="options?.info || options?.paging">
     <div class="left">
       <slot name="footerLeft" />
-      <div class="total-record" v-if="options.info">
+      <div class="total-record" v-if="options?.info">
         <span class="text-nowrap">{{ $t('total_record') }}: </span>
         <span class="font-bold">{{ total }}</span>
       </div>
@@ -13,9 +13,9 @@
 
     <div class="right" ref="paginationTBL">
       <div class="record">
-        <OCSelectRecord v-if="options.paging" v-model="selected" @select="selectRecords(selected)" />
+        <OCSelectRecord v-if="options?.paging" v-model="selected" @select="selectRecords(selected)" />
       </div>
-      <div class="nav-pagination" v-if="options.paging">
+      <div class="nav-pagination" v-if="options?.paging">
         <!-- {{console.log('===>>> ',)}} -->
         <!-- v-if="options.paging && pageCount < total" -->
         <!-- {{ page }} {{ pageCount }} {{ total }} -->

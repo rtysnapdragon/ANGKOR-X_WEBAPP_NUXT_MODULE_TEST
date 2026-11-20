@@ -408,3 +408,98 @@ Match the CKBox-style Add-category modal from `file_manage_ui_13_setting_asset_c
 - Manual browser QA is still needed for dropdown opening on focus, chip removal, typed custom extensions, and exact visual match to `-2.png`.
 - Pre-existing `RSelect.vue` lint errors remain unrelated to this change.
 - Asset-category API endpoints in `API_URL_DOC_NEW_REQUIRED.md` still need backend implementation before localStorage can be replaced.
+
+## 2026-11-19 — RTable Nuxt UI 4 / OCTable Parity Improvements
+
+Status: implemented; SFC/style compile and `npm run dev:build` verified; manual browser QA pending.
+
+### Goal
+
+Improve `RTable.vue` to behave more like `OCTable.vue` while staying on Nuxt UI 4 `UTable`, and fix pagination for the installed Nuxt UI 4.9.0 API.
+
+### Files
+
+- `src/runtime/app/components/table/RTable.vue` — table parity features and fixes.
+- `src/runtime/app/components/table/RPagination.vue` — rewritten Nuxt UI 4 pagination contract.
+- `src/runtime/app/assets/lang/en.json`, `km.json`, `zh.json` — new table labels.
+
+### Implementation
+
+- Added `defineOptions({ name: 'RTable' })` and OCTable-compatible `haveBorder` / `hideGroupBtnSelect` props.
+- Added loading slot support for `showTemplate`, table remount key, UTable dynamic cell/header slot forwarding, flattened row slot props, and `onSelect` row selection hook.
+- Added normalized options for length menus, searching, page length, row select, row reorder, virtualization, order, and selection toolbar visibility.
+- Added fixed/pinned column resolution into UTable `columnPinning`, supporting boolean, number, array, and left/right object forms.
+- Added DataTables-style initial ordering resolution and multi-sort dropdowns for columns with `sortData`.
+- Added row reorder column and `onRowReorder(event, diff, true)` emission; local row order updates emit `update:data` / `update:dataSrc` instead of mutating props.
+- Added API URL normalization through `getUrl` for string and object `api` props.
+- Added `keyTable` reset/remount handling and `refreshToken` reactivity for client-side refreshes.
+- Restored viewport height synchronization using requestAnimationFrame and toolbar/footer/table observers without observing the root height style.
+- Updated `RPagination.vue` to use `itemsPerPage`, `total`, computed page count, v4 `UPagination` slots, and no invalid `pageCount` / `max` props.
+- Added i18n keys for empty states, selection actions, row selection, sorting, reorder, rows-per-page, loading, searching, collapse, and expand.
+
+### Contracts / Decisions
+
+- `UTable` dynamic slots remain `${column.id}-cell` and `${column.id}-header`; parent slots may be `slot`, `key`, or `key-cell`.
+- Parent cell slots receive both legacy `{ rowData, value, index }` and flattened row fields plus `{ row, column, cell }`.
+- `onSort` emits `{ column, direction, field, source }`; `onOrder` keeps the legacy `[orderBy, orderDir]` payload.
+- `editorDesign`-style design work is unrelated; this entry applies only to table components and language files.
+- Pagination now relies on `v-model:page` and optional `changePagination`; invalid Nuxt UI v3 pagination props were removed.
+
+### Verification
+
+- `@vue/compiler-sfc` parse, script, template, and SCSS style compilation pass for both modified SFCs.
+- `npm run dev:build` passes.
+- JSON parsing passes for `en.json`, `km.json`, and `zh.json`.
+- Targeted ESLint runs but reports the project's pre-existing style-rule noise; `RPagination.vue` has no syntax errors in that output.
+
+### Caveats / Follow-ups
+
+- Manual browser QA is still needed for pinned columns, row drag, multi-sort dropdown, selection bar, pagination controls, and viewport row-height behavior.
+- `npm run prepack` remains blocked by pre-existing `OCTable.vue` SCSS missing `datatables.net-dt`.
+- `npm run test:types` remains blocked by the existing deprecated TypeScript `baseUrl` config error.
+- `useRTableFilter` is not present in this module; local typechecking may still fail unless the host supplies it.
+
+## 2026-11-19 — RTABLE_USING.md Parent Usage Guide
+
+Status: implemented; documentation and repository checks verified.
+
+### Goal
+
+Create `RTABLE_USING.md` describing all parent-facing `RTable` usage cases, including props, slots, events, options, exposed methods, API contracts, and examples based on the current Nuxt UI 4 implementation.
+
+### Files
+
+- `RTABLE_USING.md` — new root documentation file.
+- `.opencode/memory/implementations.md` — this log.
+
+### Implementation
+
+- Documented local/client data mode and server/API mode.
+- Documented all declared props and both models (`selected`, `loading`).
+- Documented accepted RTable and OCTable column shapes, column fields, slot-name resolution, header slots, and render fallback.
+- Documented normalized options, including search, paging, length menu, sticky, virtualize, row select, row reorder, fixed columns, ordering, selection bar, and row callback.
+- Added examples for basic local tables, API tables, request reshaping via `update:data`, custom cell/header/actions slots, toolbar slots, `showTemplate`, mobile cards, selection, server-side select-all, sorting/filtering, row reorder, fixed/collapsible/draggable columns, ref methods, and state persistence.
+- Documented API request and response envelopes accepted by `getData()`.
+- Documented all emitted parent events and the exposed ref API.
+- Recorded current caveats for compatibility-only props/options and disabled header filter/export UI.
+
+### Contracts / Decisions
+
+- Documentation is written for the current source in `src/runtime/app/components/table/RTable.vue`, not for DataTables/OCTable internals.
+- `update:data` is a mutable request payload event, not a row-data event.
+- `update:dataSrc` emits the raw API response after `api.where` and before envelope unwrapping.
+- `dt()` is documented as compatibility-only because `RTable` uses `UTable`.
+- `filterState`, `minWidth`, and `clampLines` caveats are explicit because they are declared/read but not fully wired as parent inputs.
+- Header column-filter and export menus are documented as currently commented out in `RTableHeader.vue`.
+
+### Verification
+
+- `git diff --check` reports only the existing CRLF warning for `.opencode/memory/implementations.md`; no new whitespace errors for `RTABLE_USING.md`.
+- Markdown code fences are balanced: 42 fence markers.
+- No `//` comments were left in documentation code examples.
+- No application build was run because the change is documentation-only.
+
+### Caveats / Follow-ups
+
+- Manual review is still recommended to confirm wording against host auto-imports and future RTable changes.
+- Existing unrelated workspace modifications and untracked files were left untouched.

@@ -17,8 +17,7 @@
 
     <!-- ── Header ── -->
     <template #header>
-      <slot
-        name="header"
+      <slot name="header"
         :close="closed"
         :fullscreen="isFullscreen"
         :toggle-fullscreen="toggleFullscreen"
@@ -26,7 +25,7 @@
         <div v-if="dirty" class="rs__dirty-bar" aria-hidden="true" />
         <div class="rs-header">
           <div class="rs-header__left">
-            <i v-if="icon" :class="[icon, 'rs-header__icon']" />
+            <RIcon v-if="icon" :name="[icon, 'rs-header__icon']" />
             <div>
               <h3 v-if="title" class="rs-header__title">{{ title }}</h3>
               <p v-if="description" class="rs-header__desc">{{ description }}</p>
@@ -284,6 +283,10 @@ watch(isOpen, (open, was) => {
   i { font-size: 0.8rem; }
 }
 
+// [data-slot="header"]{
+//   padding: 50px;
+// }
+
 /* ── header markup ── */
 .rs-header {
   display: flex;
@@ -292,7 +295,7 @@ watch(isOpen, (open, was) => {
   gap: var(--sp-3);
   width: 100%;
   min-height: 64px;
-  padding: 8px 15px;
+  padding: 20px 15px !important;
   font-family: var(--font-400);
 
   &__left {

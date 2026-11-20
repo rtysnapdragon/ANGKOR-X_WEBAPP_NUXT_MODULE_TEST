@@ -61,6 +61,7 @@ That's it! You can now use My Module in your Nuxt app ✨
   
   # Build the playground
   npm run dev:build
+  npm run build (vite)
   
   # Run ESLint
   npm run lint
@@ -73,6 +74,13 @@ That's it! You can now use My Module in your Nuxt app ✨
   npm run release
   ```
 
+
+
+## TankStack Table Library
+npm install @tanstack/vue-table
+npm install @tanstack/vue-store
+<!-- npm install @tanstack/vue-table@^9  -->
+@tanstack/table-core@^9 # not yet install(wait if no error)
 
 
 

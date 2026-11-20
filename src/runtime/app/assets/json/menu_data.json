@@ -55,13 +55,19 @@
     "icon":"<i class='ri-file-list-3-line'></i>",
     "menu":[
       {
-        "id": "novels",
-        "key": "novels",
-        "title": "novels",
+        "id": "novel_setup",
+        "key": "novel_setup",
+        "title": "novel_setup",
         "color": "#1E88E5",
         "icon": "<i class='ri-article-line'></i>",
-        "href": "/novels",
-        "permission": "NOVELS"
+        "href": "/novel_setup",
+        "permission": "NOVELS",
+        "children": [
+          { "key": "author", "title": "author", "color":"#0b3558", "to": "/novel_setup/authors" },
+          { "key": "genres", "title": "genres", "color":"#0b3558", "to": "/novel_setup/genres" },
+          { "key": "novel", "title": "novel", "color":"#0b3558", "to": "/novel_setup/novel" },
+          { "key": "volume", "title": "volume", "color":"#0b3558", "to": "/novel_setup/volumes" }
+        ]
       },
       {
         "id": "forum",

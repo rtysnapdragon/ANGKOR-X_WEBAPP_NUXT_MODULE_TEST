@@ -44,9 +44,12 @@
       <!-- ── Show Template (card/custom layout override) ───────────── -->
       <template v-if="showTemplate">
         <div class="r-table__template-wrap">
-          <div v-if="loading" class="r-table__loader" aria-live="polite" aria-busy="true">
-            <i class="ri-loader-4-line r-table__spinner" />
-          </div>
+          <template v-if="loading">
+            <slot v-if="$slots.loading" name="loading" v-bind="{ data: resultDataList }" />
+            <div v-else class="r-table__loader" aria-live="polite" aria-busy="true">
+              <i class="ri-loader-4-line r-table__spinner" />
+            </div>
+          </template>
           <div v-else class="r-table__template-scroll">
             <slot name="template" v-bind="{ data: resultDataList }" />
           </div>
@@ -119,26 +122,37 @@
         <!-- <div v-else ref="tableContainerRef" class="r-table__scroll-wrap"> -->
         <UTable
           v-else
+          :key="tableKey"
           ref="refTable"
           v-model:row-selection="rowSelection"
+          v-model:column-pinning="columnPinning"
           v-model:expanded="expandedRowState"
           v-model:sorting="sorting"
           :data="displayRows"
           :columns="columnsRender"
           :loading="loading"
           :sticky="options.sticky ?? true"
+          :virtualize="options.virtualize ?? false"
+          :empty="t('no_data_found')"
           :get-row-id="getRowId"
-          :color="color"
-          :variant="variant"
+          :on-select="options.rowSelect ? onTableRowSelect : undefined"
+          :class="[color ? `r-table__utable--${color}` : null, variant ? `r-table__utable--${variant}` : null]"
           class="r-table__utable"
           :ui="uiTbl"
         >
           <template
-            v-for="name in customSlotNames"
+            v-for="entry in cellSlots"
+            :key="entry.target"
+            #[entry.target]="slotProps"
+          >
+            <slot :name="entry.source" v-bind="cellSlotProps(slotProps)" />
+          </template>
+          <template
+            v-for="name in headerSlotNames"
             :key="name"
             #[name]="slotProps"
           >
-            <slot :name="name" v-bind="cellSlotProps(slotProps)" />
+            <slot :name="name" v-bind="headerSlotProps(slotProps)" />
           </template>
 
           <!-- Expanded sub-row: shows all expandedColumns for this row -->
@@ -199,18 +213,16 @@
     <!-- ── Footer / Pagination ───────────────────────────────────── -->
     <div v-if="!isTotalDetail" ref="footerRef" class="r-table-footer-pagination r-table__footer">
       <RPagination
-        v-if="!options?.paging === false"
+        v-if="options?.paging !== false"
         v-model:selected="record"
         v-model:page="page"
-        :page="page"
         :total="total"
-        :page-count="page_count"
-        :loading="loading"          
-        :options="{paging:options.paging}"
-        @change-pagination="changePagination"
+        :items-per-page="record"
+        :items="options.lengthMenu"
+        :loading="loading"
+        :options="options"
         @update:page="changePagination"
-        @select-records="fnSelectRecord(record)"
-        @update:page-size="changePageSize"
+        @select-records="fnSelectRecord"
         mode="nuxtui"
         />
     </div>
@@ -225,6 +237,8 @@
 import { computed, h, toRaw, resolveComponent, ref, reactive, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { applyColumnFilters } from '~/composables/useRTableFilter'
 import { useDebounceFn } from '@vueuse/core'
+
+defineOptions({ name: 'RTable' })
 
 // ─── Expose (parent ref API) ──────────────────────────────────────────────────
 defineExpose({
@@ -270,6 +284,8 @@ const props = defineProps([
   'minWidth', // px width below which the compact/collapsed layout kicks in
   'storeId',
   'stateKey',
+  'haveBorder',
+  'hideGroupBtnSelect',
   // ── RTable extras ────────────────────────────────────────────────────────
   'filterState',
   'isClamp',
@@ -335,8 +351,7 @@ const data = computed(() => {
 });
 const resultDataList = ref([])
 const dataSrc = ref([])        // full filtered dataset (for export, select all)
-// const page_count = ref(0)
-const pageSize = ref(props.options?.pageSize ?? 10)
+const refreshToken = ref(0)
 const tableContainerRef = ref(null)
 const containerWidth = ref(0)
 const columnFilters = ref([])
@@ -358,32 +373,50 @@ const screen = useScreenStore()
 const isMobile = computed(() => screen.isMobile)
 
 /* ---------------- options ---------------- */
-const options = computed(() => ({ // Merged options
-  showNoData: true,
-  pageSize: 10,
-  pageSizes: [10, 25, 50, 100],
-  maxRowHeight: 71, // laptop row height cap — large screens keep this instead of stretching
-  info: true,
-  paging: true,
-  searchable: true,
-  isScroll: true,
-  scrollHeight: 480,
-  reload: true,
-  sticky: true,
-  isShowSelectedBtn: false,
-  lengthMenu: [10, 25, 50, 100],
-  pageLength: isNotEmpty(props.api) ? 1000 : 10,
-  ...(props.options || {})
-}))
+const options = computed(() => {
+  const configuredLengths = Array.isArray(props.options?.lengthMenu) && props.options.lengthMenu.length
+    ? props.options.lengthMenu
+    : (Array.isArray(props.options?.pageSizes) && props.options.pageSizes.length ? props.options.pageSizes : [10, 25, 50, 100])
+  const searchEnabled = props.options?.searchable ?? props.options?.searching ?? true
+  const pageLength = Number(props.options?.pageLength ?? props.options?.pageSize ?? configuredLengths[0]) || 10
+
+  return {
+    showNoData: true,
+    pageSize: pageLength,
+    pageSizes: configuredLengths,
+    maxRowHeight: 71,
+    info: true,
+    paging: true,
+    searching: searchEnabled,
+    searchable: searchEnabled,
+    isScroll: true,
+    scrollY: 400,
+    scrollX: false,
+    scrollHeight: 480,
+    reload: true,
+    sticky: true,
+    rowSelect: false,
+    rowReorder: false,
+    virtualize: false,
+    order: { idx: 0, dir: '' },
+    isShowSelectedBtn: false,
+    lengthMenu: configuredLengths,
+    pageLength,
+    ...(props.options || {}),
+    searching: searchEnabled,
+    searchable: searchEnabled,
+    lengthMenu: configuredLengths,
+  }
+})
 
 /* ---------------- state ---------------- */
-// const record = ref(options.value.pageLength)
-
-const record = ref(options.value?.lengthMenu[0]);
+const initialPageSize = Number(options.value.pageLength ?? options.value.lengthMenu[0]) || 10
+const record = ref(initialPageSize)
+const pageSize = ref(initialPageSize)
 
 const page = ref(1)
 const total = ref(0)
-const page_count = ref(options.value?.lengthMenu[0]);
+const page_count = ref(initialPageSize)
 
 const searching = ref('')
 const sorting = ref([])
@@ -391,6 +424,8 @@ const sorting = ref([])
 // const orderDir = ref('')
 
 const rowSelection = ref({})
+const columnPinning = ref({ left: [], right: [] })
+const reorderState = ref({ from: null, row: null })
 const isShowSelected = ref(false)
 const listAllSelect = ref([])
 const isMounted = ref(true)
@@ -500,6 +535,45 @@ const normalizedColumns = computed(() =>
     .filter(col => col.key != null && col.hidden !== true),
 )
 
+function normalizeColumnPinning() {
+  const fixed = props.options?.fixedColumns
+  const keys = normalizedColumns.value.map(col => col.key)
+
+  if (!fixed) {
+    columnPinning.value = { left: [], right: [] }
+    return
+  }
+
+  if (Array.isArray(fixed)) {
+    columnPinning.value = {
+      left: fixed.map(index => keys[Number(index)]).filter(Boolean),
+      right: [],
+    }
+    return
+  }
+
+  if (typeof fixed === 'number') {
+    columnPinning.value = { left: keys.slice(0, fixed), right: [] }
+    return
+  }
+
+  if (fixed === true) {
+    columnPinning.value = { left: keys.slice(0, 1), right: [] }
+    return
+  }
+
+  const leftCount = Number(fixed.left ?? fixed.leftColumns ?? 0) || 0
+  const rightCount = Number(fixed.right ?? fixed.rightColumns ?? 0) || 0
+  columnPinning.value = {
+    left: leftCount ? keys.slice(0, leftCount) : [],
+    right: rightCount ? keys.slice(-rightCount) : [],
+  }
+}
+
+watch(normalizedColumns, normalizeColumnPinning)
+watch(() => props.options?.fixedColumns, normalizeColumnPinning, { deep: true })
+normalizeColumnPinning()
+
 const orderedColumns = computed(() => { // Ordered columns (respects drag reorder)
   let cols = normalizedColumns.value
   if (columnOrder.value.length !== 0) {
@@ -552,17 +626,33 @@ const originalColumns = computed(() =>
 // Called for both the table cell AND the expanded-row field
 const renderCellContent = (col, original, value, idx) => {
   const colKey = col.key
+  const rowScope = original && typeof original === 'object' ? original : {}
 
-  // 1. Parent slot
   const slotName   = col.slot?.replace(/^#/, '') ?? colKey
-  const parentSlot = slots[slotName] ?? slots[colKey]
+  const parentSlot = slots[slotName] ?? slots[colKey] ?? slots[`${colKey}-cell`]
   if (parentSlot) {
     return h('div', { class: 'r-table__cell-slot' },
-      parentSlot({ rowData: original, value, index: idx })
+      parentSlot({
+        ...rowScope,
+        row: original,
+        rowData: original,
+        value,
+        index: idx,
+        column: col,
+      })
     )
   }
 
-  // 2. isClamp
+  if (typeof col.render === 'function') {
+    const rendered = col.render(value, 'display', original, { col: idx, row: idx })
+    if (rendered != null && typeof rendered !== 'boolean') {
+      if (typeof rendered === 'string') {
+        return h('span', { class: 'r-table__cell-html', innerHTML: rendered })
+      }
+      return rendered
+    }
+  }
+
   if (col.isClamp ?? props.isClamp) {
     return h(resolveComponent('RTruncatedText'), {
       text:     String(value ?? ''),
@@ -570,15 +660,54 @@ const renderCellContent = (col, original, value, idx) => {
       onExpand: () => openClampModal(String(value ?? '')),
     })
   }
-  // 4. default
-  return h('span', { class: 'r-table__cell-text', title: (typeof value === 'string' || typeof value === 'number') ? value : undefined }, value != null ? String(value) : '—')
+
+  return h('span', {
+    class: ['r-table__cell-text', col.alignRight && 'r-table__cell-text--right'],
+    title: (typeof value === 'string' || typeof value === 'number') ? value : undefined,
+  }, value != null ? String(value) : '—')
 }
 
 
 // ─── Columns Render ─────────────────────────────────────────────────────────
 const columnsRender = computed(() => {
   const cols = []
- // Auto prepend expand button column
+
+  if (rowReorderEnabled.value) {
+    cols.push({
+      id: '__reorder',
+      accessorKey: '__reorder',
+      enableSorting: false,
+      size: EXPAND_COL_WIDTH,
+      minSize: EXPAND_COL_WIDTH,
+      maxSize: EXPAND_COL_WIDTH,
+      enableHiding: false,
+      meta: {
+        class: { th: 'r-table-col-reorder', td: 'r-table-col-reorder' },
+        style: {
+          th: systemColStyle(EXPAND_COL_WIDTH),
+          td: systemColStyle(EXPAND_COL_WIDTH),
+        },
+      },
+      header: () => h('span', { class: 'r-table__expand-placeholder' }),
+      cell: ({ row }) => h('div', { class: 'r-table-reorder-cell' }, [
+        h('button', {
+          type: 'button',
+          draggable: true,
+          class: 'r-table__reorder-btn',
+          'aria-label': t('reorder'),
+          onDragstart: (event) => onRowDragStart(event, row),
+          onDragover: (event) => onRowDragOver(event, row),
+          onDrop: (event) => onRowDrop(event, row),
+          onDragend: () => { reorderState.value = { from: null, row: null } },
+        }, [
+          h(resolveComponent('UIcon'), { name: 'i-ri-drag-line' }),
+        ]),
+      ]),
+    })
+  }
+
+  // Auto prepend expand button column
+
   // ── Expand button column ────────────────────────────────────────────
   if (hasExpandedCols.value) {
     cols.push({
@@ -699,12 +828,16 @@ const columnsRender = computed(() => {
         const headerSlot = slots[`${colKey}-header`]
         if (headerSlot) return h('div', headerSlot({}))
 
-        const isSorted  = orderBy.value === colKey
+        const multiSortFields = normalizeSortData(col)
+        const sortField = multiSortFields.length ? orderBy.value : colKey
+        const isSorted  = multiSortFields.length
+          ? multiSortFields.includes(sortField) && !!orderDir.value
+          : orderBy.value === colKey
         const isAsc     = orderDir.value === 'asc'
         const hasFilter = columnFilters.value.some(f => f.key === colKey && f.value != null && f.value !== '')
 
         return h('div', {
-          class:    ['r-table__th-inner','font-bold', canSort && 'r-table__th-inner--sortable', dragSrcKey.value === colKey && 'r-table__th-inner--dragging'],
+          class:    ['r-table__th-inner','font-bold', canSort && 'r-table__th-inner--sortable', col.alignRight && 'r-table__th-inner--right', dragSrcKey.value === colKey && 'r-table__th-inner--dragging'],
           role:     canSort ? 'button' : undefined,
           tabindex: canSort ? 0 : undefined,
           draggable: !isMobile.value || undefined,
@@ -719,8 +852,9 @@ const columnsRender = computed(() => {
         }, [
           hasFilter ? h(resolveComponent('UIcon'), { name: 'i-ri-filter-fill', class: 'r-table__filter-icon' }) : null,
           h('span', { class: 'r-table__th-label' }, col.label ?? colKey),
+          multiSortFields.length ? renderMultiSortTrigger(col) : null,
           canSort ? h(resolveComponent('UIcon'), {
-            name:  sortIcon(colKey),
+            name:  sortIcon(sortField),
             class: ['r-table__sort-icon', isSorted && 'r-table__sort-icon--active'],
           }) : null,
         ])
@@ -752,9 +886,32 @@ const columnsRender = computed(() => {
 })
 
 
-const orderDir = ref('')
-const orderBy = ref('')
+const initialOrderState = resolveInitialOrder()
+const orderDir = ref(initialOrderState.dir)
+const orderBy = ref(initialOrderState.by)
 
+const tableKey = computed(() => props.keyTable || 'r-table')
+
+watch(() => props.keyTable, () => {
+  refreshToken.value += 1
+  page.value = 1
+  searching.value = ''
+  columnFilters.value = []
+  columnOrder.value = []
+  const order = resolveInitialOrder()
+  orderBy.value = order.by
+  orderDir.value = order.dir
+  normalizeColumnPinning()
+  if (props.api && autoload.value) nextTick(fnReload)
+})
+
+const rowReorderEnabled = computed(() => {
+  const value = options.value.rowReorder
+  if (!value) return false
+  if (typeof value === 'object') return value.enabled !== false
+  return true
+})
+const hideGroupBtnSelect = computed(() => isNotEmpty(props.hideGroupBtnSelect))
 
 // Stable row id — required so row-expansion state (auto-expand on compact)
 // survives re-renders. Falls back to the row index when no primary key exists.
@@ -800,7 +957,17 @@ const currentFilterState = computed(() => ({ // Filter state for parent
 }))
 
 
-const api = computed(() => props.api ?? null)
+const api = computed(() => {
+  if (!props.api) return null
+  if (typeof props.api === 'string') {
+    return { url: resolveApiUrl(props.api), method: 'get' }
+  }
+  return {
+    ...props.api,
+    url: resolveApiUrl(props.api.url),
+    method: props.api.method || 'get',
+  }
+})
 
 const storageKey = computed(() => props.storeId || 'r-table')
 
@@ -827,6 +994,7 @@ const isTotalDetail = computed(() => (props.isTotalDetail ?? false) === true)
  * could drift out of sync.
  */
 const clientPipelineResult = computed(() => {
+  void refreshToken.value
   if (props.api) return null // server mode doesn't use this
 
   let src = [...(props.data || [])]
@@ -928,28 +1096,48 @@ onMounted(async () => {
   isMounted.value = false;
 })
 
-const customSlotNames = computed(() => {
-  const names = []
+const cellSlots = computed(() => {
+  const entries = []
   for (const col of orderedColumns.value) {
-    const slotName = col.slot ?? col.key
-    if (slotName && slots[slotName] && !names.includes(slotName)) names.push(slotName)
+    for (const source of [col.slot, col.key, `${col.key}-cell`]) {
+      if (!source || !slots[source]) continue
+      const target = source.endsWith('-cell') ? source : `${source}-cell`
+      if (!entries.some(e => e.target === target && e.source === source)) {
+        entries.push({ source, target })
+      }
+    }
   }
-  return names
+  return entries
 })
 
-/**
- * UTable invokes the dynamic cell templates above with TanStack cell props, but
- * every parent cell slot in this project is written against the OCTable
- * contract `{ rowData, value, index }` (the same shape renderCellContent uses).
- * Translate here so the slot types seen by callers match the runtime shape.
- */
+const headerSlotNames = computed(() =>
+  orderedColumns.value
+    .map(col => `${col.key}-header`)
+    .filter(name => !!slots[name])
+)
+
 const cellSlotProps = (slotProps) => {
   const rowData = slotProps?.row?.original
+  const rowScope = rowData && typeof rowData === 'object' ? rowData : {}
   return {
+    ...rowScope,
+    row: rowData,
     rowData,
     value: slotProps?.column?.id != null ? rowData?.[slotProps.column.id] : undefined,
     index: slotProps?.row?.index,
+    cell: slotProps,
   }
+}
+
+const headerSlotProps = (slotProps) => ({
+  column: slotProps?.column,
+  header: slotProps?.header,
+  table: slotProps?.table,
+})
+
+function onTableRowSelect(event, row) {
+  if (!selectedPk.value || !row?.original) return
+  toggleRow(row.original)
 }
 
 // change record filter
@@ -1347,13 +1535,73 @@ const displayRows = computed(() =>
 
 const isApi = computed(() => isNotEmpty(api.value))
 
-/** OCTable shows the selection toolbar for local tables, or for API tables that
- *  declare a `selectAllPk` key list. */
-const showSelectionBar = computed(() =>
-  isNotEmpty(options.value.isShowSelectedBtn) &&
-  isNotEmpty(selectedPk.value) &&
-  (selectAllPkMode.value || !isApi.value),
-)
+const showSelectionBar = computed(() => {
+  if (hideGroupBtnSelect.value || !selectedPk.value) return false
+  if (options.value.isShowSelectedBtn === true) return true
+  return selectAllPkMode.value || !isApi.value
+})
+
+function findRowIndex(rows, row) {
+  return rows.findIndex(item => sameRow(item, row))
+}
+
+function onRowDragStart(event, row) {
+  if (isShowSelected.value) {
+    event.preventDefault()
+    return
+  }
+  reorderState.value = { from: findRowIndex(resultDataList.value, row.original), row: row.original }
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(reorderState.value.from))
+}
+
+function onRowDragOver(event) {
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'move'
+}
+
+function onRowDrop(event, row) {
+  event.preventDefault()
+  event.stopPropagation()
+
+  const from = reorderState.value.from
+  const sourceRow = reorderState.value.row
+  const toRow = row?.original
+  reorderState.value = { from: null, row: null }
+  if (from == null || from < 0 || !sourceRow || !toRow) return
+
+  const rows = [...resultDataList.value]
+  const to = findRowIndex(rows, toRow)
+  if (to < 0 || from === to) return
+
+  const [moved] = rows.splice(from, 1)
+  rows.splice(to, 0, moved)
+  resultDataList.value = rows
+
+  if (!props.api && Array.isArray(props.data)) {
+    const source = [...props.data]
+    const sourceFrom = findRowIndex(source, sourceRow)
+    const sourceTo = findRowIndex(source, toRow)
+    if (sourceFrom >= 0 && sourceTo >= 0) {
+      const [sourceMoved] = source.splice(sourceFrom, 1)
+      source.splice(sourceTo, 0, sourceMoved)
+      emits('update:data', source)
+      emits('update:dataSrc', source)
+    }
+  }
+
+  const diff = [{
+    oldPosition: from + 1,
+    newPosition: to + 1,
+    data: moved,
+    node: null,
+  }]
+  emits('onRowReorder', event, diff, true)
+  if (typeof options.value.rowReorder?.onReorder === 'function') {
+    options.value.rowReorder.onReorder(diff, rows)
+  }
+  fnSetDataToState()
+}
 
 // Keep UTable's internal row-selection state in sync with our `selected` model
 // so each selected <tr> receives data-selected="true" (the full-row highlight).
@@ -1423,15 +1671,103 @@ watch(currentFilterState, v => emits ('update:filterState', v), { deep: true })
 
 // ─── Sort Methods ──────────────────────────────────────────────────────────
 
-const onSort = (col) => {
-  // A column carrying `sortData` is a multi-sort column (OCTable renders a small
-  // filter popover for these): cycling its header walks the configured fields —
-  // asc, desc, then the next field, and finally "off".
-  const def = normalizedColumns.value.find((c) => c.key === col)
-  const items = def?.sortData?.length ? def.sortData.map((it) => it.data ?? it) : [col]
+function normalizeSortData(colOrKey) {
+  const col = typeof colOrKey === 'string'
+    ? normalizedColumns.value.find(c => c.key === colOrKey)
+    : colOrKey
+  if (!col?.sortData) return []
+
+  const values = Array.isArray(col.sortData) ? col.sortData : [col.sortData]
+  return values.map((item) => {
+    if (item == null) return null
+    if (typeof item === 'string') return { data: item, title: item }
+    const data = item.data ?? item.key ?? item.value ?? item.name
+    if (!data) return null
+    return { ...item, data, title: item.title ?? item.label ?? data }
+  }).filter(Boolean)
+}
+
+function resolveApiUrl(url) {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  try {
+    if (typeof getUrl === 'function') return getUrl(url)
+  } catch {}
+  return url
+}
+
+function resolveInitialOrder() {
+  const order = options.value.order
+  const idx = Number(Array.isArray(order) ? order[0] : order?.idx ?? 0) || 0
+  const dir = String(Array.isArray(order) ? order[1] : order?.dir ?? '').toLowerCase()
+  const col = normalizedColumns.value[idx]
+
+  if (order?.by) {
+    return { by: order.by, dir: ['asc', 'desc'].includes(dir) ? dir : '' }
+  }
+  if (col?.orderable === false && idx === 0) return { by: '', dir: '' }
+
+  const fields = normalizeSortData(col)
+  return {
+    by: fields.length ? fields[0].data : (col?.key ?? ''),
+    dir: ['asc', 'desc'].includes(dir) ? dir : '',
+  }
+}
+
+function renderMultiSortTrigger(col) {
+  const fields = normalizeSortData(col)
+  if (!fields.length) return null
+
+  const items = fields.map((field) => {
+    const active = orderBy.value === field.data
+    return {
+      label: field.title,
+      value: field.data,
+      icon: active
+        ? (orderDir.value === 'asc' ? 'i-ri-arrow-drop-up-fill' : 'i-ri-arrow-drop-down-fill')
+        : 'i-ri-checkbox-blank-circle-line',
+      onSelect: () => onSort(col.key, field.data, true),
+    }
+  })
+
+  return h('span', {
+    class: 'r-table__multi-sort',
+    onClick: event => event.stopPropagation(),
+  }, [
+    h(resolveComponent('UDropdownMenu'), {
+      items,
+      'aria-label': t('sort'),
+      ui: { content: 'r-table__sort-dropdown' },
+    }, {
+      default: () => h(resolveComponent('UButton'), {
+        icon: 'i-ri-filter-3-fill',
+        color: 'neutral',
+        variant: 'ghost',
+        size: 'xs',
+        onClick: event => event.stopPropagation(),
+      }),
+    }),
+  ])
+}
+
+const onSort = (col, field = null, exact = false) => {
+  const def = normalizedColumns.value.find(c => c.key === col)
+  const fields = normalizeSortData(def)
+  const items = fields.length ? fields.map(f => f.data) : [col]
   const pos = items.indexOf(orderBy.value)
 
-  if (pos === -1) {
+  if (exact || field != null) {
+    const target = field ?? col
+    if (orderBy.value !== target) {
+      orderBy.value = target
+      orderDir.value = 'asc'
+    } else if (orderDir.value === 'asc') {
+      orderDir.value = 'desc'
+    } else {
+      orderBy.value = ''
+      orderDir.value = ''
+    }
+  } else if (pos === -1) {
     orderBy.value = items[0]
     orderDir.value = 'asc'
   } else if (orderDir.value === 'asc') {
@@ -1447,8 +1783,13 @@ const onSort = (col) => {
   page.value = 1
 
   emits('onOrder', [orderBy.value, orderDir.value])
+  emits('onSort', {
+    column: orderBy.value,
+    direction: orderDir.value || null,
+    field,
+    source: col,
+  })
   if (props.api) { fnReload() }
-  // else: orderBy/orderDir/page already changed above, clientPipelineResult reacts automatically
 }
 
 const sortIcon = (col) => {
@@ -1658,9 +1999,48 @@ function _getScrollParent(el) {
   return null
 }
 
+function syncHeights() {
+  rafId.value = null
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+  const root = refWrapper.value
+  if (!root || props.showTemplate || isMobile.value) {
+    tableHeight.value = 0
+    bodyHeight.value = 0
+    rowHeight.value = 0
+    return
+  }
+
+  const rootRect = root.getBoundingClientRect()
+  const scrollParent = _getScrollParent(root)
+  let available = 0
+
+  if (hasScroll.value) {
+    available = scrollParent?.clientHeight || root.parentElement?.clientHeight || rootRect.height
+  } else if (scrollParent) {
+    available = scrollParent.getBoundingClientRect().bottom - rootRect.top
+  } else {
+    available = window.innerHeight - rootRect.top
+  }
+
+  const tableH = Math.max(0, Math.floor(available || 0))
+  const toolbarH = toolbarRef.value?.offsetHeight || 0
+  const footerH = footerRef.value?.offsetHeight || 0
+  const selectionH = root.querySelector('.r-table__select-bar')?.offsetHeight || 0
+  const headerH = refTable.value?.$el?.querySelector('thead')?.offsetHeight || 0
+  const bodyH = Math.max(0, tableH - toolbarH - footerH - selectionH - headerH - 8)
+  const rows = Math.max(1, Number(pageSize.value) || 10)
+  const nextRowHeight = Math.min(_MAX_ROW_HEIGHT, Math.max(_MIN_ROW_HEIGHT, Math.floor(bodyH / rows)))
+
+  if (Math.abs((tableHeight.value || 0) - tableH) > 1) tableHeight.value = tableH
+  if (Math.abs((bodyHeight.value || 0) - bodyH) > 1) bodyHeight.value = bodyH
+  if (Math.abs((rowHeight.value || 0) - nextRowHeight) > 1) rowHeight.value = nextRowHeight
+}
+
 function scheduleSync() {
   if (typeof window === 'undefined') return
   if (rafId.value) cancelAnimationFrame(rafId.value)
+  rafId.value = requestAnimationFrame(syncHeights)
 }
 
 // Observe the three regions that define the available body height so the
@@ -1671,7 +2051,7 @@ function observeLayout() {
   layoutObserver.value?.disconnect()
   if (typeof ResizeObserver === 'undefined') return
   layoutObserver.value = new ResizeObserver(() => scheduleSync())
-  for (const el of [refWrapper.value, toolbarRef.value, footerRef.value]) {
+  for (const el of [toolbarRef.value, footerRef.value, tableContainerRef.value]) {
     if (el) layoutObserver.value.observe(el)
   }
 }
@@ -2095,6 +2475,46 @@ onUnmounted(() => {
     background: var(--color-primary, var(--ui-primary));
     color: #fff;
   }
+}
+
+.r-table__th-inner--right {
+  justify-content: flex-end;
+}
+
+.r-table__cell-text--right {
+  width: 100%;
+  text-align: right;
+}
+
+.r-table-reorder-cell {
+  @include flex-center;
+}
+
+.r-table__reorder-btn {
+  @include flex-center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--ui-text-muted);
+  cursor: grab;
+
+  &:hover {
+    background: var(--c-hover-bg, #f1f1f1);
+    color: var(--c-text);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.r-table__multi-sort {
+  @include flex-center;
+  margin-left: 2px;
+}
+
+.r-table__sort-dropdown {
+  z-index: 1000 !important;
 }
 
 // ─── totalDetail row (OCTable `totalDetail` slot) ───────────────────────────

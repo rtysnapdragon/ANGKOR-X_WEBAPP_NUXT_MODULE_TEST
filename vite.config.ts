@@ -11,11 +11,25 @@ export default defineConfig({
     },
     cssCodeSplit: true,
     rollupOptions: {
+      external: [
+        'vue',
+        '@tanstack/vue-table',
+        '@tanstack/table-core',
+      ],
       output: {
-        assetFileNames: (asset) =>
-          asset.name?.endsWith('.css')
-            ? 'style.css'
-            : 'assets/[name]-[hash][extname]',
+        // assetFileNames: (asset) =>
+        //   asset.name?.endsWith('.css')
+        //     ? 'style.css'
+        //     : 'assets/[name]-[hash][extname]',
+        assetFileNames: (asset) => {
+          const name = asset.name ?? ''
+
+          if (/\.(css|scss|sass)$/i.test(name)) {
+            return 'style.css'
+          }
+
+          return 'assets/[name]-[hash][extname]'
+        },
       },
     },
   },

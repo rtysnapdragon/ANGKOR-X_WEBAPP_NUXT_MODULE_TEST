@@ -9,12 +9,12 @@
     <!-- pc only -->
     <div class="left gap-2" v-if="!screen.isMobile">
       <slot name="headerLeft" />
-      <OCBtnReload @onClick="emit('reload')" v-if="options.reload ?? true" />
+      <OCBtnReload @onClick="emit('reload')" v-if="options?.reload ?? true" />
       <OCInputSearch
         v-model.trim="searching"
         @on-input="(s) => emit('searchTable', s)"
         @on-cancel="(s) => emit('clearSearch', s)"
-        v-if="options.searching"
+        v-if="options?.searching"
         :class="options.classSearch"
         :autofocus="false"
       />
@@ -30,8 +30,8 @@
       v-if="screen.isMobile"
       class="top"
       :class="
-        options.reload &&
-        options.searching &&
+        options?.reload &&
+        options?.searching &&
         !$slots.headerLeft &&
         !$slots.headerRight
           ? 'search-fill'
@@ -41,13 +41,13 @@
       <div v-if="$slots.headerLeft">
         <slot name="headerLeft" />
       </div>
-      <OCBtnReload @click="emit('reload')" v-if="options.reload" />
+      <OCBtnReload @click="emit('reload')" v-if="options?.reload" />
       <div class="search">
         <OCInputSearch
           v-model.trim="searching"
           @on-input="(s) => emit('searchTable', s)"
           @on-cancel="(s) => emit('clearSearch', s)"
-          v-if="options.searching"
+          v-if="options?.searching"
         />
       </div>
       <div v-if="screen.isMobile && $slots.headerRight">

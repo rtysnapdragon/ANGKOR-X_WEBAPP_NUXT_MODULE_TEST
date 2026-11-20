@@ -372,6 +372,20 @@ const api = {
     markRead: 'api/v1/chat/mark_read',
   },
 
+  aiChat: {
+    completions: 'api/v1/ai_chat/completions',
+    ask: 'api/v1/ai_chat/ask/create',
+    commands: 'api/v1/ai_chat/commands/create',
+    improveWriting: 'api/v1/ai_chat/improve_writing/create',
+    continueWriting: 'api/v1/ai_chat/continue_writing/create',
+    fixGrammar: 'api/v1/ai_chat/fix_grammar/create',
+    adjustLength: 'api/v1/ai_chat/adjust_length/create',
+    changeTone: 'api/v1/ai_chat/change_tone/create',
+    translate: 'api/v1/ai_chat/translate/create',
+    commandsGet: 'api/v1/ai_chat/commands/get',
+    tonesGet: 'api/v1/ai_chat/tones/get',
+    languagesGet: 'api/v1/ai_chat/languages/get',
+  },
 
   // ── MEMBERSHIPS ──
   memberships: {

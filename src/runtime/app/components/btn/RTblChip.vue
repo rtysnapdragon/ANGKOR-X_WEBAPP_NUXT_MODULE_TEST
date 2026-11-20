@@ -5,9 +5,10 @@
       <div class="flex items-center gap-1.5">
         <img :src="item.src" alt="" class="w-5 h-5 rounded-full" v-if="item.src" />
         <div class="w-5 h-5 rounded-full flex justify-center items-center !text-white bg-primary" v-else>
-          <span class="text-xs" :style="{ color: textColor }">{{
-            item.icon
-          }}</span>
+          <span class="text-xs" :style="{ color: textColor }">
+            <!-- {{ item.icon }} -->
+            <RIcon :name="item.icon" />
+          </span>
         </div>
         <span class="text-xs whitespace-nowrap">{{ item.value }}</span>
       </div>
@@ -19,7 +20,7 @@
 </template>
 
 <script setup>
-const ocChipStore = useRChipDataStore();
+const rChipStore = useRChipDataStore();
 const items = defineModel();
 const props = defineProps(['stateKey'])
 const emit = defineEmits("onRemove");
@@ -61,11 +62,11 @@ const isMounted = ref(true)
 
 mounted(() => {
   bgColor.value = getPrimaryColor();
-  if (isNotEmpty(ocChipStore.getData[props.stateKey])) {
-    items.value = ocChipStore.getData[props.stateKey]
+  if (isNotEmpty(rChipStore.getData[props.stateKey])) {
+    items.value = rChipStore.getData[props.stateKey]
   }else{
-    const state = { ...ocChipStore?.data??{}, ...{ [props.stateKey]: items.value }, };
-    ocChipStore.setData(state);
+    const state = { ...rChipStore?.data??{}, ...{ [props.stateKey]: items.value }, };
+    rChipStore.setData(state);
     console.log('mounted >>', state)
   }
   isMounted.value= false
@@ -74,11 +75,11 @@ mounted(() => {
 watch(() => items.value, (n) => {
   if (n) {
     if (isNotEmpty(props.stateKey)&&!isMounted.value) {
-      const state = { ...ocChipStore.data, ...{ [props.stateKey]: n }, };
-      ocChipStore.setData(state);
+      const state = { ...rChipStore.data, ...{ [props.stateKey]: n }, };
+      rChipStore.setData(state);
       console.log(props.stateKey,'watch chip >>>>', n)
     }
-    // ocChipStore.setData(n)
+    // rChipStore.setData(n)
     bgColor.value = getPrimaryColor();
   }
 }, { deep: true, immediate: true })

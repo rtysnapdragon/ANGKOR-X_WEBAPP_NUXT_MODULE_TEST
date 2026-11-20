@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import RDialog from '../RDialog.vue'
 import RModal from '../RModal.vue'
-import RSlider from '../RSlider.vue'
+import RSlider from '../RSlider3.vue'
 import FloatingInput from '../input/FloatingInput.vue'
 import RVisualEditorRawEditor from './RVisualEditorRawEditor.vue'
 

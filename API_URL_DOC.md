@@ -8,10 +8,10 @@
 
 ## Summary
 
-- **Total route definitions:** 499
-- **Unique (methods, resolved path):** 445
-- **Source files with routes:** 55
-- **Mounted/active (inferred):** 455 definitions
+- **Total route definitions:** 510
+- **Unique (methods, resolved path):** 456
+- **Source files with routes:** 56
+- **Mounted/active (inferred):** 466 definitions
 - **Not mounted / legacy / unresolved:** 44 definitions
 
 ## Table of Contents
@@ -25,7 +25,7 @@
 7. [Employee & Signature](#employee--signature) (5 routes)
 8. [User Management](#user-management) (10 routes)
 9. [Address / Localization](#address--localization) (12 routes)
-10. [AI Chat](#ai-chat) (1 routes)
+10. [AI Chat](#ai-chat) (12 routes)
 11. [Artists](#artists) (11 routes)
 12. [Artworks, Galleries & Collections](#artworks-galleries--collections) (24 routes)
 13. [Chat (v1 API)](#chat-v1-api) (18 routes)
@@ -33,8 +33,8 @@
 15. [CMS Management](#cms-management) (36 routes)
 16. [Comments](#comments) (6 routes)
 17. [Databases Controller](#databases-controller) (3 routes)
-18. [Google Drive Activity & Audit (nested)](#google_drive-activity--audit-nested) (5 routes)
-19. [Google Drive Labels & Metadata (nested)](#google_drive-labels--metadata-nested) (7 routes)
+18. [Google Drive Activity & Audit (nested)](#google-drive-activity--audit-nested) (5 routes)
+19. [Google Drive Labels & Metadata (nested)](#google-drive-labels--metadata-nested) (7 routes)
 20. [Forum](#forum) (32 routes)
 21. [Google Auth One Tap](#google-auth-one-tap) (1 routes)
 22. [Media / File Explore Management](#media--file-explore-management) (11 routes)
@@ -58,7 +58,7 @@
 40. [Realtime WebSockets (Chat/Notifications)](#realtime-websockets-chatnotifications) (2 routes)
 41. [Auth Bridge (Cross-origin Cookie)](#auth-bridge-cross-origin-cookie) (4 routes)
 42. [Authentication (Legacy - not mounted)](#authentication-legacy---not-mounted) (16 routes)
-43. [Google Drive / OAuth (legacy v1 module - not mounted)](#google_drive--oauth-legacy-v1-module---not-mounted) (16 routes)
+43. [Google Drive / OAuth (legacy v1 module - not mounted)](#google-drive--oauth-legacy-v1-module---not-mounted) (16 routes)
 44. [RTS Auth (legacy duplicate - not mounted)](#rts-auth-legacy-duplicate---not-mounted) (2 routes)
 45. [RTS Auth Passkeys (copy - not mounted)](#rts-auth-passkeys-copy---not-mounted) (6 routes)
 46. [Tests (non-production routes)](#tests-non-production-routes) (2 routes)
@@ -133,6 +133,13 @@
 - **Include in schema:** `False`
 
 **Parameters:** none declared in signature (or not detected).
+
+### API documentation routes
+
+- **Swagger UI:** `GET /docs` is restored as the default FastAPI Swagger UI (development only, per `APP_ENV`).
+- **Custom ReDoc:** `GET /redoc` renders `app/templates/api_docs.html` using pinned `redoc@2.5.0` UMD standalone bundle.
+- **Spec:** default FastAPI `GET /openapi.json` supplies the OpenAPI JSON; no extra `doc.json` aliases remain.
+- **Public access:** `/docs`, `/redoc`, and `/openapi.json` remain in `PUBLIC_PATHS` and `DOCUMENTATION_PATHS`.
 
 ---
 
@@ -2228,9 +2235,22 @@ Production:
 
 ## RBAC (Roles & Permissions)
 
-- **Source files:** `app/api/v1/endpoints/rbac.py`
+- **Source files:** `app/api/v1/endpoints/rbac.py`, `app/schemas/rbac.py`
 - **Endpoints:** 29
 - **Mount/status:** mounted (/api/v1 router) (29)
+
+### Update notes (Nuxt frontend contract)
+
+- `POST /api/v1/rbac/permissions/list` accepts `Page` / `PageSize` as aliases for
+  `Pages` / `Records`, matching the Nuxt datatable payload.
+- `POST /api/v1/rbac/roles/list` accepts `Status` (or the existing `IsActive`) and
+  returns flat `Code`, `Name`, `NameEn`, `Description`, `Rank`, `IsActive`, `Module`,
+  and `Permissions` next to the existing nested `Role` object; `TotalRecord` is
+  recalculated after filtering.
+- `POST /api/v1/rbac/users/roles/get` returns `Permissions` as
+  `PermissionDescriptor[]` (`Code`, `Module`, `Name`, `NameEn`) rather than raw
+  permission-code strings; the empty-result branch uses the same shape.
+- Route paths and HTTP methods are unchanged.
 
 ### Endpoint index
 
@@ -3067,9 +3087,21 @@ Get effective roles/permissions for a specific user (UserId in payload).
 
 ## User Management
 
-- **Source files:** `app/api/v1/endpoints/users.py`
+- **Source files:** `app/api/v1/endpoints/users.py`, `app/schemas/base.py`, `app/schemas/auth.py`
 - **Endpoints:** 10
 - **Mount/status:** mounted (/api/v1 router) (10)
+
+### Update notes (Nuxt frontend contract)
+
+- User-id query parameters now use the `Id` alias on `/users/update`, `/users/profile`,
+  `/users/profile/update`, and `/users/address/save|delete|setDefault`; `?Id={UserId}`
+  matches the Nuxt caller instead of the former bare `user_id`.
+- `POST /api/v1/users/list` accepts the frontend payload `{ page, page_size, search, filter }`
+  and maps it onto the service fields `Pages`, `Records`, `Search`, `Filter`.
+- `POST /api/v1/users/detail` now includes `TwoFactorEnabled` in the shaped response.
+- `POST /api/v1/users/update` accepts optional `Code`, persists `Status` to `STATUS_ID`,
+  and returns `UserRead` built from the updated ORM row (no `TotalRecord` validation failure).
+- Route paths and HTTP methods are unchanged.
 
 ### Endpoint index
 
@@ -3283,9 +3315,32 @@ Get effective roles/permissions for a specific user (UserId in payload).
 
 ## Address / Localization
 
-- **Source files:** `app/api/v1/endpoints/address.py`
+- **Source files:** `app/api/v1/endpoints/address.py`, `app/schemas/address.py`
 - **Endpoints:** 12
 - **Mount/status:** mounted (/api/v1 router) (12)
+
+### Update notes (hierarchical payload filters)
+
+- List reads remain `POST` with `Action` in the payload; ancestor filters are now
+  PascalCase payload fields instead of query parameters.
+- `POST /api/v1/address/provinces`: `CountryId` is optional and defaults to
+  Cambodia (resolved from `COUNTRIES.Code = "KH"`).
+- `POST /api/v1/address/districts`: `ProvinceId` is the base filter; `CountryId`
+  is an additional ancestor filter resolved through `PROVINCES`.
+- `POST /api/v1/address/communes`: `DistrictId` is the base filter; `CountryId`
+  and `ProvinceId` are resolved through `PROVINCES` and `DISTRICT`.
+- `POST /api/v1/address/villages`: `CommuneId` is the base filter; `CountryId`,
+  `ProvinceId`, and `DistrictId` are resolved through `PROVINCES`, `DISTRICT`,
+  and `COMMUNES`.
+- Conflicting ancestor filters yield an empty result instead of silently
+  dropping the constraint.
+
+| Endpoint | Payload filter fields |
+|---|---|
+| `POST /api/v1/address/provinces` | `CountryId` (default Cambodia) |
+| `POST /api/v1/address/districts` | `CountryId`, `ProvinceId` |
+| `POST /api/v1/address/communes` | `CountryId`, `ProvinceId`, `DistrictId` |
+| `POST /api/v1/address/villages` | `CountryId`, `ProvinceId`, `DistrictId`, `CommuneId` |
 
 ### Endpoint index
 
@@ -3607,32 +3662,34 @@ Village catalogue CRUD; ``Action`` (default ``list``) selects the op.
 
 ## AI Chat
 
-- **Source files:** `app/api/v1/endpoints/ai_chat.py`
-- **Endpoints:** 1
-- **Mount/status:** mounted (/api/v1 router) (1)
+- **Source files:** `app/api/v1/endpoints/ai_chat.py`, `app/services/ai_chat_service.py`, `app/schemas/ai_chat.py`
+- **Endpoints:** 12
+- **Mount/status:** mounted (/api/v1 router) (12)
 
 ### Endpoint index
 
 | # | Methods | Full path | Handler | Summary | Status |
 |---:|---|---|---|---|---|
-| 1 | `POST` | `/api/v1/ai_chat/completions` | `create_chat_completion` |  | mounted (/api/v1 router) |
+| 1 | `POST` | `/api/v1/ai_chat/completions` | `create_chat_completion` | Legacy chat completions | mounted (/api/v1 router) |
+| 2 | `POST` | `/api/v1/ai_chat/ask/create` | `ask_ai` | Ask AI | mounted (/api/v1 router) |
+| 3 | `POST` | `/api/v1/ai_chat/commands/create` | `chat_commands` | Chat commands | mounted (/api/v1 router) |
+| 4 | `POST` | `/api/v1/ai_chat/improve_writing/create` | `improve_writing` | Improve Writing | mounted (/api/v1 router) |
+| 5 | `POST` | `/api/v1/ai_chat/continue_writing/create` | `continue_writing` | Continue Writing | mounted (/api/v1 router) |
+| 6 | `POST` | `/api/v1/ai_chat/fix_grammar/create` | `fix_grammar_spelling` | Fix grammar & spelling | mounted (/api/v1 router) |
+| 7 | `POST` | `/api/v1/ai_chat/adjust_length/create` | `adjust_length` | Make shorter / make longer | mounted (/api/v1 router) |
+| 8 | `POST` | `/api/v1/ai_chat/change_tone/create` | `change_tone` | Change Tone | mounted (/api/v1 router) |
+| 9 | `POST` | `/api/v1/ai_chat/translate/create` | `translate_text` | Translate | mounted (/api/v1 router) |
+| 10 | `POST` | `/api/v1/ai_chat/commands/get` | `get_commands` | Command menu options | mounted (/api/v1 router) |
+| 11 | `POST` | `/api/v1/ai_chat/tones/get` | `get_tones` | Tone menu options | mounted (/api/v1 router) |
+| 12 | `POST` | `/api/v1/ai_chat/languages/get` | `get_languages` | Translation language menu | mounted (/api/v1 router) |
 
-### Endpoint details
+### Shared payload and response notes
 
-#### 1. `POST` `/api/v1/ai_chat/completions`
-
-- **Handler:** `create_chat_completion` (async)
-- **Source:** `app/api/v1/endpoints/ai_chat.py`:27
-- **Defined path:** `/completions`
-- **Router:** object=`router` prefix=`/ai_chat` resolved_base=`/api/v1/ai_chat`
-- **Mount/status:** mounted (/api/v1 router)
-- **Tags:** `['API Chat']`
-
-**Parameters (signature, best-effort):**
-
-| Name | Annotation | Default | Source/marker | Meta |
-|---|---|---|---|---|
-| `payload` | `ChatCompletionRequest` | `` | `` |  |
+- All payload fields are PascalCase. Generation endpoints accept optional `ApiKey` or `ApiToken` to override the configured LLM7 key for that request; `Model`, `Temperature`, and `MaxTokens` are also optional.
+- Default provider is LLM7 from `settings.LLM7_BASE_URL`, `settings.LLM7_MODEL`, `settings.LLM7_API_KEY`, and `settings.LLM7_TIMEOUT`.
+- Generation responses use `AiCompletionResponse` with `Answer`, `Model`, `Usage`, and `FinishReason`; provider keys and usage are never echoed back.
+- `POST /api/v1/ai_chat/languages/get` returns 10 options including Khmer (`km`) and Chinese Simplified (`zh-CN`); `POST /api/v1/ai_chat/tones/get` and `POST /api/v1/ai_chat/commands/get` return the matching menus.
+- Static menu endpoints accept `{ "Search": "..." }` and return `AiOptionsResponse` with `Options: [{ "Code", "Label", "NativeLabel" }]`.
 
 ---
 
@@ -12088,7 +12145,7 @@ Upload an asset into Drive for use as a CMS media item.
 - **System & Health**: 4 route definition(s) documented from source scan.
 - **Authentication (Core)**: 42 route definition(s) documented from source scan.
 - **Dashboard API**: 4 route definition(s) documented from source scan.
-- **AI Chat**: 1 route definition(s) documented from source scan.
+- **AI Chat**: 12 route definition(s) documented from source scan.
 - **Artists**: 11 route definition(s) documented from source scan.
 - **Artworks, Galleries & Collections**: 24 route definition(s) documented from source scan.
 - **Chat (v1 API)**: 18 route definition(s) documented from source scan.
@@ -12123,6 +12180,36 @@ Upload an asset into Drive for use as a CMS media item.
 - **Google Drive / OAuth (legacy v1 module - not mounted)**: 16 route definition(s) documented from source scan.
 - **RTS Auth (legacy duplicate - not mounted)**: 2 route definition(s) documented from source scan.
 - **RTS Auth Passkeys (copy - not mounted)**: 6 route definition(s) documented from source scan.
+
+### AI Chat quick services
+
+- Added 11 PascalCase POST endpoints for Tiptap editor and AI chat quick actions: Ask AI, Chat Commands, Improve Writing, Continue Writing, Fix Grammar & Spelling, Adjust Length, Change Tone, Translate, and three menu endpoints for commands, tones, and languages.
+- All new endpoints use LLM7 by default and accept optional `ApiKey` or `ApiToken` in the payload to merge a frontend-pasted token per request.
+- Translation menu includes Khmer (`km`), Chinese Simplified (`zh-CN`), English, Chinese Traditional, Vietnamese, Thai, French, Spanish, Japanese, and Korean.
+- Legacy `POST /api/v1/ai_chat/completions` is preserved but now returns the same PascalCase `AiCompletionResponse`.
+
+### Custom API documentation (ReDoc)
+
+- Restored default FastAPI Swagger UI at `GET /docs` (development only) and default `GET /openapi.json`.
+- `GET /redoc` is the custom ReDoc API documentation page backed by `app/templates/api_docs.html` and pinned `redoc@2.5.0` UMD bundle.
+- Custom ReDoc reads the default `/openapi.json` spec; no `/v1/docs`, `/api/v1/docs`, or `doc.json` aliases remain.
+- `/docs`, `/redoc`, and `/openapi.json` remain in `app/config/public_paths.py` and `app/config/middleware_config.py`.
+
+### Address payload filters
+
+- `POST /api/v1/address/provinces` accepts `CountryId`; omission resolves to Cambodia (`COUNTRIES.Code = "KH"`).
+- `POST /api/v1/address/districts` accepts `CountryId` and base `ProvinceId`.
+- `POST /api/v1/address/communes` accepts `CountryId`, `ProvinceId`, and base `DistrictId`.
+- `POST /api/v1/address/villages` accepts `CountryId`, `ProvinceId`, `DistrictId`, and base `CommuneId`.
+- Ancestor constraints are intersected; inconsistent combinations return an empty page.
+- Route paths and HTTP methods are unchanged; only request payload schemas and filter behavior changed.
+
+### Nuxt frontend contract alignment
+
+- Aligned the 17 endpoints in `API_URL_REQUIRED_BY_NUXT_FRONTEND.md` without changing route paths or HTTP methods.
+- User Management: query parameters now use the `Id` alias for admin user/address/profile operations; `/users/list` accepts the frontend's lowercase `{ page, page_size, search, filter }` payload; `/users/detail` includes `TwoFactorEnabled`; `/users/update` accepts `Code`, persists `Status` to `STATUS_ID`, and builds `UserRead` from the updated ORM row.
+- RBAC: `/permissions/list` accepts `Page`/`PageSize`; `/roles/list` accepts `Status`, applies it before pagination metadata, and adds flat role fields alongside the nested `Role`; `/users/roles/get` returns `PermissionDescriptor[]` for `Permissions`.
+- Matching endpoints were left unchanged: `/users/create`, `/users/remove`, `/rbac/permissions/list` GET, `/rbac/permissions/users` GET, `/rbac/roles/assign`, `/rbac/roles/get`, `/rbac/roles/permissions`.
 
 ### Corrected / updated endpoint patterns (notable)
 
