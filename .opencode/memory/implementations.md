@@ -503,3 +503,188 @@ Create `RTABLE_USING.md` describing all parent-facing `RTable` usage cases, incl
 
 - Manual review is still recommended to confirm wording against host auto-imports and future RTable changes.
 - Existing unrelated workspace modifications and untracked files were left untouched.
+
+## 2026-11-20 — RTableTank Row Reorder Drag
+
+Status: implemented; SFC/JSON compile and `npm run dev:build` verified; targeted ESLint still reports the file's pre-existing style noise; manual browser QA pending.
+
+### Goal
+
+Make `RTableTank.vue` row-record drag actually work, using `RTankTable.vue`'s row-reorder behavior as the reference. The drag column/handle and handlers existed in `RTableTank.vue`, but the `<tr>` had no `dragover`/`drop` wiring, `onDrop` referenced an undefined `dataset` and undeclared `isServer`/`globalFilter`, and `onRowReorder` was not declared in `emits`.
+
+### Files
+
+- `src/runtime/app/components/rtanktable/RTableTank.vue` — drag wiring, reorder logic, states, styles.
+- `src/runtime/app/assets/lang/en.json`, `km.json`, `zh.json` — `reorder_row` label used by both tank tables.
+
+### Implementation
+
+- Wired `@dragover`, `@dragleave`, and `@drop` on data rows; added `@dragend` and `@keydown` on the drag handle.
+- Replaced the broken handler section with `dragFrom: { index, row }`, `dropTarget: { id, position }`, `findRowIndex`, `onDragOver`, `onDragLeave`, `onDragEnd`, `moveRow`, `onDrop`, and `onDragKeydown`.
+- `moveRow` reorders `resultData` immutably, calls `save()` for `stateKey` persistence, and emits `onRowReorder(event, diff, { row })` with `{ oldPosition, newPosition, oldData, newData }` entries matching `RTankTable`.
+- Drop position is derived from the pointer relative to the row midpoint, so the indicator shows whether the record lands before or after the hovered row.
+- Added `.rt-dragging`, `.rt-drop-before`, and `.rt-drop-after` row styles plus a self-contained `.oc-drag-handle` style.
+- Declared `onRowReorder` in `defineEmits`.
+- Drag column is now only added when `options.rowReorder` is set and no `api` is configured, matching `RTankTable`.
+- Added `reorder_row` translations in all three language files (also fixes `RTankTable`'s previously missing key).
+
+### Contracts / Decisions
+
+- Reordering is local-data only; API-backed tables do not render a drag column.
+- Reordering is disabled while sorting or searching is active, matching `RTankTable`.
+- `dragFrom.index` is an index into `resultData`, not the paged/sorted row index.
+- Keyboard alternative: focus the handle and press ArrowUp/ArrowDown.
+- No server reorder request is issued; parents should persist via the `onRowReorder` event if needed.
+
+### Verification
+
+- `@vue/compiler-sfc` parse/script/template/SCSS compilation passes for `RTableTank.vue`.
+- JSON parsing passes for `en.json`, `km.json`, and `zh.json`.
+- `npm run dev:build` passes.
+- Targeted ESLint has 540 pre-existing errors/warnings in this file; no new undefined-variable or semantic errors were introduced in the changed ranges.
+- `git diff --check` reports only pre-existing CRLF/trailing-whitespace warnings in unrelated files.
+
+### Caveats / Follow-ups
+
+- Manual browser QA is needed for drag handle visibility, drop indicator, actual row movement, state persistence, and keyboard reorder.
+- The `RTableTankMainDemo.vue` type import path (`../../../RTableTank/RTableTank.vue`) is still pre-existing and unrelated.
+
+## 2026-11-20 — RVisualEditor AI Response Handling
+
+Status: implemented; SFC compile, targeted lint range, and `npm run dev:build` verified; manual browser QA pending.
+
+### Goal
+
+Fix `RVisualEditor.vue` showing `AI request failed` after successful AI endpoint responses. `API_URL_DOC.md` `## AI Chat` defines generation responses as `AiCompletionResponse` with `Answer`, `Model`, `Usage`, and `FinishReason`, and static menu responses as `{ Options: [{ Code, Label, NativeLabel }] }`.
+
+### Files
+
+- `src/runtime/app/components/rvisualeditor/RVisualEditor.vue` — AI request/response/error handling and useHttp result unwrapping.
+- `API_URL_DOC.md` — `## AI Chat` contract used as reference.
+- `.opencode/memory/implementations.md` — this log.
+
+### Implementation
+
+- Imported `unref` from Vue.
+- Replaced all `error?.value ?? error`, `data?.value ?? data`, and `responseRef?.value ?? responseRef` usages in the file with `unref(...)`.
+- Root cause: `useHttp` returns `error: ref(null)` on success; `error?.value ?? error` returns the ref object itself because `null` is nullish, so every successful AI request was treated as an error and surfaced the generic fallback message.
+- `aiRequest` now uses a local `AbortController`, checks `signal.aborted` before evaluating the HTTP result, and throws an `AbortError`-shaped error so stop/cancel uses the stopped message.
+- `aiAnswer` now unwraps refs and handles direct `Answer` plus nested `Data`/`data`/`Response`/`response`/`Result`/`result`/`Output`/`output`/`Answer` envelopes and OpenAI-style `choices`.
+- `aiOptions` now unwraps refs, accepts arrays directly, and walks nested `Options`/`Data`/`Response`/`Result`/`Output` envelopes.
+- `aiErrorText` now unwraps refs and extracts `Message`, `message`, `Detail`, `detail`, `Title`, `title`, `Error`, and `error` from both direct and nested `response.data` error shapes.
+
+### Contracts / Decisions
+
+- Generation endpoints remain called with PascalCase payloads from `aiBasePayload`; `ApiKey`/`ApiToken`, `Model`, `Temperature`, and `MaxTokens` handling is unchanged.
+- Static option endpoints still send `{ Search: '' }` and use fallback option lists when the API returns no options.
+- No new i18n keys were added; existing `rve_ai_error`, `rve_ai_stopped`, and `rve_ai_no_result` strings are reused.
+- The same `unref` correction was applied to mention loading and RVisualEditor API load/save because they shared the exact broken `useHttp` unwrapping pattern.
+
+### Verification
+
+- `@vue/compiler-sfc` parse/script/template/style compilation passes for `RVisualEditor.vue`.
+- Targeted ESLint JSON range check for lines 4300-4460 reports no messages; full-file ESLint still reports the file's pre-existing style noise.
+- `npm run dev:build` passes.
+
+### Caveats / Follow-ups
+
+- Manual browser QA is still needed for Ask AI, rewrite actions, tone, translate, command menus, error messages, and Stop behavior.
+- `useHttp` still discards original non-Axios errors, so network failures without a response body may fall back to `No result returned.` instead of a detailed transport error.
+
+## 2026-11-20 — Reusable Components and Functions Usage Guide
+
+Status: implemented; Markdown structure and diff checks verified; no app build run.
+
+### Goal
+
+Expand the reusable API guide into a full usage reference with practical recipes and complete component/function inventories.
+
+### Files
+
+- `REUSABLE_COMPONENTS_AND_FUNCTIONS.md` — expanded guide.
+- `.opencode/memory/implementations.md` — this log.
+- `C:/Users/Apple/AppData/Local/Temp/opencode/components2.json` — static component API input.
+- `C:/Users/Apple/AppData/Local/Temp/opencode/fns.json` — exported function input.
+
+### Implementation
+
+- Added section 9, a use-case cookbook covering component selection, permission-aware actions, modals, drawers, global promise dialogs, inputs, uploads, file manager, tables, charts, editors, grid/carousel, HTTP, auth, AI, number/date helpers, and loading states.
+- Added section 10, a detailed API reference with 201 component entries grouped by source folder and listing models, props, emits, slots, exposed methods, and typical use.
+- Added section 11, a complete exported function index with 58 source files and auto-import status.
+- Added store and integration sections with exact store IDs and app-shell mounting guidance.
+- Corrected store IDs and usage examples discovered during verification, including `useUIStore`, `ScreenStore`, `DialogStore`, `PermissionStore`, and `useToastStore`.
+- Corrected earlier inaccurate snippets for `RBtn`, `RBtns`, `RInputTags`, `RCheckboxes2`, `RFileUpload`, `RPopoverPanel`, `RChart`, `RStatus`, and permission checks.
+
+### Contracts / Decisions
+
+- Component tags remain unprefixed and are globally registered by file name.
+- Top-level composables/utils/stores are auto-imported; nested modules remain explicit imports.
+- The generated component API index is static extraction; TypeScript-declared props and runtime-derived props are supplemented in the cookbook or source files.
+- `RTABLE_USING.md` remains the canonical parent-facing `RTable` reference.
+- `useHttp` results must be inspected with `unref()` or `.value`.
+
+### Verification
+
+- `REUSABLE_COMPONENTS_AND_FUNCTIONS.md` contains 3892 lines with 201 component entries and 59 function-file entries.
+- Markdown code fences are balanced: 102 fence markers.
+- No known invalid example patterns remained after targeted checks.
+- `git diff --check -- REUSABLE_COMPONENTS_AND_FUNCTIONS.md` passes.
+
+### Caveats / Follow-ups
+
+- Manual browser QA is still needed for the complex runtime behavior shown in the cookbook.
+- Generated API entries may omit some TS-only declarations; source files remain authoritative for exact defaults and types.
+
+## 2026-11-20 — Mounted Feature Breadcrumb Wrapper
+
+Status: implemented; targeted ESLint, Markdown checks, and `npm run dev:build` verified; manual browser QA pending.
+
+### Goal
+
+Add a reusable `useBreadCrumb` wrapper that runs on `onMounted` for `pages/content/novel_setup/**/*` style pages. Breadcrumbs must be manual by feature and flow with optional API-driven values, not derived from absolute route paths.
+
+### Files
+
+- `src/runtime/app/composables/useMountedBreadcrumb.js` — new auto-imported wrapper.
+- `REUSABLE_COMPONENTS_AND_FUNCTIONS.md` — usage section and function index entry.
+- `.opencode/memory/implementations.md` — this log.
+
+### Implementation
+
+- Added `useMountedBreadcrumb(config = {})`.
+- Config may be a plain object, ref, computed, or getter.
+- Manual `feature` and `flow`/`page` values build the default title and fallback breadcrumb items.
+- Supports direct `title`, `description`, `icon`, `items`, `actions`, `leftButton`, `rightTemplate`, `separatorIcon`, `showBack`, `backAction`, and `backTooltip`.
+- Maps `showBack` to breadcrumb state `hasBack` and `backAction` to `fnBack`; callback fields are stored raw and invoked by `RBreadCrumb`.
+- Calls `useBreadCrumb(() => state.value)` inside `onMounted`.
+- Optional loader supports `api.url` + `api.options` through `useHttp`, or a custom `api.load`.
+- API results can be mapped with dotted `api.pick` paths or transformed with `api.map`/`pick` functions.
+- Added `api.enabled`, `api.onSuccess`, and `api.onError` lifecycle control.
+- Reactive config changes rebuild manual state and reload API values.
+- Returns `state`, `reloading`, and `reload()`.
+- Clears the breadcrumb on unmount while the page still owns it.
+
+### Contracts / Decisions
+
+- No `useRoute().path` parsing or absolute route-path generation is performed.
+- `RPageHeader` must not be used for these pages; the wrapper writes `useBreadCrumb` state consumed by `RBreadCrumb`.
+- Feature/flow labels are parent-owned, so host pages can translate or derive them without route-structure coupling.
+- The wrapper writes only breadcrumb state keys supported by `useBreadCrumb`: `title`, `description`, `icon`, `hasBack`, `backTooltip`, `fnBack`, `items`, `actions`, `rightTemplate`, `leftButton`, `separatorIcon`.
+- API payload aliases accept common envelopes such as `Data`, `data`, `Response`, `Result`, `Item`, and direct records.
+- The file is top-level under `src/runtime/app/composables`, so Nuxt auto-imports `useMountedBreadcrumb` in host apps.
+- Target `pages/content/novel_setup/**/*` files are not present in this module workspace; only the reusable wrapper and docs were changed here.
+
+### Verification
+
+- `npx eslint src/runtime/app/composables/useMountedBreadcrumb.js` passes with no output.
+- `npm run dev:build` passes.
+- `REUSABLE_COMPONENTS_AND_FUNCTIONS.md` has 3892 lines, 201 component entries, 59 function-file entries, and 102 balanced fence markers.
+- `git diff --check -- REUSABLE_COMPONENTS_AND_FUNCTIONS.md src/runtime/app/composables/useMountedBreadcrumb.js` passes.
+
+### Caveats / Follow-ups
+
+- Manual browser QA is needed in the host app for API loading, back action behavior, reactive config updates, and unmount cleanup.
+- The wrapper does not create breadcrumb paths; parents must provide labels/items explicitly.
+- `RPageHeader` remains a listed reusable component, but it is not part of the novel-setup page pattern.
+- API errors are delegated to `api.onError`; without a handler the wrapper silently leaves manual breadcrumb state unchanged.
+- Reactive config changes trigger API reloads, so expensive loaders should avoid unnecessary dependencies.

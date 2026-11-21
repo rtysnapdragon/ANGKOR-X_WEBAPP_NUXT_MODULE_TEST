@@ -7,18 +7,27 @@ const props = defineProps({
   name: { type: String, default: '' },
   size: { type: [Number, String], default: null },
   label: { type: String, default: '' },
+  class: { type: String, default: '' },
 })
 
-const isHtml = computed(() => /<[a-z][\s\S]*>/i.test(props.name))
+const iconName = computed(() =>
+  typeof props.name === 'string' ? props.name.trim() : ''
+)
+const isRemix = computed(() => iconName.value.startsWith('ri-') )
+const style = computed(() => {
+  if (props.size === null || props.size === undefined || props.size === '') return undefined
+  return { fontSize: typeof props.size === 'number' ? `${props.size}px` : String(props.size) }
+})
+const classStyle = computed(() => props.class)
+const _isHtml = computed(() => /<[a-z][\s\S]*>/i.test(props.name))
 // const isHtml = computed(() => /<[a-z][\s\S]*>/i.test(props.name))
 const __isHtml = computed(() => {
   if (typeof props.name !== 'string') return false
   return /<\/?[a-z][^>]*>/i.test(props.name)
 })
-const _isHtml = computed(() => {
-  return typeof props.name === 'string' &&
-    /<\/?[a-z][^>]*>/i.test(props.name)
-})
+
+const isHtml = computed(() => /<\/?[a-z][^>]*>/i.test(iconName.value) )
+
 /*
 isHtml detects
 '<i class="ri-line-chart-line"></i>' // true
@@ -30,36 +39,31 @@ isHtml detects
 'ri-line-chart-line'                 // false
 */
 
-const isRemix = computed(() => props.name.trim().startsWith('ri-'))
-const style = computed(() => {
-  if (props.size === null || props.size === undefined || props.size === '') return undefined
-  return { fontSize: typeof props.size === 'number' ? `${props.size}px` : String(props.size) }
-})
 </script>
 
 <template>
   <!-- eslint-disable vue/no-v-html -->
   <span
     v-if="isHtml"
-    class="r-icon r-icon--html"
+    :class="`r-icon r-icon--html ${classStyle}`"
     :style="style"
     :aria-label="label || undefined"
     :aria-hidden="label ? undefined : 'true'"
     role="img"
-    v-html="name"
+    v-html="iconName"
   />
   <!-- eslint-enable vue/no-v-html -->
   <i
     v-else-if="isRemix"
     class="r-icon"
-    :class="name"
+    :class="`${iconName} ${classStyle}`"
     :style="style"
     :aria-label="label || undefined"
     :aria-hidden="label ? undefined : 'true'"
   />
   <UIcon
     v-else
-    :name="name"
+    :name="iconName"
     class="r-icon"
     :style="style"
     :aria-label="label || undefined"

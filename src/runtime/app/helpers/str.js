@@ -29,6 +29,31 @@ export default {
     }
   },
   
+  months:[
+    { Value: 1, Name: 'មករា', NameEn: 'January', NameZh: '一月' },
+    { Value: 2, Name: 'កុម្ភៈ', NameEn: 'February', NameZh: '二月' },
+    { Value: 3, Name: 'មីនា', NameEn: 'March', NameZh: '三月' },
+    { Value: 4, Name: 'មេសា', NameEn: 'April', NameZh: '四月' },
+    { Value: 5, Name: 'ឧសភា', NameEn: 'May', NameZh: '五月' },
+    { Value: 6, Name: 'មិថុនា', NameEn: 'June', NameZh: '六月' },
+    { Value: 7, Name: 'កក្កដា', NameEn: 'July', NameZh: '七月' },
+    { Value: 8, Name: 'សីហា', NameEn: 'August', NameZh: '八月' },
+    { Value: 9, Name: 'កញ្ញា', NameEn: 'September', NameZh: '九月' },
+    { Value: 10, Name: 'តុលា', NameEn: 'October', NameZh: '十月' },
+    { Value: 11, Name: 'វិច្ឆិកា', NameEn: 'November', NameZh: '十一月' },
+    { Value: 12, Name: 'ធ្នូ', NameEn: 'December', NameZh: '十二月' },
+  ],
+
+  dayOfWeek:[
+    { Value: 1, Name: 'ថ្ងៃច័ន្ទ', EnglishName: 'Monday', NameZh: '星期一' },
+    { Value: 2, Name: 'ថ្ងៃអង្គារ', EnglishName: 'Tuesday', NameZh: '星期二' },
+    { Value: 3, Name: 'ថ្ងៃពុធ', EnglishName: 'Wednesday', NameZh: '星期三' },
+    { Value: 4, Name: 'ថ្ងៃព្រហស្បតិ៍', EnglishName: 'Thursday', NameZh: '星期四' },
+    { Value: 5, Name: 'ថ្ងៃសុក្រ', EnglishName: 'Friday', NameZh: '星期五' },
+    { Value: 6, Name: 'ថ្ងៃសៅរ៍', EnglishName: 'Saturday', NameZh: '星期六' },
+    { Value: 7, Name: 'ថ្ងៃអាទិត្យ', EnglishName: 'Sunday', NameZh: '星期日' },
+  ],
+
   humanResource: {
     employee: {
       workingStatus: [
@@ -146,4 +171,41 @@ export default {
     global: 'Global',
     branch: 'Branch',
   }
+}
+
+
+export const months = [
+  { Value: 1, Name: 'មករា', NameEn: 'January', NameZh: '一月' },
+  { Value: 2, Name: 'កុម្ភៈ', NameEn: 'February', NameZh: '二月' },
+  { Value: 3, Name: 'មីនា', NameEn: 'March', NameZh: '三月' },
+  { Value: 4, Name: 'មេសា', NameEn: 'April', NameZh: '四月' },
+  { Value: 5, Name: 'ឧសភា', NameEn: 'May', NameZh: '五月' },
+  { Value: 6, Name: 'មិថុនា', NameEn: 'June', NameZh: '六月' },
+  { Value: 7, Name: 'កក្កដា', NameEn: 'July', NameZh: '七月' },
+  { Value: 8, Name: 'សីហា', NameEn: 'August', NameZh: '八月' },
+  { Value: 9, Name: 'កញ្ញា', NameEn: 'September', NameZh: '九月' },
+  { Value: 10, Name: 'តុលា', NameEn: 'October', NameZh: '十月' },
+  { Value: 11, Name: 'វិច្ឆិកា', NameEn: 'November', NameZh: '十一月' },
+  { Value: 12, Name: 'ធ្នូ', NameEn: 'December', NameZh: '十二月' },
+]
+
+export const dayOfWeek = [
+  { Value: 1, Name: 'ថ្ងៃច័ន្ទ', EnglishName: 'Monday', NameZh: '星期一' },
+  { Value: 2, Name: 'ថ្ងៃអង្គារ', EnglishName: 'Tuesday', NameZh: '星期二' },
+  { Value: 3, Name: 'ថ្ងៃពុធ', EnglishName: 'Wednesday', NameZh: '星期三' },
+  { Value: 4, Name: 'ថ្ងៃព្រហស្បតិ៍', EnglishName: 'Thursday', NameZh: '星期四' },
+  { Value: 5, Name: 'ថ្ងៃសុក្រ', EnglishName: 'Friday', NameZh: '星期五' },
+  { Value: 6, Name: 'ថ្ងៃសៅរ៍', EnglishName: 'Saturday', NameZh: '星期六' },
+  { Value: 7, Name: 'ថ្ងៃអាទិត្យ', EnglishName: 'Sunday', NameZh: '星期日' },
+]
+
+
+export const getMonth = (value, lang = 'en') => {
+  const item = months.find(m => m.Value === value)
+  return item?.[{ km: 'Name', en: 'NameEn', zh: 'NameZh' }[lang]] ?? ''
+}
+
+export const getDayOfWeek = (value, lang = 'en') => {
+  const item = dayOfWeek.find(d => d.Value === value)
+  return item?.[{ km: 'Name', en: 'EnglishName', zh: 'NameZh' }[lang]] ?? ''
 }

@@ -519,6 +519,7 @@
   "select_row": "选择行",
   "sort": "排序",
   "reorder": "重新排序",
+  "reorder_row": "拖动以重新排序行",
   "rows_per_page": "每页行数",
   "loading_data": "正在加载数据",
   "searching_data": "正在搜索数据",

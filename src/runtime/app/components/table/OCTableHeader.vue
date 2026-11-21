@@ -9,8 +9,8 @@
     <!-- pc only -->
     <div class="left gap-2" v-if="!screen.isMobile">
       <slot name="headerLeft" />
-      <OCBtnReload @onClick="emit('reload')" v-if="options?.reload ?? true" />
-      <OCInputSearch
+      <RBtnReload @onClick="emit('reload')" v-if="options?.reload ?? true" />
+      <RInputSearch
         v-model.trim="searching"
         @on-input="(s) => emit('searchTable', s)"
         @on-cancel="(s) => emit('clearSearch', s)"
@@ -41,9 +41,10 @@
       <div v-if="$slots.headerLeft">
         <slot name="headerLeft" />
       </div>
-      <OCBtnReload @click="emit('reload')" v-if="options?.reload" />
+      <!-- mobile reload: PC uses @onClick, mobile uses @click -->
+      <RBtnReload @click="emit('reload')" v-if="options?.reload ?? true" />
       <div class="search">
-        <OCInputSearch
+        <RInputSearch
           v-model.trim="searching"
           @on-input="(s) => emit('searchTable', s)"
           @on-cancel="(s) => emit('clearSearch', s)"
@@ -86,16 +87,22 @@ function searchTable(search) {
 </script>
 
 <style lang="scss">
-.oc-table-header::v-deep {
-  .input-search {
-    &::placeholder {
-      color: var(--color-w-b-3) !important;
-    }
+// .oc-table-header::v-deep {
+//   .input-search {
+//     &::placeholder {
+//       color: var(--color-w-b-3) !important;
+//     }
 
+//     box-shadow: none !important;
+//   }
+// }
+.ocs-wrapper-filter-pc,
+.ocs-wrapper-filter-mobile {
+  .input-search {
     box-shadow: none !important;
+    &::placeholder { color: var(--color-w-b-3) !important; }
   }
 }
-
 .ocs-wrapper-filter-pc {
   display: flex;
   justify-content: space-between;

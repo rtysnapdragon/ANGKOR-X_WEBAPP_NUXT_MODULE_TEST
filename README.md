@@ -80,6 +80,7 @@ That's it! You can now use My Module in your Nuxt app ✨
 npm install @tanstack/vue-table
 npm install @tanstack/vue-store
 <!-- npm install @tanstack/vue-table@^9  -->
+npm i sortablejs // sort dragging smooth move row recorder
 @tanstack/table-core@^9 # not yet install(wait if no error)
 
 

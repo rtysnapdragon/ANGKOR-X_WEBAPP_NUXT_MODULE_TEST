@@ -2,7 +2,7 @@
   <div class="oc-group-view">
     <div class="oc-title" :class="`${props.size} ${props.colorTitle}`">
       <slot name="title" v-if="$slots.title"></slot>
-      <div v-else>{{ title }}</div>
+      <div v-else>{{ title}}</div>
     </div>
 
     <div class="oc-sub-title" :class="`${props.size} ${props.colorSubtitle}`" v-if="isNotEmpty(subTitle)">
@@ -20,8 +20,19 @@ const props = defineProps([
   "colorTitle",
   "colorSubtitle",
 ]);
-const title = computed(() => props.title);
-const subTitle = computed(() => props.subTitle);
+const title = computed(() => normalize(props.title));
+const subTitle = computed(() => normalize(props.subTitle));
+const normalize = (value) => {
+  if (
+    value == null ||
+    value === 'null' ||
+    value === 'undefined'
+  ) {
+    return '';
+  }
+
+  return value;
+};
 </script>
 
 <style lang="scss" scoped>

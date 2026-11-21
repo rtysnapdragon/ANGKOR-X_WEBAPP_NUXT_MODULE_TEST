@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { h, Fragment, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, render as renderVNode, getCurrentInstance } from 'vue'
+import { h, Fragment, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, unref, watch, render as renderVNode, getCurrentInstance } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { Extension, Node } from '@tiptap/core'
 import { Plugin, PluginKey, NodeSelection } from '@tiptap/pm/state'
@@ -1713,8 +1713,8 @@ async function ensureMentionItems() {
         data: { Email: '', LoginName: '', Phone: '', Search: '', Status: [1, 3, 4], UserId: '', UserType: [] },
         alertError: false,
       })
-      const err = error?.value ?? error
-      if (!err) mentionApiItems.value = extractMentionRows(responseRef?.value ?? responseRef)
+      const err = unref(error)
+      if (!err) mentionApiItems.value = extractMentionRows(unref(responseRef))
     }
     catch (err) {
       warn('Could not load mention users:', err)
@@ -3392,9 +3392,9 @@ async function loadFromApi() {
     const requestOptions = { method: entry.method || 'POST', data: data ?? {} }
     if (entry.headers) requestOptions.headers = entry.headers
     const { data: responseRef, error } = await useHttp(entry.url, requestOptions)
-    const err = error?.value ?? error
+    const err = unref(error)
     if (err) throw err
-    const response = responseRef?.value ?? responseRef ?? null
+    const response = unref(responseRef) ?? null
     const value = extractLoadedContent(response, entry, cfg)
     setApiContent(value)
     apiState.loaded = true
@@ -3439,9 +3439,9 @@ async function saveToApi() {
     const requestOptions = { method: entry.method || 'POST', data: payload ?? {} }
     if (entry.headers) requestOptions.headers = entry.headers
     const { data: responseRef, error } = await useHttp(entry.url, requestOptions)
-    const err = error?.value ?? error
+    const err = unref(error)
     if (err) throw err
-    let response = responseRef?.value ?? responseRef ?? null
+    let response = unref(responseRef) ?? null
     if (typeof entry.mapResponse === 'function') response = entry.mapResponse(response, payload)
     else if (typeof cfg.mapResponse === 'function') response = cfg.mapResponse(response, payload)
     apiState.loaded = true
@@ -4318,24 +4318,39 @@ function aiText(value, fallback = '') {
   return fallback
 }
 function aiOptions(response) {
-  const rows = response?.Options ?? response?.options ?? response?.Data ?? response?.data ?? response?.Items ?? response?.items ?? response?.List ?? response?.list ?? response
-  if (!Array.isArray(rows)) return []
-  return rows.map((item) => {
+  const mapRows = rows => rows.map((item) => {
     const code = aiText(item?.Code ?? item?.code ?? item?.Value ?? item?.value ?? item?.Id ?? item?.id)
     const label = aiText(item?.Label ?? item?.label ?? item?.Name ?? item?.name, code)
     const nativeLabel = aiText(item?.NativeLabel ?? item?.nativeLabel)
     return { code, label, nativeLabel }
   }).filter(item => item.code)
+  let value = unref(response)
+  if (Array.isArray(value)) return mapRows(value)
+  for (let depth = 0; depth < 4 && isObj(value); depth++) {
+    const rows = value.Options ?? value.options ?? value.Data ?? value.data ?? value.Items ?? value.items ?? value.List ?? value.list
+    if (Array.isArray(rows)) return mapRows(rows)
+    const nested = [value.Response, value.response, value.Result, value.result, value.Output, value.output, value.Data, value.data].find(isObj)
+    if (!nested) return []
+    value = nested
+  }
+  return []
 }
 function aiAnswer(response) {
-  if (typeof response === 'string') return response
-  if (!isObj(response)) return ''
+  let value = unref(response)
+  if (typeof value === 'string') return value
   const keys = ['Answer', 'answer', 'Text', 'text', 'Result', 'result', 'Content', 'content', 'Output', 'output', 'Message', 'message']
-  for (const key of keys) {
-    const value = response[key]
+  for (let depth = 0; depth < 4; depth++) {
     if (typeof value === 'string' || typeof value === 'number') return String(value)
+    if (!isObj(value)) return ''
+    for (const key of keys) {
+      const candidate = value[key]
+      if (typeof candidate === 'string' || typeof candidate === 'number') return String(candidate)
+    }
+    if (Array.isArray(value.choices)) return aiText(value.choices[0]?.message?.content ?? value.choices[0]?.text)
+    const nested = [value.Data, value.data, value.Response, value.response, value.Result, value.result, value.Output, value.output, value.Answer, value.answer].find(isObj)
+    if (!nested) return ''
+    value = nested
   }
-  if (Array.isArray(response.choices)) return aiText(response.choices[0]?.message?.content ?? response.choices[0]?.text)
   return ''
 }
 function aiEndpoint(key) {
@@ -4382,21 +4397,32 @@ function aiBasePayload(extra = {}) {
   if (props.aiMaxTokens !== undefined && props.aiMaxTokens !== null && props.aiMaxTokens !== '') payload.MaxTokens = Number(props.aiMaxTokens)
   return { payload, ctx }
 }
+function aiStoppedError() {
+  const err = new Error(t('rve_ai_stopped', 'AI request stopped.'))
+  err.name = 'AbortError'
+  err.code = 'ERR_CANCELED'
+  return err
+}
 function aiErrorText(err) {
-  if (err?.name === 'CanceledError' || err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return t('rve_ai_stopped', 'AI request stopped.')
-  const message = aiText(err?.response?.data?.Message ?? err?.response?.data?.message ?? err?.Message ?? err?.message)
+  const value = unref(err)
+  if (value?.name === 'CanceledError' || value?.name === 'AbortError' || value?.code === 'ERR_CANCELED') return t('rve_ai_stopped', 'AI request stopped.')
+  if (typeof value === 'string') return value || t('rve_ai_error', 'AI request failed.')
+  const data = value?.response?.data ?? value
+  const message = aiText(data?.Message ?? data?.message ?? data?.Detail ?? data?.detail ?? data?.Title ?? data?.title ?? data?.Error ?? data?.error ?? value?.Message ?? value?.message)
   return message || t('rve_ai_error', 'AI request failed.')
 }
 async function aiRequest(key, extra = {}) {
   const url = aiEndpoint(key)
   if (!url) throw new Error(t('rve_ai_error', 'AI request failed.'))
-  aiController = new AbortController()
+  const controller = new AbortController()
+  aiController = controller
   const { payload, ctx } = aiBasePayload(extra)
   try {
-    const { data, error } = await useHttp(url, { method: 'POST', data: payload, alertError: false, signal: aiController.signal })
-    const err = error?.value ?? error
+    const { data, error } = await useHttp(url, { method: 'POST', data: payload, alertError: false, signal: controller.signal })
+    if (controller.signal.aborted) throw aiStoppedError()
+    const err = unref(error)
     if (err) throw err
-    return { answer: aiAnswer(data?.value ?? data), ctx }
+    return { answer: aiAnswer(data), ctx }
   }
   finally {
     aiController = null
@@ -4408,9 +4434,9 @@ async function aiFetchOptions(key, field) {
   if (!url) return
   try {
     const { data, error } = await useHttp(url, { method: 'POST', data: { Search: '' }, alertError: false })
-    const err = error?.value ?? error
+    const err = unref(error)
     if (err) throw err
-    const found = aiOptions(data?.value ?? data)
+    const found = aiOptions(data)
     if (found.length) ai[field] = found
   }
   catch (err) {

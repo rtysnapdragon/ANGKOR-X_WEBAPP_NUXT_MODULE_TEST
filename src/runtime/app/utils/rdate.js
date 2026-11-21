@@ -68,7 +68,6 @@ import {
 } from "date-fns";
 
 import helper from "./helper";
-
 class RDate {
   constructor(date, end) {
     this._date = date;
@@ -177,7 +176,7 @@ class RDate {
     };
   }
 
-  format(str, options) {
+  _format(str, options) { // original
     let dateDivider = "-";
     const { config } = helper();
 
@@ -195,8 +194,47 @@ class RDate {
     return format(this._currentDate, str, options);
   }
 
+  format(pattern = 'default', options) {
+    const { config } = helper()
+    const lang = config.lang || 'en'
+
+    const datePattern =
+      DATE_FORMATS[pattern] || pattern || config.dateFormat || DATE_FORMATS.default
+
+    const tokens = {
+      dddd: config.getDayOfWeek(getISODay(this._currentDate), lang),
+      ddd: config.getDayOfWeek(getISODay(this._currentDate), lang),
+      mmmm: config.getMonth(getMonthValue(), lang),
+    }
+
+    const render = (date) => {
+      const custom = {
+        dddd: getDayOfWeek(getISODay(date), lang),
+        ddd: getDayOfWeek(getISODay(date), lang),
+        mmmm: config.getMonth(getMonth(date) + 1, lang),
+        mmm: config.getMonth(getMonth(date) + 1, lang),
+      }
+
+      const patternWithTokens = datePattern.replace(
+        /dddd|ddd|mmmm|mmm/g,
+        token => `__${token}__`
+      )
+
+      return format(date, patternWithTokens, options).replace(
+        /__(dddd|ddd|mmmm|mmm)__/g,
+        token => custom[token.slice(2, -2)]
+      )
+    }
+
+    const start = render(this._currentDate)
+
+    if (!this._endData) return start
+
+    return `${start} ${config.dateDivider || '-'} ${render(this._endData)}`
+  }
+
   toString(str, options) {
-    return this.format(str, options);
+    return this._format(str, options);
   }
 
   get _currentDate() {
@@ -207,3 +245,31 @@ class RDate {
 export default (date, endDate) => {
   return new RDate(date, endDate);
 };
+
+
+export const DATE_FORMATS = {
+  default: 'yyyy-MM-dd',
+  date: 'yyyy-MM-dd',
+  dateShort: 'dd/MM/yyyy',
+  dateLong: 'dd MMMM yyyy',
+  dateFull: 'EEEE dd MMMM yyyy',
+
+  time: 'HH:mm:ss',
+  timeShort: 'HH:mm',
+  time12: 'hh:mm a',
+
+  datetime: 'yyyy-MM-dd HH:mm:ss',
+  datetimeShort: 'dd/MM/yyyy HH:mm',
+  datetimeLong: 'dd MMMM yyyy hh:mm a',
+  datetimeFull: 'EEEE dd MMMM yyyy hh:mm:ss a',
+
+  readable: 'dddd dd-mmm-yyyy hh:mm a',
+  readableFull: 'dddd dd-mmmm-yyyy hh:mm a',
+
+  month: 'MMMM',
+  monthShort: 'MMM',
+  monthYear: 'MMMM yyyy',
+
+  year: 'yyyy',
+  iso: "yyyy-MM-dd'T'HH:mm:ssxxx",
+}

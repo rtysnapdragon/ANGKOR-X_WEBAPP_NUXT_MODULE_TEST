@@ -1,5 +1,5 @@
 <template>
-    <USkeleton :ui="ui" :class="newClass" :style="inlineStyle" />
+    <USkeleton v-bind="$attrs" :ui="ui" :class="newClass" :style="inlineStyle" />
 </template>
 
 <script setup>

@@ -4582,6 +4582,7 @@
   "select_row": "Select row",
   "sort": "Sort",
   "reorder": "Reorder",
+  "reorder_row": "Drag to reorder row",
   "rows_per_page": "Rows per page",
   "loading_data": "Loading data",
   "searching_data": "Searching data",

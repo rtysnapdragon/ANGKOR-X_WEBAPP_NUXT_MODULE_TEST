@@ -94,6 +94,7 @@
     "nuxt-swiper": "^2.0.2",
     "query-string": "^9.5.1",
     "remixicon": "^4.9.1",
+    "sortablejs": "^1.15.7",
     "sqlite3": "^6.0.1",
     "swiper": "^14.4.0",
     "tailwindcss": "^4.3.1",

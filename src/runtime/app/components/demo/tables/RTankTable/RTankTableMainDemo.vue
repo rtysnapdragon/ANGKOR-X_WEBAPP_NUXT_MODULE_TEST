@@ -276,10 +276,20 @@ const compactColumns: OCColumn[] = [colName, colDepartment, colStatus, colSalary
 
 /* ------------------------------ shared helpers ----------------------------- */
 
-function log(target: Ref<string[]>, message: string) {
-  target.value = [`${new Date().toLocaleTimeString()}  ${message}`, ...target.value].slice(0, 5)
-}
+// function log(target: Ref<string[]>, message: string) {
+//   target.value = [`${new Date().toLocaleTimeString()}  ${message}`, ...target.value].slice(0, 5)
+// }
+function log(target, message, limit = 5) {
+  if (!target || !Array.isArray(target.value)) {
+    return
+  }
 
+  target.value.unshift(
+    `${new Date().toLocaleTimeString()} ${message}`
+  )
+
+  target.value = target.value.slice(0, limit)
+}
 function describeCheck(payload: unknown) {
   if (Array.isArray(payload)) return `-> ${payload.length} selected`
   return `row #${(payload as DemoUser | undefined)?.id ?? '?'}`
@@ -363,10 +373,10 @@ const lastParams = ref('(none yet)')
 watch(apiAutoload, () => apiMountKey.value++)
 
 const apiConfig = computed<OCApiConfig>(() => ({
-  url: '/api/demo/users',
+  url: '/api/v1/users/list',
   method: 'post',
-  where: 'Result', // unwrap response.Result (then response.Result.dataSrc)
-  filter: { department: apiDepartment.value }, // merged into every request
+  // where: 'Result', // unwrap response.Result (then response.Result.dataSrc)
+  // filter: { department: apiDepartment.value }, // merged into every request
 }))
 
 const apiOptions: RTankTableOptions = {

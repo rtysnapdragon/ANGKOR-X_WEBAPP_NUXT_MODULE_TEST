@@ -33,14 +33,24 @@ const props = defineProps([
   "border",
   "errorType",
 ]);
-const title = computed(() => props.title);
-const subTitle = computed(() => props.subTitle);
+const title = computed(() => normalize(props.title));
+const subTitle = computed(() => normalize(props.subTitle));
 const src = computed(() => props.src);
 const gender = computed(() => props.gender?.toLowerCase());
 const size = computed(() => props.size ?? "s");
 const round = computed(() => props.round ?? "l");
 const border = computed(() => props.border ?? "m");
 const errorType = computed(() => props.errorType ?? "user");
+const normalize = (value) => {
+  if (
+    value == null ||
+    value === 'null' ||
+    value === 'undefined'
+  ) {
+    return '';
+  }
+  return value;
+};
 </script>
 
 <style scoped>

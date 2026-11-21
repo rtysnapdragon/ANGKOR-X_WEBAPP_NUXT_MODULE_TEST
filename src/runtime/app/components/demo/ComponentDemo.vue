@@ -1,4 +1,5 @@
 <template>
+  <RHead :title="title" />
   <div class="rcd">
     <h1>{{ title }}</h1>
     <p class="srd-desc">

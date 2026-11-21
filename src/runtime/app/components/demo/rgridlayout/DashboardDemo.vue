@@ -21,10 +21,10 @@
             </p>
           </div>
           <div class="dashboard-hero__actions">
-            <RBtn v-if="canSwitchDatabase" :to="localePath('/settings/databases')" icon="i-lucide-database" variant="ghost" size="sm">
+            <RBtn :to="localePath('/settings/databases')" icon="i-lucide-database" variant="ghost" size="sm">
               {{ t("rtyCms.dashboard.switch_database") }}
             </RBtn>
-            <RBtn v-if="canSwitchLanguage" :to="localePath('/settings/localization')" icon="i-lucide-globe" variant="ghost" size="sm">
+            <RBtn :to="localePath('/settings/localization')" icon="i-lucide-globe" variant="ghost" size="sm">
               {{ t("rtyCms.dashboard.switch_language") }}
             </RBtn>
           </div>
@@ -247,15 +247,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from "vue"
 
-import { useTenantStore } from "~/stores/tenant"
 import { usePermissionConfig } from "~/composables/usePermissionConfig"
 // import { formatDateTime } from "~/composables/useGlobalFunctions"
 import api from "~/helpers/apis"
 
 const { t } = useI18n()
-const tenant = useTenantStore()
 const rbac = usePermissionConfig()
-const menuStore = useMenuStore()
 
 // ── Grid ─────────────────────────────────────────────────────────────────────
 const gridBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }
@@ -388,9 +385,6 @@ const greeting = computed(() => {
     ? t("rtyCms.dashboard.greeting", { name })
     : t("rtyCms.dashboard.description")
 })
-
-const canSwitchDatabase = computed(() => tenant.canSwitchDatabase.value)
-const canSwitchLanguage = computed(() => tenant.canSwitchLanguage.value)
 
 const modules = computed(() => menuStore.getSidebarMenu)
 

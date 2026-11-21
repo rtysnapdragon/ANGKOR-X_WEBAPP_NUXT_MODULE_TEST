@@ -26,9 +26,9 @@ import { computed, ref } from 'vue'
 
 /** `labelKey` is an i18n key; components translate it, so the store has no i18n dependency. */
 export const THEME_OPTIONS = Object.freeze([
-  { value: 'light', icon: 'ri-sun-line', labelKey: 'theme_light' },
-  { value: 'dark', icon: 'ri-moon-line', labelKey: 'theme_dark' },
-  { value: 'system', icon: 'ri-computer-line', labelKey: 'theme_system' },
+  { value: 'light', icon: 'ri-sun-line', labelKey: 'light' },
+  { value: 'dark', icon: 'ri-moon-line', labelKey: 'dark' },
+  { value: 'system', icon: 'ri-computer-line', labelKey: 'system' },
 ])
 
 export const isThemeMode = (value) => THEME_OPTIONS.some((o) => o.value === value)
