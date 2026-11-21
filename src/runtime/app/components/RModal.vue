@@ -62,7 +62,7 @@
     </UModal>
 
     <!-- Legacy table modal (styled elsewhere) -->
-    <Teleport to="body" v-else>
+    <!-- <Teleport to="body" v-else>
       <div class="r-wrapper-modal" :class="isOpen ? 'modal-ani-show' : ''" v-show="isOpen">
         <div class="overlay" @click.self="isOpen = false">
           <div class="r-modal" :class="props.height">
@@ -74,6 +74,37 @@
             </div>
             <div class="r-modal-body"><slot /></div>
             <div class="r-modal-footer" v-if="$slots.footer"><slot name="footer" /></div>
+          </div>
+        </div>
+      </div>
+    </Teleport> -->
+    <Teleport to="body" v-else>
+      <div
+        class="r-wrapper-modal"
+        :class="isOpen ? 'modal-ani-show' : ''"
+        v-show="isOpen"
+      >
+        <div class="overlay" @click.self="fnOverlayClose()">
+          <div class="ocs-modal" :class="props.height">
+            <div class="r-modal-header" v-if="$slots.header">
+              <div class="title">
+                <slot name="header" />
+              </div>
+              <div
+                :class="['btn-close', noClose ? '!hidden' : '']"
+                @click="isOpen = false"
+              >
+                <i class="ri-close-large-fill"></i>
+              </div>
+            </div>
+
+            <div class="r-modal-body" ref="ref_body_h">
+              <slot />
+            </div>
+
+            <div class="r-modal-footer" v-if="$slots.footer">
+              <slot name="footer" />
+            </div>
           </div>
         </div>
       </div>
@@ -135,7 +166,10 @@ const isFs = computed(() => isFullscreen.value || props.isFullScreen)
 function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value
 }
-
+function fnOverlayClose() {
+  if (props.preventClose || props.preventClose == "") return;
+  isOpen.value = false;
+}
 // Hook classes per UModal slot; caller's `ui` is appended per slot, not replacing.
 // `ref_content_h` is relied on by RTable for scroll calculation — keep it.
 const mergedUI = computed(() => {
@@ -311,6 +345,71 @@ function onCloseModal() {
   .rm-content:not(.rm-content--fullscreen) {
     max-width: calc(100vw - 1rem);
     border-radius: var(--rm-radius, var(--r-lg));
+  }
+}
+
+
+.r-wrapper-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 100000;
+
+  .overlay {
+    width: 100%;
+    height: 100%;
+    background: #0000004e;
+    padding: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    .r-modal {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-card) !important;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 14px;
+    }
+  }
+
+  &.modal-ani-show {
+    .overlay {
+      animation: show_overlay 0.25s ease-in-out;
+      opacity: 1;
+
+      @keyframes show_overlay {
+        from {
+          opacity: 0;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      .r-modal {
+        animation: show_modal 0.25s ease-in-out;
+        opacity: 1;
+        transform: scale(1);
+
+        @keyframes show_modal {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      }
+    }
   }
 }
 </style>

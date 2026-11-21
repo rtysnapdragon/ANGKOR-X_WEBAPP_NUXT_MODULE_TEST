@@ -1088,7 +1088,7 @@ onMounted(async () => {
   // already populated resultDataList/dataSrc/total before this hook ran.
 
   if (props.storeId && rTableStore) {
-    rTableStore.init(props.storeId, {
+    rTableStore.setRow(props.storeId, {
       columns: props.columns,
       options: options.value
     })
@@ -1620,7 +1620,7 @@ watch(
     if (!import.meta.client) return
 
     Object.entries(tables).forEach(([id, table]) => {
-      rTableStore.patch(id,{
+      rTableStore.setData(id,{
         page: table.page,
         pageSize: table.pageSize,
         })
@@ -1632,7 +1632,7 @@ watch(
 // ─── Watchers ─────────────────────────────────────────────────────────────
 watch([data, dataSrc, total, loading, page, pageSize, searching, orderBy, orderDir, columnFilters], () => {
   if (!props.storeId || !rTableStore) return
-  rTableStore.patch(props.storeId, {
+  rTableStore.setData(props.storeId, {
     data:     data.value,
     dataSrc:  dataSrc.value,
     total:    total.value,

@@ -1,5 +1,4 @@
 <template>
-  <div class="demo-page">
     <!-- Tabs: each panel is mounted with v-if, so switching remounts the table and `state-key` restores it. -->
     <div class="demo-tabs" role="tablist" aria-label="RTankTable demos" @keydown.left.prevent="tab = 'local'" @keydown.right.prevent="tab = 'api'">
       <button
@@ -222,13 +221,12 @@
         </template>
       </RTankTable>
     </section>
-  </div>
 </template>
 
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import type { OCApiConfig, OCColumn, OCLegacyRender, OCReorderDiff, RTankTableOptions } from '../../../rtanktable/RTankTable.vue'
-import { createUser, createUsers, DEPARTMENTS, type DemoUser } from './demo-users'
+import { createUser, createUsers, DEPARTMENTS, type DemoUser } from './demo-users.js'
 
 /** The subset of RTankTable's exposed API used here. */
 interface RTankTableApi {

@@ -1,383 +1,231 @@
 <template>
-  <!--
-    UCheckbox in NuxtUI v4 renders its internal checkbox via Reka UI primitives.
-    The [data-slot="base"] element IS in the component's DOM tree (not teleported),
-    so global (non-scoped) CSS targeting data-slot attributes works fine here.
-    We inject .rcb-base onto the input via inputClass so we have a stable hook.
-  -->
-  <UCheckbox
-    v-model="select"
-    :ui="mergedUI"
-    :label="label"
-    :name="props.name"
-    :help="props.help"
-    :required="props.required"
-    :indeterminate="props.indeterminate"
-    :disabled="props.disabled"
-    :value="props.value"
-    :id="computedId"
-    :color="props.color"
-    :icon="props.icon ?? 'ri-check-line'"
-    v-bind="$attrs"
-    :style="{ '--rcb-radius': radiusMap[rounded] }"
+  <label
+    class="r-checkbox"
+    :class="[
+      `r-checkbox--${size}`,
+      `r-checkbox--${variant}`,
+      { 'is-checked': checked, 'is-disabled': disabled, 'is-nowrap': nowrap, 'has-text': hasText() },
+      rootAttrs.class,
+    ]"
+    :style="rootAttrs.style"
   >
-    <template v-if="$slots.label" #label>
-      <slot name="label" />
-    </template>
-  </UCheckbox>
+    <input
+      :id="computedId"
+      ref="el"
+      type="checkbox"
+      class="r-checkbox__input"
+      :name="name"
+      :value="isPrimitive(value) ? value : undefined"
+      :checked="checked"
+      :disabled="disabled"
+      :required="required"
+      :aria-checked="indeterminate ? 'mixed' : undefined"
+      :aria-describedby="hasDesc() ? `${computedId}-desc` : undefined"
+      v-bind="inputAttrs"
+      @change="onChange"
+    />
+
+    <span v-if="hasText()" class="r-checkbox__text">
+      <span v-if="hasLabel()" class="r-checkbox__label" :title="nowrap && typeof label === 'string' ? label : undefined">
+        <slot name="label">{{ label }}</slot>
+        <span v-if="required" class="r-checkbox__required" aria-hidden="true">*</span>
+      </span>
+      <span v-if="hasDesc()" :id="`${computedId}-desc`" class="r-checkbox__desc">
+        <slot name="description">{{ descText }}</slot>
+      </span>
+    </span>
+  </label>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-const select = defineModel()
+import { computed, nextTick, onMounted, ref, useAttrs, useId, useSlots, watch } from 'vue'
+
+defineOptions({ inheritAttrs: false })
+
+/**
+ * v-model: boolean, or an array (then `value` is added to / removed from it).
+ * class/style go to the root <label>; every other attribute goes to the <input>.
+ */
+const model = defineModel()
+const emit = defineEmits(['change'])
 
 const props = defineProps({
-  ui:            { type: Object,  default: () => ({}) },
-  label:         { type: String,  default: undefined  },
-  name:          { type: String,  default: undefined  },
-  help:          { type: String,  default: undefined  },
-  required:      { type: Boolean, default: false      },
-  value:         { type: [String, Number, Boolean, Object], default: undefined },
-  disabled:      { type: Boolean, default: false      },
-  id:            { type: String,  default: undefined  },
-  indeterminate: { type: Boolean, default: false      },
-  size:          { type: String,  default: 'md'       }, // 'sm' | 'md' | 'lg'
-  color:         { type: String,  default: 'primary'   }, // 'primary' | 'accent' | 'danger' | 'info' | 'warning' | 'muted' | 'none'
-  rounded:       { type: Boolean, default: false      },
-  hasBorder:     { type: Boolean, default: false      },
-  icon:          { type: String,  default: 'ri-check-line' },
-  variant:       { type: String,  default: 'list' },    // card, list
+  label: { type: String, default: undefined },
+  description: { type: String, default: undefined },
+  help: { type: String, default: undefined }, // alias of `description`
+  name: { type: String, default: undefined },
+  value: { type: [String, Number, Boolean, Object], default: undefined },
+  id: { type: String, default: undefined },
+  required: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false },
+  indeterminate: { type: Boolean, default: false },
+  nowrap: { type: Boolean, default: false },
+  size: { type: String, default: 'md', validator: (v) => ['sm', 'md', 'lg'].includes(v) },
+  variant: { type: String, default: 'list', validator: (v) => ['list', 'card'].includes(v) },
 })
 
-const computedId = computed(() => props.id)
-const rounded = computed(() => props.rounded ? 'md' : 'none')
-const radiusMap = {
-  '2xs': 'var(--rounded-2xs)',
-  xs: 'var(--rounded-xs)',
-  sm: 'var(--rounded-s)',
-  md: 'var(--rounded-m)',
-  lg: 'var(--rounded)',
-  xl: 'var(--border-radius)',
-  full: '9999px',
+const slots = useSlots()
+const attrs = useAttrs()
+const el = ref()
+
+const rootAttrs = computed(() => ({ class: attrs.class, style: attrs.style }))
+const inputAttrs = computed(() => {
+  const { class: _c, style: _s, ...rest } = attrs
+  return rest
+})
+
+const uid = useId() // SSR-safe (no Math.random hydration mismatch)
+const computedId = computed(() => props.id || `r-checkbox-${uid}`)
+const descText = computed(() => props.description ?? props.help)
+
+const isPrimitive = (v) => v == null || ['string', 'number', 'boolean'].includes(typeof v)
+const hasLabel = () => !!(props.label || slots.label)
+const hasDesc = () => !!(descText.value || slots.description)
+const hasText = () => hasLabel() || hasDesc()
+
+const checked = computed(() =>
+  Array.isArray(model.value) ? model.value.some((v) => Object.is(v, props.value)) : !!model.value,
+)
+
+function syncDom() {
+  if (!el.value) return
+  el.value.checked = checked.value // controlled: re-sync if the parent rejected the change
+  el.value.indeterminate = props.indeterminate
 }
-/*
- * ui prop for UCheckbox v4:
- * All values must be plain strings (NuxtUI v4 uses tv() / tailwind-variants).
- * We inject our own class names as the ONLY value per slot — no Tailwind classes
- * since TW4 isn't working in this project; everything is driven by the global SCSS.
- *
- * Key slots:
- *   root      — outermost wrapper div
- *   base      — the <input type="checkbox"> element itself
- *   indicator — the checkmark container shown when checked
- *   icon      — the SVG/icon inside indicator
- *   inner     — wrapper around label + help
- *   label     — the <label> element
- *   help      — the help text
- */
-const mergedUI = computed(() => {
-  const colorClass = `rcb--${props.color}`
-  const sizeClass  = `rcb--${props.size}`
 
-  const base = {
-    root:      `rcb-root ${sizeClass} ${colorClass}`,
-    container:  'rcb-container',
-    base:      [`rcb-base`, `rcb--rounded-${rounded.value}`,
-      "border border-(--color-w-b-3)",
-      "data-[state=checked]:bg-primary/10",
-      "data-[state=checked]:border-primary",
-      "data-[state=checked]:text-primary",
-      "data-[state=indeterminate]:bg-primary/10",
-      "data-[state=indeterminate]:border-primary",
-    ].join(" "),
-    indicator: 'rcb-indicator',
-    icon:      'rcb-icon',
-    inner:     'rcb-inner',
-    label:     'rcb-label',
-    help:      'rcb-help',
-    required:  'rcb-required',
+function onChange(e) {
+  const on = e.target.checked
+  if (Array.isArray(model.value)) {
+    model.value = on
+      ? [...model.value, props.value]
+      : model.value.filter((v) => !Object.is(v, props.value))
+  } else {
+    model.value = on
   }
+  emit('change', e)
+  nextTick(syncDom)
+}
 
-  // Safe merge: caller can override any slot string
-  return { ...base, ...(props.ui ?? {}) }
-})
+watch(() => props.indeterminate, syncDom, { flush: 'post' })
+onMounted(syncDom)
 
-// Bug fix: was `mounted()` — should be `onMounted()`
-// Nothing needed here for now; kept as a hook for future use.
-onMounted(() => {})
+defineExpose({ focus: () => el.value?.focus() })
 </script>
 
 <style lang="scss">
-/* ════════════════════════════════════════════════════════════════════════════
-   RCheckbox — global SCSS (no scoped, no Tailwind)
-   Targets UCheckbox's internal [data-slot] and [data-state] attributes.
+.r-checkbox {
+  --rc-accent: var(--color-primary, #2563eb);
+  --rc-size: 16px;
+  --rc-ease: cubic-bezier(0.2, 0, 0, 1);
+  --rc-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round' d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --rc-dash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' d='M6 12h12'/%3E%3C/svg%3E");
 
-   WHY GLOBAL (not scoped)?
-   UCheckbox renders its internals inline (not teleported), so the elements
-   ARE in the DOM tree. However, [data-slot] attributes are on UCheckbox's
-   own child elements. Vue's scoped [data-v-xxx] is only stamped on elements
-   this component renders directly — UCheckbox's internals don't get it.
-   So :deep() in a scoped block would need the attribute to be present, which
-   it is — but the generated selector becomes:
-     [data-slot="base"][data-v-xxx]   ← never matches (UCheckbox owns that element)
-   Global CSS with our .rcb-root namespace is the correct approach.
-   ════════════════════════════════════════════════════════════════════════════ */
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--color-w-b-1);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 
-// ── Color map — maps prop `color` to SARIKA tokens ─────────────────────────
-$rcb-colors: (
-  'accent':  var(--c-accent),
-  'success': var(--c-success),
-  'danger':  var(--c-danger),
-  'info':    var(--c-info),
-  'warning': var(--c-accent-2),
-);
+  &:not(.has-text) { grid-template-columns: auto; }
 
-// ── Root wrapper ────────────────────────────────────────────────────────────
-.rcb-root {
-  position:    relative;
-  display:     flex;
-  align-items: flex-start;
-  gap:         var(--sp-2);
-  font-family: var(--font-400,var(--font-fallback));
-  width:       100%;
+  &--sm { --rc-size: 14px; font-size: 12px; }
+  &--lg { --rc-size: 19px; font-size: 14px; }
 
-  // ── Sizes ────────────────────────────────────────────────────────────────
-  &.rcb--sm {
-    --rcb-size:        14px;
-    --rcb-radius:      3px;
-    --rcb-icon-size:   8px;
-    --rcb-label-size:  0.75rem;
-  }
-  &.rcb--md {
-    --rcb-size:        16px;
-    --rcb-radius:      4px;
-    --rcb-icon-size:   10px;
-    --rcb-label-size:  0.8125rem;
-  }
-  &.rcb--lg {
-    --rcb-size:        18px;
-    --rcb-radius:      5px;
-    --rcb-icon-size:   12px;
-    --rcb-label-size:  0.875rem;
-  }
+  // ── box ──
+  &__input {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    flex: none;
+    width: var(--rc-size);
+    height: var(--rc-size);
+    margin: 0;
+    font-size: inherit;
+    border: 1.5px solid var(--color-w-b-3);
+    border-radius: 5px;
+    background: var(--c-surface, var(--bg-content));
+    cursor: inherit;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease, transform 0.15s var(--rc-ease);
 
-  // ── Color: map --rcb-color from color prop class ────────────────────────
-  @each $name, $token in $rcb-colors {
-    &.rcb--#{$name} { --rcb-color: #{$token}; }
-  }
-
-  // ── Disabled state ────────────────────────────────────────────────────────
-  &:has([data-disabled]) {
-    opacity: 0.55;
-    cursor:  not-allowed;
-    pointer-events: none;
-  }
-}
-
-// ── The checkbox input element ─────────────────────────────────────────────
-//
-// UCheckbox renders [data-slot="base"] on the actual <input type="checkbox">.
-// We use our injected .rcb-base class as the primary hook (more stable than
-// relying solely on data-slot, in case NuxtUI changes that in a patch).
-//
-
-// .rcb-base {
-//   border-radius: var(--rcb-radius);
-// }
-
-.rcb-base {
-  border-radius: var(--rcb-radius, var(--rounded-m)) !important;
-}
-
-.rcb-base,
-.rcb-root [data-slot="base"] {
-  // Reset browser and NuxtUI defaults
-  all:          unset;
-  box-sizing:   border-box;
-  appearance:   none;
-  -webkit-appearance: none;
-  position:     relative;
-  display:      inline-flex;
-  align-items:  center;
-  justify-content: center;
-  flex-shrink:  0;
-
-  // Sizing from CSS custom property (set by size variant)
-  width:        var(--rcb-size, 16px);
-  height:       var(--rcb-size, 16px);
-  min-width:    var(--rcb-size, 16px);
-  
-
-  // Surface
-  border:        2px solid var(--color-w-b-3);
-  border-radius: var(--rcb-radius, 4px) ;
-  background:    transparent;
-  cursor:        pointer;
-  overflow:      visible; // allow focus ring to bleed out
-
-  // &.rcb--rounded-2xs { border-radius: var(--rounded-2xs) !important; }
-  // &.rcb--rounded-xs  { border-radius: var(--rounded-xs) !important; }
-  // &.rcb--rounded-sm  { border-radius: var(--rounded-s) !important; }
-  // &.rcb--rounded-md  { border-radius: var(--rounded-m) !important; }
-  // &.rcb--rounded-lg  { border-radius: var(--rounded) !important; }
-  // &.rcb--rounded-xl  { border-radius: var(--border-radius) !important; }
-
-  transition:
-    border-color  var(--t-fast) var(--ease-out),
-    background    var(--t-fast) var(--ease-out),
-    box-shadow    var(--t-fast) var(--ease-out);
-
-  // ── Checkmark via ::before (remixicon glyph) ──────────────────────────
-  // ri-check-line = \eb7a
-  // ri-subtract-line (indeterminate) = \f1ae
-  &::before {
-    content:     '\eb7a';    // ri-check-line
-    font-family: 'remixicon' !important;
-    font-style:  normal;
-    font-size:   var(--rcb-icon-size, 10px);
-    font-weight: 700;
-    line-height: 1;
-    color:       var(--rcb-color, var(--c-accent));
-    display:     flex;
-    align-items: center;
-    justify-content: center;
-    width:       100%;
-    height:      100%;
-    padding: 3px;
-    opacity:     0;
-    transform:   scale(0.5);
-    transition:
-      opacity   var(--t-fast) var(--ease-out),
-      transform var(--t-fast) var(--ease-out);
-  }
-
-  // ── Checked state ────────────────────────────────────────────────────────
-  &:checked,
-  &[data-state="checked"],
-  &[aria-checked="true"] {
-    border-color: var(--rcb-color, var(--c-accent));
-    background:   color-mix(in srgb, var(--rcb-color, var(--c-accent)) 8%, var(--c-surface));
-    box-shadow:   0 0 0 0px transparent; // ready for focus extension
-
-    &::before {
-      opacity:   1;
-      transform: scale(1);
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      -webkit-mask: var(--rc-check) center / 72% no-repeat;
+      mask: var(--rc-check) center / 72% no-repeat;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity 0.15s ease, transform 0.2s var(--rc-ease);
     }
-  }
-
-  // ── Indeterminate (minus) ─────────────────────────────────────────────
-  &[data-state="indeterminate"],
-  &:indeterminate {
-    border-color: var(--rcb-color, var(--c-accent));
-    background:   color-mix(in srgb, var(--rcb-color, var(--c-accent)) 8%, var(--c-surface));
-
-    &::before {
-      content:   '\f1ae'; // ri-subtract-line
-      opacity:   1;
-      transform: scale(1);
-    }
-  }
-
-  // ── Hover ─────────────────────────────────────────────────────────────
-  &:hover:not(:checked):not([data-state="checked"]):not(:disabled) {
-    border-color: color-mix(in srgb, var(--rcb-color, var(--c-accent)) 50%, var(--color-w-b-3));
-    background:   color-mix(in srgb, var(--rcb-color, var(--c-accent)) 5%, var(--c-surface));
-  }
-
-  // ── Focus ring ────────────────────────────────────────────────────────
-  // Uses ::after so we don't conflict with ::before checkmark
-  &:focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 3px color-mix(in srgb, var(--rcb-color, var(--c-accent)) 22%, transparent);
-  }
-
-  // ── Disabled ──────────────────────────────────────────────────────────
-  &:disabled,
-  &[data-disabled] {
-    cursor:       not-allowed;
-    opacity:      0.5;
-    border-color: var(--color-w-b-3);
-    background:   var(--bg-tertiary);
-  }
-}
-
-// ── NuxtUI's indicator wrapper (shown when checked; holds the SVG icon) ───
-// We hide NuxtUI's built-in SVG icon entirely and rely on our ::before glyph.
-// This prevents double checkmarks (our remixicon glyph + NuxtUI's SVG).
-.rcb-indicator,
-.rcb-root [data-slot="indicator"] {
-  display: none !important;
-}
-
-// .rcb-container{
-//   display: flex;
-//   align-items: center;
-//   flex-direction: row-reverse !important;
-//   // background-color: burlywood;
-// }
-
-// ── Inner wrapper (label + help stack) ──────────────────────────────────────
-.rcb-inner,
-.rcb-root [data-slot="inner"] {
-  display:        flex;
-  flex-direction: column;
-  gap:            2px;
-  margin-left:    0; // reset NuxtUI default ms-*
-  padding-top:    1px; // optical alignment with checkbox top
-}
-
-// ── Label ────────────────────────────────────────────────────────────────
-.rcb-label,
-.rcb-root [data-slot="label"] {
-  display:       block;
-  font-size:     var(--rcb-label-size, 0.8125rem);
-  font-weight:   500;
-  color:         var(--color-w-b-3);
-  line-height:   1.4;
-  cursor:        pointer;
-  user-select:   none;
-  font-family:   var(--font-400,var(--font-fallback));
-
-  // When disabled
-  .rcb-root:has([data-disabled]) & {
-    cursor: not-allowed;
-    color:  var(--c-muted);
-  }
-}
-
-// ── Help text ─────────────────────────────────────────────────────────────
-.rcb-help,
-.rcb-root [data-slot="help"] {
-  font-size:  0.72rem;
-  color:      var(--c-muted);
-  line-height: 1.4;
-  font-family: var(--font-400,var(--font-fallback));
-}
-
-// ── Required asterisk ─────────────────────────────────────────────────────
-.rcb-required,
-.rcb-root [data-slot="required"] {
-  font-size: 0.72rem;
-  color:     var(--c-danger);
-}
-
-// ── Dark mode adjustments ─────────────────────────────────────────────────
-.dark {
-  .rcb-base,
-  .rcb-root [data-slot="base"] {
-    background:   var(--c-surface);
-    border-color: var(--color-w-b-2);
 
     &:checked,
-    &[data-state="checked"] {
-      background: color-mix(in srgb, var(--rcb-color, var(--c-accent)) 12%, var(--c-surface));
+    &:indeterminate {
+      border-color: var(--rc-accent);
+      background: var(--rc-accent);
+
+      &::after { opacity: 1; transform: scale(1); }
+    }
+
+    &:indeterminate::after {
+      -webkit-mask-image: var(--rc-dash);
+      mask-image: var(--rc-dash);
+    }
+
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--rc-accent) 45%, transparent);
+      outline-offset: 2px;
     }
   }
 
-  .rcb-label,
-  .rcb-root [data-slot="label"] {
-    color: var(--color-w-b-4);
+  &.has-text &__input { margin-top: calc((1.5em - var(--rc-size)) / 2); }
+
+  &:hover:not(.is-disabled) &__input:not(:checked):not(:indeterminate) {
+    border-color: var(--rc-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--rc-accent) 12%, transparent);
   }
+  &:active:not(.is-disabled) &__input { transform: scale(0.9); }
+
+  // ── text ──
+  &__text { display: grid; min-width: 0; }
+  &__label { display: block; line-height: 1.5; overflow-wrap: anywhere; }
+  &__desc { display: block; font-size: 0.92em; line-height: 1.4; color: var(--color-w-b-2); }
+  &__required { margin-left: 3px; color: var(--c-danger, #dc2626); }
+
+  &.is-nowrap &__label,
+  &.is-nowrap &__desc {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+  }
+
+  &.is-disabled { cursor: not-allowed; opacity: 0.55; }
+
+  // ── card variant ──
+  &--card {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-w-b-4);
+    border-radius: 10px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    &:hover:not(.is-disabled) { border-color: color-mix(in srgb, var(--rc-accent) 50%, var(--color-w-b-4)); }
+    &.is-checked {
+      border-color: var(--rc-accent);
+      background: color-mix(in srgb, var(--rc-accent) 6%, transparent);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r-checkbox, .r-checkbox__input, .r-checkbox__input::after { transition: none !important; }
 }
 </style>

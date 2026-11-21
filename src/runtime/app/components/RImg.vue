@@ -1,19 +1,17 @@
-<script setup>
-import { UseDefaultImageStore } from "~/stores/defaultImage"
-
+<script>
 const FITS = ["cover", "contain", "fill", "none", "scale-down"]
 const ROUNDED = ["none", "sm", "md", "lg", "xl", "2xl", "full"]
+</script>
+
+<script setup>
+import { UseDefaultImageStore } from "../stores/defaultImage"
 
 const props = defineProps({
   src: { type: String, default: undefined },
   alt: { type: String, default: "" },
-  /** Fallback image set from the store (img, user, avatar, female, male, banner, product, trBg, or a registered key). */
   type: { type: String, default: "img" },
-  /** Overrides the store fallback for this instance. */
   fallbackSrc: { type: String, default: undefined },
-  /** Enables initials fallback when `type` is an avatar type. */
   name: { type: String, default: undefined },
-  /** Hints for file-type detection when the URL has no extension (blob:, signed URLs). */
   fileName: { type: String, default: undefined },
   mime: { type: String, default: undefined },
   width: { type: [Number, String], default: undefined },
@@ -26,24 +24,14 @@ const props = defineProps({
   priority: { type: Boolean, default: false },
   srcset: { type: String, default: undefined },
   sizes: { type: String, default: undefined },
-  crossorigin: {
-    type: String,
-    default: undefined,
-    validator: (v) => ["anonymous", "use-credentials"].includes(v),
-  },
+  crossorigin: { type: String, default: undefined, validator: (v) => ["anonymous", "use-credentials"].includes(v) },
   referrerpolicy: { type: String, default: undefined },
-  decoding: {
-    type: String,
-    default: "async",
-    validator: (v) => ["async", "sync", "auto"].includes(v),
-  },
+  decoding: { type: String, default: "async", validator: (v) => ["async", "sync", "auto"].includes(v) },
   draggable: { type: Boolean, default: false },
   skeleton: { type: Boolean, default: true },
-  /** Auto-retry count before falling back. */
   retry: { type: Number, default: 0 },
   retryDelay: { type: Number, default: 1500 },
   showLabel: { type: Boolean, default: true },
-  /** Class hooks: { root, img, skeleton, tile, label } */
   ui: { type: Object, default: () => ({}) },
 })
 

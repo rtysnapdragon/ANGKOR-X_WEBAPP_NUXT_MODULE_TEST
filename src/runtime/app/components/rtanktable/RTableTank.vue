@@ -1,5 +1,5 @@
 <template>
-  <div class="rt-wrapper" ref="refWrap">
+  <div class="rt-wrapper" ref="refWrap" :class="{ 'is-mobile': screen.isMobile }">
     <slot name="headerTable" v-if="$slots.headerTable" />
 
     <OCTableHeader :options="opts" v-model:selected="record" v-model:searching="searching"
@@ -17,7 +17,7 @@
       <div class="rt-loader flex justify-center items-center" v-if="!$slots.loading && loading">
         <RLoading :loading="true" />
       </div>
-      <div class="rt-card-scroll" v-if="!$slots.loading || !loading">
+      <div class="rt-card-scroll" ref="refCardScroll" v-if="!$slots.loading || !loading">
         <slot name="template" v-bind="[dataTemplate]" />
       </div>
       <div class="flex justify-center items-center absolute top-0 w-full h-full"
@@ -57,10 +57,17 @@
               <th v-for="(h, i) in heads" :key="h.id" :data-col="h.id" :class="thCls(h)" :style="pin(i)"
                 :aria-sort="ARIA[h.column.getIsSorted()]"
                 @click="h.column?.getCanSort() && h.column.toggleSorting()">
-                <input v-if="h.id === SEL" type="checkbox" class="oc-checkbox tbl-checkbox" :checked="nSel > 0"
-                  :class="{ minus: nSel > 0 && nSel < rows?.length }" @click.stop @change="pageSelect(nSel === 0)" />
+                <label v-if="h.id === SEL" class="r-table-checkbox oc-checkbox  tbl-checkbox">
+                  <input  type="checkbox" :checked="nSel > 0"
+                    :class="{ minus: nSel > 0 && nSel < rows?.length }" @click.stop @change="pageSelect(nSel === 0)" />
+                    <span class="r-table-checkbox__box"> <i class="ri-check-line" /> </span>
+                </label>
                 <template v-else>
-                  <span v-html="mt(h.column).title" />
+                  <!-- <span v-html="mt(h.column).title" /> -->
+                  <slot v-if="mt(h.column).headerSlot" :name="mt(h.column).headerSlot"
+                  v-bind="{ column: h.column, title: mt(h.column).title }" />
+                  <HeadFn v-else-if="mt(h.column).headerFn" :column="h.column" />
+                  <span v-else v-html="mt(h.column).title" />
                   <span v-if="h.column?.getCanSort()" class="rt-order" :class="h.column.getIsSorted()">
                     <i class="ri-arrow-up-s-fill"></i><i class="ri-arrow-down-s-fill"></i>
                   </span>
@@ -84,8 +91,8 @@
             <template v-for="row in rows" :key="row.id">
               <tr class="rt-row"
                :class="{ selected: row.getIsSelected(), 'dtr-expanded': row.getIsExpanded() }">
-                <td v-for="(cell, ci) in row.getVisibleCells()" :key="cell.id" :style="pin(ci)"
-                  :class="[mt(cell.column).className, { 'dtr-control': cell.column.id === ctlHost && collapsed?.length }]">
+                <td v-for="(cell, ci) in row.getVisibleCells()" :key="cell.id" :style="[pin(ci), colStyle(mt(cell.column))]"
+                  :class="[mt(cell.column).className, cellCls(cell, row), { 'dtr-control': cell.column.id === ctlHost && collapsed?.length }]">
                   <RTooltip v-if="cell.column.id === ctlHost && collapsed?.length" class="rt-expand-wrap"
                     :text="row.getIsExpanded() ? t('collapse') : t('expand')">
                     <button type="button" class="rt-expand" :aria-expanded="row.getIsExpanded()"
@@ -95,12 +102,20 @@
                   </RTooltip>
 
                   <!-- checkbox handle -->
+                  <!-- <template v-if="cell.column.id === SEL">
+                    <slot name="checkbox" v-bind="sp(cell, row)" />
+                    <input type="checkbox" class="oc-checkbox" :checked="row.getIsSelected()" :disabled="!row.getCanSelect()"
+                      @change="onRowCheck(row, $event.target.checked)" />
+                  </template> -->
+
+                  <!-- Checkbox handle -->
                   <template v-if="cell.column.id === SEL">
                     <slot name="checkbox" v-bind="sp(cell, row)" />
-                    <input type="checkbox" class="oc-checkbox" :checked="row.getIsSelected()"
-                      @change="onRowCheck(row, $event.target.checked)" />
+                    <label class="r-table-checkbox oc-checkbox">
+                      <input type="checkbox" :checked="row.getIsSelected()" :disabled="!row.getCanSelect()" @change="onRowCheck(row, $event.target.checked)" />
+                      <span class="r-table-checkbox__box"> <i class="ri-check-line" /> </span>
+                    </label>
                   </template>
-
                   <!-- drag handle -->
                   <RTooltip v-else-if="mt(cell.column).kind === 'drag'" class="inline-flex align-middle" :text="t('reorder_row')">
                     <span class="oc-drag-handle" :class="{ disabled: !canReorderNow }"
@@ -115,9 +130,12 @@
                     class="rt-clamp line-clamp-2" @mouseenter="hoverClamp" @click="openDetail($event, cell.getValue())">
                     {{ cell.getValue() }}
                   </div>
-                  <slot v-else-if="mt(cell.column).slot" :name="mt(cell.column).slot" v-bind="sp(cell, row)" />
+                  <!-- <slot v-else-if="mt(cell.column).slot" :name="mt(cell.column).slot" v-bind="sp(cell, row)" /> V1
                   <span v-else-if="mt(cell.column).fn" v-html="html(cell, row)" />
-                  <template v-else>{{ cell.getValue() ?? "" }}</template>
+                  <template v-else>{{ cell.getValue() ?? "" }}</template> -->
+                  <slot v-else-if="mt(cell.column).slot" :name="mt(cell.column).slot" v-bind="sp(cell, row)">{{ fmt(cell) }}</slot>
+                  <CellFn v-else-if="mt(cell.column).fn" :cell="cell" :row="row" />
+                  <template v-else>{{ fmt(cell) }}</template>
                 </td>
               </tr>
 
@@ -134,9 +152,12 @@
                           <div v-if="mt(cell.column).isLineClamp && isNotEmpty(cell.getValue())"
                             class="rt-clamp line-clamp-2" @mouseenter="hoverClamp"
                             @click="openDetail($event, cell.getValue())">{{ cell.getValue() }}</div>
-                          <slot v-else-if="mt(cell.column).slot" :name="mt(cell.column).slot" v-bind="sp(cell, row)" />
+                          <!-- <slot v-else-if="mt(cell.column).slot" :name="mt(cell.column).slot" v-bind="sp(cell, row)" /> V1
                           <span v-else-if="mt(cell.column).fn" v-html="html(cell, row)" />
-                          <template v-else>{{ cell.getValue() ?? "" }}</template>
+                          <template v-else>{{ cell.getValue() ?? "" }}</template> -->
+                          <slot v-else-if="mt(cell.column).slot" :name="mt(cell.column).slot" v-bind="sp(cell, row)">{{ fmt(cell) }}</slot>
+                          <CellFn v-else-if="mt(cell.column).fn" :cell="cell" :row="row" />
+                          <template v-else>{{ fmt(cell) }}</template>
                         </span>
                       </li>
                     </template>
@@ -200,7 +221,7 @@
       :page-count="record" :total="total" v-model:page="page" @change-pagination="changePagination"
       v-model:selected="record" @select-records="fnSelectRecord(record)" :loading="loading" />
 
-    <RModal v-model="isLineClamp">
+    <RModal v-model="isLineClamp" :for-table="true">
       <div class="detail-container">
         <div class="btn-close-detail" @click="isLineClamp = false"><i class="ri-close-large-fill"></i></div>
         <div>{{ dataDetail }}</div>
@@ -210,7 +231,7 @@
 </template>
 
 <script setup>
-import { camelize, getCurrentInstance, onMounted, useAttrs } from "vue";
+import { camelize, getCurrentInstance, h, isVNode, onMounted, useAttrs } from "vue";
 import { createAtom } from "@tanstack/vue-store";
 import { useTable,  tableFeatures,  sortFns, filterFns,
   rowSortingFeature, rowPaginationFeature, rowSelectionFeature, rowExpandingFeature,  globalFilteringFeature, columnFilteringFeature, columnVisibilityFeature,
@@ -219,6 +240,8 @@ import { useTable,  tableFeatures,  sortFns, filterFns,
   createPaginatedRowModel,
 } from "@tanstack/vue-table";
 import { debounce, get, isEqual, sum } from "lodash-es";
+
+const screen = useScreenStore();
 
 const SEL = "_sel", CTL = "_ctl", ACT = "_act", DRG = "_drg";
 const CTL_W = 36; // width the expand control adds once columns collapse
@@ -250,11 +273,21 @@ const refBody = ref();
 onBeforeUnmount(() => off.forEach((fn) => fn()));
 
 // ───────────── config ─────────────
-const opts = computed(() => ({
+const _opts = computed(() => ({
   isScroll: true, scrollX: false, info: true, searching: true, paging: true, reload: true,
   order: { idx: 0, dir: "" }, lengthMenu: [10, 25, 50, 100], showNoData: true, ...props.options,
 }));
-
+const opts = computed(() => ({
+  isScroll: true, scrollY: 400, scrollX: false, info: true, destroy: true, retrieve: true,
+  searching: true, paging: true, reload: true,
+  order: { idx: 0, dir: "" },
+  responsive: "auto",
+  lengthMenu: [10, 25, 50, 100],
+  pageLength: props.api ? 1000 : 10,
+  layout: { topStart: null, topEnd: null, bottomStart: null, bottomEnd: null },
+  showNoData: true,
+  ...props.options,
+}));
 const api = computed(() => {
   if (!props.api) return;
   const a = typeof props.api === "string" ? { url: props.api, method: "get" } : props.api;
@@ -266,7 +299,7 @@ const pkOnly = computed(() => !!props.selectAllPk && !!api.value); // select hol
 const hasBtns = computed(() => !props.hideGroupBtnSelect && (!!props.selectAllPk || (hasCheck.value && !api.value)));
 // const hasBtns = computed(() => !props.hideGroupBtnSelect && hasCheck.value );
 // ───────────── columns (DataTables-style config → ColumnDef) ─────────────
-const cols = computed(() => {
+const _cols = computed(() => {
   const fixed = !!opts.value.fixedColumns;
   const hasDrag = !!opts.value.rowReorder && !api.value;
   const dragOff = opts.value.rowReorder ? 1 : 0; // allow data api rowRecorder 
@@ -294,6 +327,49 @@ const cols = computed(() => {
     ].filter(Boolean).join(" "),
   }));
    return hasDrag
+    ? [{ ...fixedCol({ id: DRG, kind: "drag", className: "min-width all oc-drag-col" }), idx: -1, slot: "", fn: null }, ...mapped]
+    : mapped;
+});
+const NUM = new Set(["number", "currency", "percent"]);
+const isTpl = (s) => typeof s === "string" && s[0] === "#";
+const compFn = (o) => (v, _t, row, m) => o.component
+  ? { component: o.component, props: { value: v, row, ...(typeof o.props === "function" ? o.props(v, row) : o.props) } }
+  : { component: o, props: { value: v, row, meta: m } };
+const toFn = (r) => (typeof r === "function" ? r : r && typeof r === "object" ? compFn(r) : null);
+
+const cols = computed(() => {
+  const fixed = !!opts.value.fixedColumns;
+  const hasDrag = !!opts.value.rowReorder;
+  const base = props.columns?.length
+    ? props.columns
+    : (props.data?.[0] ? Object.keys(props.data[0]).map((k) => ({ title: k, data: k })) : []);
+  const fixedCol = (c) => ({ data: null, orderable: false, className: "min-width all", ...c });
+  const list = [
+    ...(hasCheck.value && !fixed ? [fixedCol({ id: CTL, className: "min-width all td-collapse" })] : []),
+    ...(hasCheck.value ? [fixedCol({ id: SEL, className: "min-width all oc-checkbox-col" })] : []),
+    ...base,
+    ...(slots.actions ? [fixedCol({ id: ACT, title: t("action") })] : []),
+  ];
+  const mapped = list.map((c, i) => {
+    const key = String(c.id ?? c.data ?? "");
+    return {
+      ...c,
+      idx: i,
+      slot: isTpl(c.render) ? c.render.slice(1) : (key && slots[`cell-${key}`] ? `cell-${key}` : ""),
+      fn: isTpl(c.render) ? null : toFn(c.render),
+      headerSlot: isTpl(c.header) ? c.header.slice(1) : (key && slots[`header-${key}`] ? `header-${key}` : ""),
+      headerFn: isTpl(c.header) ? null : toFn(c.header),
+      align: c.align ?? (NUM.has(c.type) ? "right" : undefined),
+      className: [
+        c.className,
+        c.alignRight && (c.orderable !== false ? "have-orderable" : "no-orderable"),
+        c.sortData && "multi-sort-pr",
+        fixed && "fixed-columns",
+        c.isLineClamp && "isLineClamp",
+      ].filter(Boolean).join(" "),
+    };
+  });
+  return hasDrag
     ? [{ ...fixedCol({ id: DRG, kind: "drag", className: "min-width all oc-drag-col" }), idx: -1, slot: "", fn: null }, ...mapped]
     : mapped;
 });
@@ -465,11 +541,62 @@ const mt = (column) => {
 // column that hosts the responsive expand button
 // const ctlHost = computed(() => (hasCheck.value && !opts.value.fixedColumns ? CTL : cols.value[0]?.id ?? null));
 const ctlHost = computed(() => (hasCheck.value && !opts.value.fixedColumns ? CTL : colDefs.value[0]?.id ?? null));
-const sp = (cell, row) => ({ cellData: cell.getValue(), rowData: row.original, rowIndex: row.index, colIndex: mt(cell.column).idx });
+const _sp = (cell, row) => ({ cellData: cell.getValue(), rowData: row.original, rowIndex: row.index, colIndex: mt(cell.column).idx });
 const html = (cell, row) => mt(cell.column).fn(cell.getValue(), "display", row.original, { row: row.index, col: mt(cell.column).idx });
-const thCls = (h) => [mt(h.column).className, { "rt-sortable": h.column.getCanSort() }];
+const _thCls = (h) => [mt(h.column).className, { "rt-sortable": h.column.getCanSort() }];
 const isOver = (el) => el.scrollHeight > el.clientHeight;
 const hoverClamp = (e) => e.currentTarget.classList.toggle("cursor-pointer", isOver(e.currentTarget));
+/*---------------------- New Start ----------------------- */
+const sp = (cell, row) => ({
+  cellData: cell.getValue(), rowData: row.original, rowIndex: row.index, colIndex: mt(cell.column).idx,
+  value: cell.getValue(), row, cell, column: cell.column, table,
+});
+const thCls = (h) => [mt(h.column).className, mt(h.column).headerClass, { "rt-sortable": h.column.getCanSort() }];
+
+const px = (v) => (typeof v === "number" ? `${v}px` : v);
+const colStyle = (m) => ({ width: px(m.width), minWidth: px(m.minWidth), maxWidth: px(m.maxWidth), textAlign: m.align });
+const cellCls = (cell, row) => {
+  const m = mt(cell.column);
+  return [typeof m.cellClass === "function" ? m.cellClass(cell.getValue(), row.original) : m.cellClass, m.ellipsis && "rt-ellipsis"];
+};
+
+// built-in formatting by column `type`
+const FMT = {
+  number: (v, c) => new Intl.NumberFormat(locale.value, c.formatOptions).format(v),
+  currency: (v, c) => new Intl.NumberFormat(locale.value, { style: "currency", currency: c.currency ?? "USD", ...c.formatOptions }).format(v),
+  percent: (v, c) => new Intl.NumberFormat(locale.value, { style: "percent", ...c.formatOptions }).format(v),
+  date: (v, c) => new Intl.DateTimeFormat(locale.value, { dateStyle: "medium", ...c.formatOptions }).format(new Date(v)),
+  datetime: (v, c) => new Intl.DateTimeFormat(locale.value, { dateStyle: "medium", timeStyle: "short", ...c.formatOptions }).format(new Date(v)),
+  boolean: (v) => (v ? tBy({ en: "Yes", km: "បាទ/ចាស", zh: "是" }) : tBy({ en: "No", km: "ទេ", zh: "否" })),
+};
+function fmt(cell) {
+  const m = mt(cell.column), v = cell.getValue();
+  if (m.type === "boolean") return FMT.boolean(v);
+  if (v == null || v === "") return m.emptyText ?? "";
+  if (m.format) return m.format(v, cell.row.original);
+  try { return FMT[m.type]?.(v, m) ?? v; } catch { return v; }
+}
+
+// render() may return: HTML string (legacy), VNode, VNode[], a component, or { component, props }
+const toNode = (r) => {
+  if (r == null || r === false) return null;
+  if (typeof r === "string") return h("span", { innerHTML: r }); // legacy: caller must escape user input
+  if (Array.isArray(r) || isVNode(r)) return r;
+  if (r.component) return h(r.component, r.props);
+  return typeof r === "object" ? h(r) : String(r);
+};
+const CellFn = (p) => {
+  const m = mt(p.cell.column);
+  return toNode(m.fn(p.cell.getValue(), "display", p.row.original, { row: p.row.index, col: m.idx }, { h, cell: p.cell, row: p.row }));
+};
+CellFn.props = ["cell", "row"];
+const HeadFn = (p) => {
+  const m = mt(p.column);
+  return toNode(m.headerFn({ column: p.column, title: m.title }, h));
+};
+HeadFn.props = ["column"];
+/*---------------------- New Start ----------------------- */
+
 function openDetail(e, v) {
   if (!isOver(e.currentTarget)) return;
   dataDetail.value = v;
@@ -762,8 +889,31 @@ async function recalc() {
   el.querySelectorAll("thead th[data-col]").forEach((th) => (w[th.dataset.col] = th.offsetWidth));
   colW.value = w;
 
+  const _hide = new Set();
+  // if (!opts.value.fixedColumns && !opts.value.scrollX) { //V1
+  //   const cur = BP.findIndex(([, max]) => window.innerWidth <= max);
+  //   const forced = (d) => classes(d).includes("none") || classes(d).some((k) => {
+  //     const [, kind, name] = k.match(/^(min|max|not)-(.+)$/) ?? [];
+  //     const i = BP.findIndex(([n]) => n === name);
+  //     return kind && i > -1 && (kind === "min" ? cur < i : kind === "max" ? cur > i : cur === i);
+  //   });
+  //   const shown = colDefs.value.filter((d) => !(d.id in cfgHidden.value));
+  //   shown.filter(forced).forEach((d) => hide.add(d.id));
+  //   let width = sum(shown.filter((d) => !hide.has(d.id)).map((d) => w[d.id] ?? 0));
+  //   const avail = el.clientWidth;
+  //   if (hide.size || width > avail) {
+  //     width += CTL_W;
+  //     shown.filter((d) => !hide.has(d.id) && !classes(d).includes("all"))
+  //       .sort((a, b) => (b.meta.responsivePriority ?? 1e4) - (a.meta.responsivePriority ?? 1e4) || b.meta.idx - a.meta.idx)
+  //       .forEach((d) => { if (width > avail) { hide.add(d.id); width -= w[d.id] ?? 0; } });
+  //   }
+  // }
   const hide = new Set();
-  if (!opts.value.fixedColumns && !opts.value.scrollX) {
+  const _mode = opts.value.responsive ?? "class"; // 'class' | 'auto' | false
+  const __mode = opts.value.responsive ?? "auto"; // 'auto' (OCTable behavior) | 'class' (tokens only) | false
+  const r = opts.value.responsive;
+  const mode = r === false ? false : r === "class" ? "class" : "auto"; // object/true/'auto' → auto
+  if (mode !== false && !opts.value.fixedColumns && !opts.value.scrollX) {
     const cur = BP.findIndex(([, max]) => window.innerWidth <= max);
     const forced = (d) => classes(d).includes("none") || classes(d).some((k) => {
       const [, kind, name] = k.match(/^(min|max|not)-(.+)$/) ?? [];
@@ -771,14 +921,18 @@ async function recalc() {
       return kind && i > -1 && (kind === "min" ? cur < i : kind === "max" ? cur > i : cur === i);
     });
     const shown = colDefs.value.filter((d) => !(d.id in cfgHidden.value));
-    shown.filter(forced).forEach((d) => hide.add(d.id));
-    let width = sum(shown.filter((d) => !hide.has(d.id)).map((d) => w[d.id] ?? 0));
-    const avail = el.clientWidth;
-    if (hide.size || width > avail) {
-      width += CTL_W;
-      shown.filter((d) => !hide.has(d.id) && !classes(d).includes("all"))
-        .sort((a, b) => (b.meta.responsivePriority ?? 1e4) - (a.meta.responsivePriority ?? 1e4) || b.meta.idx - a.meta.idx)
-        .forEach((d) => { if (width > avail) { hide.add(d.id); width -= w[d.id] ?? 0; } });
+    shown.filter((d) => forced(d) && !classes(d).includes("all")).forEach((d) => hide.add(d.id));
+
+    if (mode === "auto") { // opt-in: also collapse by priority when it overflows
+      let width = sum(shown.filter((d) => !hide.has(d.id)).map((d) => w[d.id] ?? 0));
+      const _avail = el.clientWidth;
+      const avail = el.clientWidth - 2;
+      if (hide.size || width > avail) {
+        width += CTL_W;
+        shown.filter((d) => !hide.has(d.id) && !classes(d).includes("all")) //I added && !classes(d).includes("all") to the forced filter, so all always wins, as in DataTables.
+          .sort((a, b) => (b.meta.responsivePriority ?? 1e4) - (a.meta.responsivePriority ?? 1e4) || b.meta.idx - a.meta.idx)
+          .forEach((d) => { if (width > avail) { hide.add(d.id); width -= w[d.id] ?? 0; } });
+      }
     }
   }
   collapsed.value = [...hide];
@@ -794,6 +948,7 @@ function fit() {
   const wrap = refWrap.value;
   if (!wrap || !opts.value.isScroll) return; // isScroll=false → page scrolls with the table
   const desk = window.innerWidth > props.minWidth;
+  const minH = `${opts.value.scrollY ?? 400}px`;
   const paged = opts.value.paging || opts.value.info;
   const det = sum([refTotal, refAfter1, refAfter2].map((r) => r.value?.offsetHeight || 0));
   const inContent = !!wrap.closest(".oc-content");
@@ -819,10 +974,12 @@ function fit() {
   set(body, window.innerHeight - (body.getBoundingClientRect().top + (inContent ? 38 : 18) + extra + 15), "400px");
 }
 
-const refit = async () => { await recalc(); fit(); };
+const _refit = async () => { await recalc(); fit(); };
+const refit = async () => { if (dragging) return; await recalc(); fit(); };
 const layout = debounce(refit, 200);
 
 watch([tableData, colDefs, () => props.showTemplate, hasBtns], refit, { flush: "post" });
+watch(() => screen.isMobile, () => refit());
 
 let lastW = 0;
 onMounted(async () => {
@@ -947,7 +1104,7 @@ function moveRow(from, to, e) {/// allow data api rowRecorder
 // });
 
 // let Sortable;
-async function initSortable() {
+async function __initSortable() {
   // const want = !!opts.value.rowReorder && !api.value; // ///don't  allow data api rowRecorder 
   // const want = !!opts.value.rowReorder;   // was: && !api.value ///// allow data api rowRecorder 
   // if (!want) { sortable?.destroy(); sortable = null; return; }
@@ -1000,11 +1157,98 @@ async function initSortable() {
   });
 }
 
+// onMounted(initSortable);
+// watch(() => opts.value.rowReorder, () => nextTick(initSortable)); /// allow data api rowRecorder 
+// // watch(() => [opts.value.rowReorder, !!api.value], () => nextTick(initSortable)); ///don't  allow data api rowRecorder 
+// onBeforeUnmount(() => { sortable?.destroy(); sortable = null; });
+// watch(canReorderNow, (v) => sortable?.option("disabled", !v));
+
+let Sortable, initing = false, dragging = false;
+
+function destroySortable() {
+  try { sortable?.destroy(); } catch {}
+  sortable = null;
+}
+async function initSortable() {
+  if (!opts.value.rowReorder || !refBody.value) return destroySortable();
+  if (sortable && sortable.el !== refBody.value) destroySortable(); // tbody was re-created
+  if (sortable || initing) return;
+  initing = true;
+  try {
+    Sortable ??= (await import("sortablejs")).default;
+    if (sortable || !refBody.value || !opts.value.rowReorder) return; // re-check after the await
+    sortable = Sortable.create(refBody.value, {
+      draggable: "tr.rt-row",
+      animation: 200,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+      ghostClass: "rt-ghost",
+      chosenClass: "rt-chosen",
+      disabled: !canReorderNow.value,
+      onStart: (e) => { dragging = true; startNext = e.item.nextSibling; },
+      onEnd: (e) => {
+        dragging = false;
+        const parent = e.from;
+        if (parent?.isConnected && e.item?.isConnected)
+          parent.insertBefore(e.item, startNext?.parentNode === parent ? startNext : null);
+        startNext = null;
+        const a = e.oldDraggableIndex, b = e.newDraggableIndex;
+        if (a == null || b == null || a === b) return;
+        const from = rows.value[a]?.index, to = rows.value[b]?.index;
+        if (from != null && to != null) moveRow(from, to, e);
+      },
+    });
+  } finally {
+    initing = false;
+  }
+}
 onMounted(initSortable);
-watch(() => opts.value.rowReorder, () => nextTick(initSortable)); /// allow data api rowRecorder 
-// watch(() => [opts.value.rowReorder, !!api.value], () => nextTick(initSortable)); ///don't  allow data api rowRecorder 
-onBeforeUnmount(() => { sortable?.destroy(); sortable = null; });
+watch(() => opts.value.rowReorder, () => nextTick(initSortable));
 watch(canReorderNow, (v) => sortable?.option("disabled", !v));
+onBeforeUnmount(destroySortable);
+
+/* ── Row reorder (card template) ── */
+const refCardScroll = ref();
+let cardSortable = null;
+
+async function initCardSortable() {
+  const want = !!opts.value.rowReorder && props.showTemplate;
+  const root = refCardScroll.value;
+  // container = options.cardContainer (selector) or the first element the slot renders
+  const el = want && root ? (opts.value.cardContainer ? root.querySelector(opts.value.cardContainer) : root.firstElementChild) : null;
+  if (!el) { cardSortable?.destroy(); cardSortable = null; return; }
+  if (cardSortable && cardSortable.el !== el) { cardSortable.destroy(); cardSortable = null; } // re-created by v-if / slot
+  if (cardSortable) return;
+
+  const { default: Sortable } = await import("sortablejs");
+  if (!el.isConnected) return;
+  el.classList.add("rt-card-sortable");
+  let next = null;
+  cardSortable = Sortable.create(el, {
+    ...(opts.value.cardSelector ? { draggable: opts.value.cardSelector } : {}),
+    ...(opts.value.cardHandle ? { handle: opts.value.cardHandle } : {}),
+    animation: 200,
+    easing: "cubic-bezier(0.2, 0, 0, 1)",
+    ghostClass: "rt-ghost",
+    chosenClass: "rt-chosen",
+    disabled: !canReorderNow.value,
+    onStart: (e) => { next = e.item.nextSibling; },
+    onEnd: (e) => {
+      if (e.from?.isConnected && e.item?.isConnected) // give the DOM back to Vue, then re-render from data
+        e.from.insertBefore(e.item, next?.parentNode === e.from ? next : null);
+      next = null;
+      const a = e.oldDraggableIndex ?? e.oldIndex, b = e.newDraggableIndex ?? e.newIndex;
+      if (a == null || b == null || a === b) return;
+      const from = rows.value[a]?.index, to = rows.value[b]?.index;
+      if (from != null && to != null) moveRow(from, to, e);
+    },
+  });
+}
+
+watch([() => props.showTemplate, () => opts.value.rowReorder, loading, rows],
+  () => nextTick(initCardSortable), { flush: "post" });
+watch(canReorderNow, (v) => cardSortable?.option("disabled", !v));
+onMounted(initCardSortable);
+onBeforeUnmount(() => { cardSortable?.destroy(); cardSortable = null; });
 
 // ───────────── public api ─────────────
 const filter = () => { if (!api.value) return; setPag({ ...pag.value, pageIndex: 0 }); return load(true); };
@@ -1035,10 +1279,17 @@ const warned = new Set();
 const attrs = useAttrs();
 const inst = getCurrentInstance();
 
-const KNOWN_OPTS = ["isScroll", "scrollX", "info", "searching", "paging", "reload", "order",
+const _KNOWN_OPTS = ["isScroll", "scrollX", "info", "searching", "paging", "reload", "order",
   "lengthMenu", "pageLength", "showNoData", "fixedColumns", "rowReorder"];
-const KNOWN_COL = ["id", "title", "data", "render", "orderable", "className", "hidden",
+const KNOWN_OPTS = ["isScroll", "scrollY", "scrollX", "info", "destroy", "retrieve", "searching",
+  "paging", "reload", "order", "responsive", "lengthMenu", "pageLength", "layout", "showNoData",
+  "fixedColumns", "rowReorder", "classSearch", "enableRowSelection","cardContainer", "cardSelector", "cardHandle"];
+const _KNOWN_COL = ["id", "title", "data", "render", "orderable", "className", "hidden",
   "alignRight", "sortData", "isLineClamp", "responsivePriority"];
+const KNOWN_COL = ["id", "title", "data", "render", "header", "orderable", "className", "hidden",
+  "alignRight", "align", "sortData", "isLineClamp", "responsivePriority", "type", "format", "currency",
+  "formatOptions", "emptyText", "width", "minWidth", "maxWidth", "cellClass", "headerClass", "ellipsis"];
+// and in KNOWN_OPTS add: "responsive"
 const IGNORED_PROPS = ["waitFilter"]; // accepted by RTankTable only
 
 // the message is already translated, so each language dedupes on its own text
@@ -1291,6 +1542,12 @@ function checkOptions() {
       zh: "已启用 `rowReorder`，但没有 `@on-row-reorder` 监听器，也没有 `stateKey`。新的顺序不会被保存。",
     }));
   }
+  if (o.responsive != null && typeof o.responsive !== "boolean" && typeof o.responsive !== "object"
+    && !["class", "auto"].includes(o.responsive)) warnOnce(tBy({
+    km: "`options.responsive` ត្រូវតែជា 'auto', 'class', boolean ឬ object។",
+    en: "`options.responsive` must be 'auto', 'class', a boolean or an object.",
+    zh: "`options.responsive` 必须是 'auto'、'class'、布尔值或对象。",
+  }));
 }
 
 function checkColumns() {
@@ -1347,11 +1604,16 @@ function checkColumns() {
         en: `${at}: uses render "${c.render}" but that slot is missing.`,
         zh: `${at}：使用了 render "${c.render}"，但缺少该插槽。`,
       }));
-    } else if (c.render != null && typeof c.render !== "function") warnOnce(tBy({
-      km: `${at}: \`render\` ត្រូវតែជា "#slotName" ឬ function។`,
-      en: `${at}: \`render\` must be "#slotName" or a function.`,
-      zh: `${at}：\`render\` 必须是 "#slotName" 或函数。`,
-    }));
+      // } else if (c.render != null && typeof c.render !== "function") warnOnce(tBy({
+      //   km: `${at}: \`render\` ត្រូវតែជា "#slotName" ឬ function។`,
+      //   en: `${at}: \`render\` must be "#slotName" or a function.`,
+      //   zh: `${at}：\`render\` 必须是 "#slotName" 或函数。`,
+      // }));
+      } else if (c.render != null && typeof c.render !== "function" && typeof c.render !== "object") warnOnce(tBy({
+        km: `${at}: \`render\` ត្រូវតែជា "#slotName", function, component ឬ { component, props }។`,
+        en: `${at}: \`render\` must be "#slotName", a function, a component or { component, props }.`,
+        zh: `${at}：\`render\` 必须是 "#slotName"、函数、组件或 { component, props }。`,
+      }));
 
     if (c.orderable != null && typeof c.orderable !== "boolean") warnOnce(tBy({
       km: `${at}: \`orderable\` ត្រូវតែជា boolean។`,
@@ -1367,6 +1629,11 @@ function checkColumns() {
       km: `${at}: \`responsivePriority\` ត្រូវតែជាលេខ។`,
       en: `${at}: \`responsivePriority\` must be a number.`,
       zh: `${at}：\`responsivePriority\` 必须是数字。`,
+    }));
+    if (c.type && !(c.type in FMT)) warnOnce(tBy({
+      km: `${at}: type "${c.type}" មិនត្រឹមត្រូវ។ ប្រើ ${Object.keys(FMT).join(", ")}។`,
+      en: `${at}: unknown type "${c.type}". Use ${Object.keys(FMT).join(", ")}.`,
+      zh: `${at}：未知类型 "${c.type}"，可用：${Object.keys(FMT).join(", ")}。`,
     }));
 
     if (c.sortData != null) {
@@ -1468,14 +1735,81 @@ remove: select-all-pk="SelectAllIds"
 ++ If you need Select All across every API page, keep select-all-pk="SelectAllIds" and implement that array in your backend.
 ++ If you only need Select All on the current page, remove select-all-pk and use selected-pk="Id".
 
+
+
+
+V2 implement -> 
+Two conventions for slots, with no render needed:
+
+A parent slot named cell-<id> becomes the cell renderer for the column with that id or data.
+A parent slot named header-<id> becomes its header.
+
+Slot props now include value, row, cell, column, table, and the old cellData, rowData, rowIndex, colIndex. Unprovided #slot renders fall back to the formatted value.
+
+Notes
+Existing tables: columns that relied on auto-collapse now scroll horizontally instead. To restore the old behavior per table, set options: { responsive: 'auto' }. Otherwise add none or min-* tokens to the columns you want collapsed.
+Escaping: a render function that returns a plain string is injected as HTML (legacy behavior). Return a VNode (h("span", v)) for user-supplied text.
+Not included: per-type sorting functions. ISO date strings and numbers already sort correctly with the default sorter.
+
+
+Columns use:
+const columns = [
+  { title: "User", data: "name", className: "all", render: "#user" },                   // slot, never collapses
+  { title: "Salary", data: "salary", type: "currency", currency: "USD" },              // formatted, right-aligned
+  { title: "Joined", data: "joinedAt", type: "date", width: 120 },                     // Intl date
+  { title: "Active", data: "active", type: "boolean", align: "center" },
+  { title: "Bio", data: "bio", ellipsis: true, maxWidth: 220, className: "min-tablet-l" }, // collapses below tablet-l
+  { title: "Status", data: "status",
+    cellClass: (v) => (v === "Active" ? "text-green-600" : "text-gray-400"),
+    render: (v, _t, row, _m, { h }) => h(UBadge, { color: v === "Active" ? "success" : "neutral" }, () => v) },   // VNode
+  { title: "Tags", data: "tags", render: (v, _t, _r, _m, { h }) => v.map((x) => h(UBadge, { key: x }, () => x)) }, // VNode[]
+  { title: "Card", data: null, render: { component: MyCard, props: (v, row) => ({ user: row }) } },               // component
+  { title: "Avatar", data: "avatar", render: MyAvatarComponent },                      // component: receives { value, row, meta }
+  { title: "Name", data: "name", header: (_p, h) => h("b", "Name") },                  // custom header
+  { title: "Notes", data: "notes", format: (v, row) => `${v} (${row.id})` },           // plain text formatter
+];
+
+Behavior (same as OCTable)
+className	            Effect
+all	never             collapses into the child row
+min-width	            shrinks the column to its content (width: 1px, nowrap)
+min-width             all	both
+none	                always collapsed
+never	                never shown (hidden from the table and the child row)
+min-*, max-*, not-*	  collapse by breakpoint, e.g. min-tablet-l
+
+Collapsing is now class-driven by default, so without a token nothing collapses on its own and the table scrolls horizontally. 
+The old overflow behavior is opt-in with options.responsive: 'auto'. The values are 'class' (default), 'auto' and false (off).
+
+
+
+How it behaves
+Desktop and tablet: columns collapse until what remains fits. Nothing scrolls sideways. If the all columns alone are wider than the container, the overflow is clipped.
+Mobile (< 768px): the same collapse runs first, and the remaining all and min-width columns scroll sideways only if they still don't fit.
+options.responsive: 'class': collapse uses tokens only. This is the opt-in value from my last message.
+options.responsive: false: nothing collapses.
+
+I assumed screen.setSize is already called somewhere in your app, because OCTableHeader depends on the same store. 
+If it isn't, screen.isMobile stays false (width 0 is < 768, so it would actually stay true), so check that it updates on resize.
 */
 </script>
 
 <style lang="scss">
 $bd: 1px solid var(--border-table);
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .rt-wrapper {
-  --rt-bg: var(--bg-content);
+  --rt-bg: var(--r-table-bg);
   --rt-page: var(--bg-wrapper);
   height: 100%;
   display: flex;
@@ -1510,6 +1844,13 @@ $bd: 1px solid var(--border-table);
   .rt-table tbody tr.rt-draggable input { cursor: pointer; }   // controls keep the normal pointer
   .rt-table tbody tr.rt-chosen,
   .rt-table tbody tr.rt-chosen * { cursor: grabbing !important; }
+
+  .rt-table td.rt-ellipsis { overflow: hidden; text-overflow: ellipsis; } // Allow auto isLineClamp to open if until truncated happen
+
+  .rt-card-sortable > * { cursor: grab; } // card recorder
+  .rt-card-sortable > .rt-chosen,
+  .rt-card-sortable > .rt-chosen * { cursor: grabbing !important; }
+  .rt-card-sortable > .rt-ghost { opacity: 0.5; outline: 2px dashed var(--color-primary); }
 
   .rt-btn {
     display: flex;
@@ -1593,6 +1934,11 @@ $bd: 1px solid var(--border-table);
     &::-webkit-scrollbar-thumb:hover { background: var(--color-w-b-3); }
   }
 
+  // new
+  .rt-scroll { overflow-x: hidden; overflow-y: auto; }        // never scroll sideways...
+  &.is-mobile .rt-scroll { overflow-x: auto; }                // ...except on mobile
+  .no-scroll-table .rt-scroll { overflow: visible; height: auto; } // keep this rule after the two above
+  //----
   .no-scroll-table .rt-scroll { overflow: visible; height: auto; } // sticky header follows the page
 
   // ── table ──
@@ -1642,7 +1988,7 @@ $bd: 1px solid var(--border-table);
     th[style*="sticky"] { z-index: 3; }
 
     .min-width { width: 1px !important; white-space: nowrap; }
-    .oc-checkbox-col { padding: 8px 10px !important; input { margin: 0 !important; } }
+    // .oc-checkbox-col { padding: 8px 10px !important; input { margin: 0 !important; } }
     .td-collapse { padding: 4px 8px !important; }
     &:not(.collapsed) .td-collapse { padding: 0 !important; }
     tr.rt-empty td { text-align: center; padding: 20px 10px; }
@@ -1907,6 +2253,67 @@ $bd: 1px solid var(--border-table);
     cursor: pointer;
 
     i { font-size: 13px; line-height: 13px; pointer-events: none; }
+  }
+}
+
+
+.r-table-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+
+    &:checked + .r-table-checkbox__box {
+      border-color: var(--c-accent);
+      background: color-mix(in srgb, var(--c-accent) 10%, var(--c-surface));
+
+      i {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    &:focus-visible + .r-table-checkbox__box {
+      outline: 2px solid color-mix(in srgb, var(--c-accent) 35%, transparent);
+      outline-offset: 3px;
+    }
+
+    &:disabled + .r-table-checkbox__box {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__box {
+    display: grid;
+    width: 16px;
+    height: 16px;
+    place-items: center;
+    border: 1.5px solid var(--color-w-b-3);
+    border-radius: 4px;
+    background: var(--c-surface);
+    transition: all var(--t-fast) var(--ease-out);
+
+    i {
+      color: var(--c-accent);
+      font-size: 11px;
+      font-weight: 700;
+      opacity: 0;
+      transform: scale(.5);
+      transition: all var(--t-fast) var(--ease-out);
+    }
+  }
+
+  &:hover input:not(:disabled) + &__box {
+    border-color: var(--c-accent);
   }
 }
 </style>
